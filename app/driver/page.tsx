@@ -59,7 +59,7 @@ export default async function DriverDashboard() {
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-balance">배송원 대시보드</h1>
+            <h1 className="text-3xl font-bold text-balance">배송원 대시보드2</h1>
             <p className="text-muted-foreground mt-1">{profile?.full_name}님, 안전 운행하세요</p>
           </div>
           <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
@@ -119,7 +119,7 @@ export default async function DriverDashboard() {
 
           <TabsContent value="available" className="mt-6">
             <Card>
-              <CardHeader>
+              <CardHeader> 
                 <CardTitle>수락 가능한 배송</CardTitle>
                 <CardDescription>새로운 배송 요청을 확인하고 수락하세요</CardDescription>
               </CardHeader>
