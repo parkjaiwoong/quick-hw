@@ -48,6 +48,7 @@ export async function updateRewardPolicy(formData: FormData): Promise<void> {
   const riderRewardRate = toRatePercent(formData.get("rider_reward_rate"))
   const companyShareRate = toRatePercent(formData.get("company_share_rate"))
   const customerRewardRate = toRatePercent(formData.get("customer_reward_rate"))
+  const customerMiscRate = toRatePercent(formData.get("customer_misc_reward_rate"))
 
   const { data: existing } = await supabase
     .from("reward_policy_master")
@@ -63,6 +64,7 @@ export async function updateRewardPolicy(formData: FormData): Promise<void> {
         rider_reward_rate: riderRewardRate,
         company_share_rate: companyShareRate,
         customer_reward_rate: customerRewardRate,
+        customer_misc_reward_rate: customerMiscRate,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id)
@@ -75,6 +77,7 @@ export async function updateRewardPolicy(formData: FormData): Promise<void> {
       rider_reward_rate: riderRewardRate,
       company_share_rate: companyShareRate,
       customer_reward_rate: customerRewardRate,
+      customer_misc_reward_rate: customerMiscRate,
       is_active: true,
     })
 

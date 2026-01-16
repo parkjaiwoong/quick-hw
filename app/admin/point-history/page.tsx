@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { getRoleOverride } from "@/lib/role"
-import { updateCustomerPoints } from "@/lib/actions/point-history"
 
 export default async function PointHistoryPage({
   searchParams,
@@ -91,7 +90,7 @@ export default async function PointHistoryPage({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-balance">고객 포인트 내역</h1>
-            <p className="text-muted-foreground mt-1">포인트 적립/사용 내역</p>
+            <p className="text-muted-foreground mt-1">정책 기반 포인트 적립/사용 내역</p>
           </div>
           <Button asChild variant="outline">
             <Link href="/admin">관리자 홈으로</Link>
@@ -100,64 +99,12 @@ export default async function PointHistoryPage({
         <Card>
           <CardHeader>
             <CardTitle>고객 포인트 이력</CardTitle>
-            <CardDescription>적립/사용 내역을 확인합니다</CardDescription>
+            <CardDescription>배송 금액 정책에 따라 적립되는 포인트 내역입니다</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form action={updateCustomerPoints} className="grid gap-3 rounded-lg border p-4 md:grid-cols-5">
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium" htmlFor="customer_target">
-                  고객 ID 또는 이메일
-                </label>
-                <input
-                  id="customer_target"
-                  name="customer"
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  placeholder="UUID 또는 email@example.com"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium" htmlFor="point_type">
-                  구분
-                </label>
-                <select
-                  id="point_type"
-                  name="type"
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  defaultValue="earn"
-                >
-                  <option value="earn">적립</option>
-                  <option value="use">사용</option>
-                  <option value="adjust">조정</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium" htmlFor="point_amount">
-                  포인트
-                </label>
-                <input
-                  id="point_amount"
-                  name="points"
-                  type="number"
-                  step="0.01"
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  placeholder="1000"
-                />
-              </div>
-              <div className="md:col-span-5">
-                <label className="text-sm font-medium" htmlFor="point_reason">
-                  사유
-                </label>
-                <input
-                  id="point_reason"
-                  name="reason"
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  placeholder="사유를 입력하세요 (선택)"
-                />
-              </div>
-              <div className="md:col-span-5 flex justify-end">
-                <Button type="submit">포인트 반영</Button>
-              </div>
-            </form>
+            <div className="rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">
+              고객 포인트는 배송 금액의 기본 리워드, 이벤트 리워드, 기타 사유 리워드가 합산되어 자동 적립됩니다.
+            </div>
             <form action="/admin/point-history" className="flex flex-col gap-2 md:flex-row md:items-end">
               <div className="flex-1">
                 <label className="text-sm font-medium" htmlFor="customer_search">

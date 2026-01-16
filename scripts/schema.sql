@@ -3,15 +3,26 @@
 -- ===========================================
 -- ENUM
 -- ===========================================
-CREATE TYPE order_status AS ENUM ('pending','paid','cancelled','completed');
-CREATE TYPE reward_status AS ENUM ('pending','confirmed','paid');
-CREATE TYPE point_type AS ENUM ('earn','use','adjust');
-CREATE TYPE event_status AS ENUM ('scheduled','active','ended');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
+    CREATE TYPE order_status AS ENUM ('pending','paid','cancelled','completed');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'reward_status') THEN
+    CREATE TYPE reward_status AS ENUM ('pending','confirmed','paid');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'point_type') THEN
+    CREATE TYPE point_type AS ENUM ('earn','use','adjust');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_status') THEN
+    CREATE TYPE event_status AS ENUM ('scheduled','active','ended');
+  END IF;
+END $$;
 
 -- ===========================================
 -- rider / customer
 -- ===========================================
-CREATE TABLE rider (
+CREATE TABLE IF NOT EXISTS rider (
   id UUID PRIMARY KEY,
   name TEXT NOT NULL,
   phone TEXT,
@@ -21,7 +32,7 @@ CREATE TABLE rider (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE customer (
+CREATE TABLE IF NOT EXISTS customer (
   id UUID PRIMARY KEY,
   name TEXT NOT NULL,
   phone TEXT,
@@ -34,7 +45,7 @@ CREATE TABLE customer (
 -- ===========================================
 -- customer_referral
 -- ===========================================
-CREATE TABLE customer_referral (
+CREATE TABLE IF NOT EXISTS customer_referral (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   rider_id UUID NOT NULL REFERENCES rider(id),
   customer_id UUID NOT NULL REFERENCES customer(id),
@@ -47,7 +58,7 @@ CREATE TABLE customer_referral (
 -- ===========================================
 -- orders
 -- ===========================================
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id UUID NOT NULL REFERENCES customer(id),
   order_amount NUMERIC(12,2) NOT NULL,
@@ -62,21 +73,24 @@ CREATE TABLE orders (
 -- ===========================================
 -- reward_policy_master
 -- ===========================================
-CREATE TABLE reward_policy_master (
+CREATE TABLE IF NOT EXISTS reward_policy_master (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   rider_reward_rate NUMERIC(5,4) NOT NULL,
   company_share_rate NUMERIC(5,4) NOT NULL,
   customer_reward_rate NUMERIC(5,4) NOT NULL,
+  customer_misc_reward_rate NUMERIC(5,4) NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ
 );
+ALTER TABLE reward_policy_master
+  ADD COLUMN IF NOT EXISTS customer_misc_reward_rate NUMERIC(5,4) NOT NULL DEFAULT 0;
 
 -- ===========================================
 -- rider_reward_policy (override)
 -- ===========================================
-CREATE TABLE rider_reward_policy (
+CREATE TABLE IF NOT EXISTS rider_reward_policy (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   rider_id UUID NOT NULL REFERENCES rider(id),
   rider_reward_rate NUMERIC(5,4) NOT NULL,
@@ -90,7 +104,7 @@ CREATE TABLE rider_reward_policy (
 -- ===========================================
 -- event_policy
 -- ===========================================
-CREATE TABLE event_policy (
+CREATE TABLE IF NOT EXISTS event_policy (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   event_reward_rate NUMERIC(5,4) NOT NULL,
@@ -106,7 +120,7 @@ CREATE TABLE event_policy (
 -- ===========================================
 -- rider_reward_history (append-only)
 -- ===========================================
-CREATE TABLE rider_reward_history (
+CREATE TABLE IF NOT EXISTS rider_reward_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id),
   rider_id UUID NOT NULL REFERENCES rider(id),
@@ -121,7 +135,7 @@ CREATE TABLE rider_reward_history (
 -- ===========================================
 -- customer_point_history (append-only)
 -- ===========================================
-CREATE TABLE customer_point_history (
+CREATE TABLE IF NOT EXISTS customer_point_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID REFERENCES orders(id),
   customer_id UUID NOT NULL REFERENCES customer(id),
@@ -136,10 +150,10 @@ CREATE TABLE customer_point_history (
 -- ===========================================
 -- INDEX
 -- ===========================================
-CREATE INDEX idx_orders_customer ON orders(customer_id);
-CREATE INDEX idx_referral_customer ON customer_referral(customer_id);
-CREATE INDEX idx_reward_hist_rider ON rider_reward_history(rider_id);
-CREATE INDEX idx_point_hist_customer ON customer_point_history(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_referral_customer ON customer_referral(customer_id);
+CREATE INDEX IF NOT EXISTS idx_reward_hist_rider ON rider_reward_history(rider_id);
+CREATE INDEX IF NOT EXISTS idx_point_hist_customer ON customer_point_history(customer_id);
 
 -- ===========================================
 -- RLS ON
@@ -153,50 +167,67 @@ ALTER TABLE event_policy ENABLE ROW LEVEL SECURITY;
 -- ===========================================
 -- RLS 정책 예시
 -- ===========================================
-CREATE POLICY rider_can_view_own_rewards
-ON rider_reward_history
-FOR SELECT
-USING (rider_id = auth.uid());
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'rider_can_view_own_rewards') THEN
+    CREATE POLICY rider_can_view_own_rewards
+    ON rider_reward_history
+    FOR SELECT
+    USING (rider_id = auth.uid());
+  END IF;
 
-CREATE POLICY customer_can_view_own_points
-ON customer_point_history
-FOR SELECT
-USING (customer_id = auth.uid());
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'customer_can_view_own_points') THEN
+    CREATE POLICY customer_can_view_own_points
+    ON customer_point_history
+    FOR SELECT
+    USING (customer_id = auth.uid());
+  END IF;
 
-CREATE POLICY admin_can_view_all_rewards
-ON rider_reward_history
-FOR SELECT
-USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_can_view_all_rewards') THEN
+    CREATE POLICY admin_can_view_all_rewards
+    ON rider_reward_history
+    FOR SELECT
+    USING (
+      EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+  END IF;
 
-CREATE POLICY admin_can_view_all_points
-ON customer_point_history
-FOR SELECT
-USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_can_view_all_points') THEN
+    CREATE POLICY admin_can_view_all_points
+    ON customer_point_history
+    FOR SELECT
+    USING (
+      EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+  END IF;
 
-CREATE POLICY admin_can_manage_reward_policies
-ON reward_policy_master
-FOR ALL
-USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_can_manage_reward_policies') THEN
+    CREATE POLICY admin_can_manage_reward_policies
+    ON reward_policy_master
+    FOR ALL
+    USING (
+      EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+  END IF;
 
-CREATE POLICY admin_can_manage_rider_override
-ON rider_reward_policy
-FOR ALL
-USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_can_manage_rider_override') THEN
+    CREATE POLICY admin_can_manage_rider_override
+    ON rider_reward_policy
+    FOR ALL
+    USING (
+      EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+  END IF;
 
-CREATE POLICY admin_can_manage_event_policy
-ON event_policy
-FOR ALL
-USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_can_manage_event_policy') THEN
+    CREATE POLICY admin_can_manage_event_policy
+    ON event_policy
+    FOR ALL
+    USING (
+      EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+  END IF;
+END $$;
 
 -- ===========================================
 -- Append-only 보장
@@ -216,7 +247,6 @@ DECLARE
   v_order_amount NUMERIC(12,2);
   v_rider_id UUID;
   v_base_policy reward_policy_master%ROWTYPE;
-  v_override rider_reward_policy%ROWTYPE;
   v_event event_policy%ROWTYPE;
   v_rider_rate NUMERIC(5,4);
   v_customer_rate NUMERIC(5,4);
@@ -250,16 +280,7 @@ BEGIN
     RAISE EXCEPTION 'base policy not found';
   END IF;
 
-  SELECT * INTO v_override
-  FROM rider_reward_policy
-  WHERE rider_id = v_rider_id
-    AND deleted_at IS NULL
-    AND (active_from IS NULL OR active_from <= now())
-    AND (active_to IS NULL OR active_to >= now())
-  ORDER BY created_at DESC
-  LIMIT 1;
-
-  v_rider_rate := COALESCE(v_override.rider_reward_rate, v_base_policy.rider_reward_rate);
+  v_rider_rate := v_base_policy.rider_reward_rate;
 
   SELECT * INTO v_event
   FROM event_policy
@@ -270,7 +291,7 @@ BEGIN
   ORDER BY created_at DESC
   LIMIT 1;
 
-  v_customer_rate := v_base_policy.customer_reward_rate;
+  v_customer_rate := v_base_policy.customer_reward_rate + COALESCE(v_base_policy.customer_misc_reward_rate, 0);
 
   IF v_event.id IS NOT NULL THEN
     IF v_event.stackable THEN

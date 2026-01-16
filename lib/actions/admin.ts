@@ -128,7 +128,7 @@ export async function getPricingConfig() {
   return { pricing: data }
 }
 
-export async function updatePricingConfig(formData: FormData) {
+export async function updatePricingConfig(formData: FormData): Promise<void> {
   const supabase = await getSupabaseServerClient()
 
   const {
@@ -136,12 +136,15 @@ export async function updatePricingConfig(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: "인증이 필요합니다" }
+    throw new Error("인증이 필요합니다")
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  if (profile?.role !== "admin") {
-    return { error: "권한이 없습니다" }
+  const { getRoleOverride } = await import("@/lib/role")
+  const roleOverride = await getRoleOverride()
+  const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
+  if (!canActAsAdmin) {
+    throw new Error("권한이 없습니다")
   }
 
   const baseFee = Number(formData.get("base_fee")) || 0
@@ -169,7 +172,10 @@ export async function updatePricingConfig(formData: FormData) {
       .eq("id", existing.id)
 
     if (error) {
-      return { error: error.message }
+      if (error.message?.includes("pricing_config") || error.message?.includes("schema cache")) {
+        throw new Error("가격 정책 테이블이 없습니다. scripts/003_seed_data.sql 을 실행해주세요.")
+      }
+      throw new Error(error.message)
     }
   } else {
     const { error } = await supabase.from("pricing_config").insert({
@@ -180,12 +186,27 @@ export async function updatePricingConfig(formData: FormData) {
     })
 
     if (error) {
-      return { error: error.message }
+      if (error.message?.includes("pricing_config") || error.message?.includes("schema cache")) {
+        throw new Error("가격 정책 테이블이 없습니다. scripts/003_seed_data.sql 을 실행해주세요.")
+      }
+      throw new Error(error.message)
     }
   }
 
   revalidatePath("/admin/pricing")
-  return { success: true }
+}
+
+export async function updatePricingConfigWithState(
+  _prevState: { status: string; message?: string },
+  formData: FormData,
+): Promise<{ status: "success" | "error"; message?: string }> {
+  try {
+    await updatePricingConfig(formData)
+    return { status: "success" }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "저장에 실패했습니다."
+    return { status: "error", message }
+  }
 }
 
 export async function createTaxInvoice(deliveryId: string) {

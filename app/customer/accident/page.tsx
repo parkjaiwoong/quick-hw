@@ -19,6 +19,7 @@ export default function AccidentReportPage() {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [error, setError] = useState("")
   const [deliveries, setDeliveries] = useState<any[]>([])
+  const [accidents, setAccidents] = useState<any[]>([])
   const [selectedDeliveryId, setSelectedDeliveryId] = useState("")
   const [accidentType, setAccidentType] = useState("")
   const [photos, setPhotos] = useState<File[]>([])
@@ -35,6 +36,16 @@ export default function AccidentReportPage() {
           .order("created_at", { ascending: false })
           .then(({ data }) => {
             setDeliveries(data || [])
+          })
+        supabase
+          .from("accident_reports")
+          .select(
+            "id, accident_type, accident_description, created_at, status, delivery:deliveries(id, pickup_address, delivery_address)",
+          )
+          .eq("reporter_id", user.id)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => {
+            setAccidents(data || [])
           })
       }
     })
@@ -60,6 +71,18 @@ export default function AccidentReportPage() {
       setIsLoading(false)
     } else {
       setIsSubmitted(true)
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from("accident_reports")
+          .select(
+            "id, accident_type, accident_description, created_at, status, delivery:deliveries(id, pickup_address, delivery_address)",
+          )
+          .eq("reporter_id", user.id)
+          .order("created_at", { ascending: false })
+        setAccidents(data || [])
+      }
     }
   }
 
@@ -78,6 +101,31 @@ export default function AccidentReportPage() {
                   사고 접수가 완료되었습니다. 접수 후 1영업일 내에 안내드리겠습니다.
                 </AlertDescription>
               </Alert>
+              {accidents.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">내 사고 접수 내역</h3>
+                  <div className="space-y-2">
+                    {accidents.slice(0, 5).map((accident) => (
+                      <div key={accident.id} className="rounded-lg border p-3 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">
+                            {accident.accident_type === "damage" ? "물품 파손" : "물품 분실"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(accident.created_at).toLocaleString("ko-KR")}
+                          </span>
+                        </div>
+                        {accident.delivery && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {accident.delivery.pickup_address} → {accident.delivery.delivery_address}
+                          </p>
+                        )}
+                        <p className="text-muted-foreground mt-2">{accident.accident_description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Button onClick={() => router.push("/customer")} className="w-full">
                 대시보드로 돌아가기
               </Button>
@@ -208,6 +256,34 @@ export default function AccidentReportPage() {
             </form>
           </CardContent>
         </Card>
+        {accidents.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>내 사고 접수 내역</CardTitle>
+              <CardDescription>접수한 사고 내용을 확인할 수 있습니다</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {accidents.map((accident) => (
+                <div key={accident.id} className="rounded-lg border p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {accident.accident_type === "damage" ? "물품 파손" : "물품 분실"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(accident.created_at).toLocaleString("ko-KR")}
+                    </span>
+                  </div>
+                  {accident.delivery && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {accident.delivery.pickup_address} → {accident.delivery.delivery_address}
+                    </p>
+                  )}
+                  <p className="text-muted-foreground mt-2">{accident.accident_description}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

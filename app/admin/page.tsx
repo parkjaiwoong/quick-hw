@@ -1,5 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Package, Users, FileText, Shield, MessageSquare } from "lucide-react"
@@ -26,51 +27,57 @@ export default async function AdminDashboard() {
     redirect("/")
   }
 
-  // 통계 데이터
-  const { count: totalDeliveries } = await supabase
+  const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createAdminClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false },
+      })
+    : supabase
+
+  // 통계 데이터 (관리자용은 service role로 조회)
+  const { count: totalDeliveries } = await supabaseAdmin
     .from("deliveries")
     .select("id", { count: "exact", head: true })
 
-  const { count: activeDeliveries } = await supabase
+  const { count: activeDeliveries } = await supabaseAdmin
     .from("deliveries")
     .select("id", { count: "exact", head: true })
     .in("status", ["pending", "accepted", "picked_up", "in_transit"])
 
-  const { count: customers } = await supabase
+  const { count: customers } = await supabaseAdmin
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("role", "customer")
 
-  const { count: drivers } = await supabase
+  const { count: drivers } = await supabaseAdmin
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("role", "driver")
 
-  const { count: accidents } = await supabase
+  const { count: accidents } = await supabaseAdmin
     .from("accident_reports")
     .select("id", { count: "exact", head: true })
     .in("status", ["reported", "investigating"])
 
-  const { count: inquiries } = await supabase
+  const { count: inquiries } = await supabaseAdmin
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("type", "inquiry")
     .eq("is_read", false)
 
-  const { data: recentAccidents, error: recentAccidentsError } = await supabase
+  const { data: recentAccidents, error: recentAccidentsError } = await supabaseAdmin
     .from("accident_reports")
     .select("id, accident_type, status, created_at")
     .order("created_at", { ascending: false })
     .limit(5)
 
-  const { data: recentInquiries } = await supabase
+  const { data: recentInquiries } = await supabaseAdmin
     .from("notifications")
     .select("id, title, message, created_at, is_read")
     .eq("type", "inquiry")
     .order("created_at", { ascending: false })
     .limit(5)
 
-  const { data: recentDeliveries, error: recentDeliveriesError } = await supabase
+  const { data: recentDeliveries, error: recentDeliveriesError } = await supabaseAdmin
     .from("deliveries")
     .select("id, pickup_address, delivery_address, status, created_at")
     .order("created_at", { ascending: false })
@@ -307,7 +314,7 @@ export default async function AdminDashboard() {
                   <Link href="/admin/reward-policy">기본 리워드 정책</Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/admin/rider-reward-policy">기사별 리워드 %</Link>
+                  <Link href="/admin/rider-reward-policy">리워드 적용 방식</Link>
                 </Button>
                 <Button asChild variant="outline">
                   <Link href="/admin/event-policy">이벤트 리워드 관리</Link>

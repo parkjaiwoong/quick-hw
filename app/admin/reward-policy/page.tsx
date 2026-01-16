@@ -30,6 +30,7 @@ export default async function RewardPolicyPage() {
   const riderRate = Number(policy?.rider_reward_rate ?? 0.07) * 100
   const companyRate = Number(policy?.company_share_rate ?? 0.03) * 100
   const customerRate = Number(policy?.customer_reward_rate ?? 0.05) * 100
+  const customerMiscRate = Number(policy?.customer_misc_reward_rate ?? 0.02) * 100
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
@@ -84,9 +85,20 @@ export default async function RewardPolicyPage() {
                     defaultValue={customerRate}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer_misc_reward_rate">기타 사유 리워드 (%)</Label>
+                  <Input
+                    id="customer_misc_reward_rate"
+                    name="customer_misc_reward_rate"
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    defaultValue={customerMiscRate}
+                  />
+                </div>
               </div>
               <div className="rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">
-                입력 값은 퍼센트(%) 기준이며 저장 시 소수점 비율로 변환됩니다.
+                고객 포인트는 기본 리워드 + 이벤트 + 기타 사유(정책) 비율이 합산됩니다.
               </div>
               <Button type="submit">정책 저장</Button>
             </form>

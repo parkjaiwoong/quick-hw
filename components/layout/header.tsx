@@ -36,7 +36,7 @@ export function Header() {
         let sessionUser = session?.user ?? null
         if (!sessionUser) {
           const { data: { user }, error: userError } = await supabase.auth.getUser()
-          if (userError) {
+          if (userError && userError.name !== "AuthSessionMissingError") {
             console.error("Header getUser error:", userError)
           } else {
             sessionUser = user ?? null
@@ -132,11 +132,15 @@ export function Header() {
   }, [])
 
   useEffect(() => {
-    const fallbackRole = roleOverride || userRole || currentRolePath()
+    const fallbackRole = pathname?.startsWith("/admin")
+      ? "admin"
+      : roleOverride || userRole || currentRolePath()
     if (fallbackRole && fallbackRole !== selectedRole) {
       setSelectedRole(fallbackRole)
     }
   }, [roleOverride, userRole, pathname, selectedRole])
+
+  const showRoleSwitcher = isAuthenticated && userRole === "admin"
 
   if (isDriverDetailPage) {
     return null
@@ -156,7 +160,7 @@ export function Header() {
                 약관
               </Button>
             </Link>
-            {(isAuthenticated || roleOverride) && (
+            {showRoleSwitcher && (
               <Select
                 value={selectedRole || currentRolePath()}
                 onValueChange={async (value) => {

@@ -32,7 +32,7 @@ export function BottomNav() {
         let sessionUser = session?.user ?? null
         if (!sessionUser) {
           const { data: { user }, error: userError } = await supabase.auth.getUser()
-          if (userError) {
+          if (userError && userError.name !== "AuthSessionMissingError") {
             console.error("BottomNav getUser error:", userError)
           } else {
             sessionUser = user ?? null
