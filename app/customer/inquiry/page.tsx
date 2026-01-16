@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,12 +9,37 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { submitInquiry } from "@/lib/actions/inquiry"
 
 export default function InquiryPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [error, setError] = useState("")
+  const [inquiries, setInquiries] = useState<
+    { id: string; title: string | null; message: string; created_at: string; is_read: boolean }[]
+  >([])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase
+        .from("notifications")
+        .select("id, title, message, created_at, is_read")
+        .eq("user_id", user.id)
+        .eq("type", "inquiry")
+        .order("created_at", { ascending: false })
+        .then(({ data, error: fetchError }) => {
+          if (fetchError) {
+            console.error("Inquiry list fetch error:", fetchError)
+            return
+          }
+          setInquiries(data || [])
+        })
+    })
+  }, [])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -22,17 +47,31 @@ export default function InquiryPage() {
     setError("")
 
     const formData = new FormData(e.currentTarget)
-    const title = formData.get("title") as string
-    const message = formData.get("message") as string
+    const title = String(formData.get("title") || "").trim()
+    const message = String(formData.get("message") || "").trim()
 
-    // TODO: 실제 API 호출로 변경
-    // const result = await submitInquiry({ title, message })
-    
-    // 임시로 성공 처리
-    setTimeout(() => {
+    const result = await submitInquiry({ title, message })
+
+    if (result?.error) {
+      setError(result.error)
       setIsLoading(false)
-      setIsSubmitted(true)
-    }, 1000)
+      return
+    }
+
+    setIsLoading(false)
+    setIsSubmitted(true)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data } = await supabase
+        .from("notifications")
+        .select("id, title, message, created_at, is_read")
+        .eq("user_id", user.id)
+        .eq("type", "inquiry")
+        .order("created_at", { ascending: false })
+      setInquiries(data || [])
+    }
   }
 
   if (isSubmitted) {
@@ -50,6 +89,24 @@ export default function InquiryPage() {
                   문의가 접수되었습니다. 1영업일 내에 답변드리겠습니다.
                 </AlertDescription>
               </Alert>
+              {inquiries.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">내 문의 내역</h3>
+                  <div className="space-y-2">
+                    {inquiries.slice(0, 5).map((inquiry) => (
+                      <div key={inquiry.id} className="rounded-lg border p-3 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{inquiry.title || "제목 없음"}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(inquiry.created_at).toLocaleString("ko-KR")}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground mt-2">{inquiry.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Button onClick={() => router.push("/customer")} className="w-full">
                 대시보드로 돌아가기
               </Button>
@@ -106,6 +163,27 @@ export default function InquiryPage() {
             </form>
           </CardContent>
         </Card>
+        {inquiries.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>내 문의 내역</CardTitle>
+              <CardDescription>접수한 문의 내용을 확인할 수 있습니다</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {inquiries.map((inquiry) => (
+                <div key={inquiry.id} className="rounded-lg border p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{inquiry.title || "제목 없음"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(inquiry.created_at).toLocaleString("ko-KR")}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground mt-2">{inquiry.message}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

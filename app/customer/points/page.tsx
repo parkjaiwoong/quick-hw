@@ -1,7 +1,10 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { getPointBalance, getPointHistory } from "@/lib/actions/points"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { getPointBalance, getPointHistory, requestPointRedemption } from "@/lib/actions/points"
 import { Coins, TrendingUp, History } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
 
@@ -72,6 +75,53 @@ export default async function PointsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>포인트 교환 요청</CardTitle>
+            <CardDescription>상품권 교환은 관리자 확인 후 처리됩니다.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action={requestPointRedemption} className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="redeem_points">교환 포인트</Label>
+                <Input
+                  id="redeem_points"
+                  name="points"
+                  type="number"
+                  min={1}
+                  step="1"
+                  placeholder={`최대 ${balance.toLocaleString()}P`}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="redeem_contact">연락처</Label>
+                <Input id="redeem_contact" name="contact" placeholder="휴대폰 또는 이메일" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="redeem_attachment">첨부 증빙</Label>
+                <Input
+                  id="redeem_attachment"
+                  name="attachment"
+                  type="file"
+                  accept="image/*,application/pdf"
+                />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>이미지 또는 PDF 파일을 첨부할 수 있습니다.</p>
+                  <p className="text-amber-600">첨부가 없으면 교환 처리에 시간이 걸릴 수 있습니다.</p>
+                </div>
+              </div>
+              <div className="space-y-2 md:col-span-3">
+                <Label htmlFor="redeem_note">요청 내용</Label>
+                <Input id="redeem_note" name="note" placeholder="상품권 종류/요청사항" />
+              </div>
+              <div className="md:col-span-3 flex justify-end">
+                <Button type="submit">교환 요청</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

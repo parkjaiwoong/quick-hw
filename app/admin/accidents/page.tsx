@@ -1,6 +1,8 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { getAccidentReports } from "@/lib/actions/accident"
 import { AlertTriangle, CheckCircle, Clock, XCircle, Shield } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -26,7 +28,7 @@ export default async function AccidentsPage() {
     redirect("/")
   }
 
-  const { accidents = [] } = await getAccidentReports()
+  const { accidents = [], error } = await getAccidentReports()
 
   const stats = {
     total: accidents.length,
@@ -46,6 +48,9 @@ export default async function AccidentsPage() {
               접수 목록, 증빙 확인, 보험 처리 여부 체크, 상태 변경
             </p>
           </div>
+          <Button asChild variant="outline">
+            <Link href="/admin">관리자 홈으로</Link>
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -111,7 +116,13 @@ export default async function AccidentsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <AccidentManagementList accidents={accidents} />
+            {error ? (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                {error}
+              </div>
+            ) : (
+              <AccidentManagementList accidents={accidents} />
+            )}
           </CardContent>
         </Card>
       </div>

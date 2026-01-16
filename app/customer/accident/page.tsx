@@ -117,12 +117,15 @@ export default function AccidentReportPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="deliveryId">배송 선택 (선택)</Label>
-                <Select value={selectedDeliveryId} onValueChange={setSelectedDeliveryId}>
+                <Select
+                  value={selectedDeliveryId || "none"}
+                  onValueChange={(value) => setSelectedDeliveryId(value === "none" ? "" : value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="배송을 선택하세요 (선택사항)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">선택 안 함</SelectItem>
+                    <SelectItem value="none">선택 안 함</SelectItem>
                     {deliveries.map((delivery) => (
                       <SelectItem key={delivery.id} value={delivery.id}>
                         {delivery.pickup_address} → {delivery.delivery_address}

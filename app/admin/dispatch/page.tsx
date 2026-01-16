@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Phone, AlertTriangle, CheckCircle } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default async function DispatchPage() {
   const supabase = await getSupabaseServerClient()
@@ -26,7 +28,7 @@ export default async function DispatchPage() {
   }
 
   // 주문 & 연결 로그 가져오기
-  const { data: deliveries } = await supabase
+  const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
     .select(`
       id,
@@ -36,8 +38,8 @@ export default async function DispatchPage() {
       delivery_address,
       customer_id,
       driver_id,
-      profiles!deliveries_customer_id_fkey(full_name, email),
-      profiles!deliveries_driver_id_fkey(full_name, email)
+      customer:profiles!deliveries_customer_id_fkey(full_name, email),
+      driver:profiles!deliveries_driver_id_fkey(full_name, email)
     `)
     .order("created_at", { ascending: false })
     .limit(100)
@@ -62,6 +64,9 @@ export default async function DispatchPage() {
               누가 언제 누구와 연결됐는지, 통화 여부, 사고 발생 여부를 확인하세요
             </p>
           </div>
+          <Button asChild variant="outline">
+            <Link href="/admin">관리자 홈으로</Link>
+          </Button>
         </div>
 
         <Card>
@@ -70,7 +75,12 @@ export default async function DispatchPage() {
             <CardDescription>법적 분쟁 대비 핵심 자료</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
+            {deliveriesError ? (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                주문 로그를 불러오지 못했습니다: {deliveriesError.message}
+              </div>
+            ) : (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>요청 시간</TableHead>
@@ -94,11 +104,11 @@ export default async function DispatchPage() {
                           {new Date(delivery.created_at).toLocaleString("ko-KR")}
                         </TableCell>
                         <TableCell>
-                          {delivery.profiles?.full_name || delivery.profiles?.email || "알 수 없음"}
+                          {delivery.customer?.full_name || delivery.customer?.email || "알 수 없음"}
                         </TableCell>
                         <TableCell>
                           {delivery.driver_id ? (
-                            delivery.profiles?.full_name || delivery.profiles?.email || "알 수 없음"
+                            delivery.driver?.full_name || delivery.driver?.email || "알 수 없음"
                           ) : (
                             <Badge variant="outline">미연결</Badge>
                           )}
@@ -173,7 +183,8 @@ export default async function DispatchPage() {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

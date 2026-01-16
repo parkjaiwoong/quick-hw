@@ -1,6 +1,7 @@
 "use server"
 
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getRoleOverride } from "@/lib/role"
 import { revalidatePath } from "next/cache"
 
 // 사고 접수 생성
@@ -68,6 +69,12 @@ export async function reportAccident(data: {
     .single()
 
   if (error) {
+    if (error.message?.includes("accident_reports") && error.message?.includes("schema cache")) {
+      return {
+        error:
+          "사고 접수 테이블이 아직 생성되지 않았습니다. Supabase에서 scripts/006_additional_features.sql 을 실행한 뒤 다시 시도해주세요.",
+      }
+    }
     return { error: error.message }
   }
 
@@ -111,6 +118,13 @@ export async function getAccidentReports(userId?: string) {
   const { data, error } = await query.order("created_at", { ascending: false })
 
   if (error) {
+    if (error.message?.includes("accident_reports") && error.message?.includes("schema cache")) {
+      return {
+        accidents: [],
+        error:
+          "사고 접수 테이블이 아직 생성되지 않았습니다. Supabase에서 scripts/006_additional_features.sql 을 실행해주세요.",
+      }
+    }
     return { error: error.message }
   }
 
@@ -135,9 +149,11 @@ export async function updateAccidentStatus(
     return { error: "인증이 필요합니다" }
   }
 
-  // 관리자 권한 확인
+  // 관리자 권한 확인 (role override 포함)
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-  if (profile?.role !== "admin") {
+  const roleOverride = await getRoleOverride()
+  const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
+  if (!canActAsAdmin) {
     return { error: "관리자 권한이 필요합니다" }
   }
 

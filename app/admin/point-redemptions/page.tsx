@@ -1,21 +1,39 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { MessageSquare, CheckCircle, Clock } from "lucide-react"
+import { CheckCircle, Clock, Gift } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
 import { processPointRedemption } from "@/lib/actions/points"
 
-export default async function InquiriesPage({
+export default async function PointRedemptionsPage({
   searchParams,
 }: {
   searchParams?: { q?: string; status?: string; attachment?: string; summary?: string }
 }) {
+  const supabase = await getSupabaseServerClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/auth/login")
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+
+  const roleOverride = await getRoleOverride()
+  const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
+  if (!canActAsAdmin) {
+    redirect("/")
+  }
+
   const getRequestedPoints = (message: string) => {
     const match = message.match(/요청 포인트:\s*([\d,]+)/)
     if (!match) return ""
@@ -60,44 +78,8 @@ export default async function InquiriesPage({
     if (attachmentFilter === "missing") params.set("attachment", "missing")
     if (summaryMode) params.set("summary", "on")
     const queryString = params.toString()
-    return queryString ? `/admin/inquiries?${queryString}` : "/admin/inquiries"
+    return queryString ? `/admin/point-redemptions?${queryString}` : "/admin/point-redemptions"
   }
-
-  const supabase = await getSupabaseServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  const roleOverride = await getRoleOverride()
-  const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
-  if (!canActAsAdmin) {
-    redirect("/")
-  }
-
-  // 문의 목록 가져오기 (notifications 테이블에서 type이 inquiry인 것들)
-  // 실제로는 별도의 inquiries 테이블이 있을 수 있지만, 현재는 notifications를 사용
-  const { data: inquiries } = await supabase
-    .from("notifications")
-    .select(`
-      id,
-      user_id,
-      title,
-      message,
-      type,
-      is_read,
-      created_at,
-      profiles!notifications_user_id_fkey(full_name, email)
-    `)
-    .eq("type", "inquiry")
-    .order("created_at", { ascending: false })
-    .limit(100)
 
   const query = searchParams?.q?.trim()
   const status =
@@ -130,7 +112,7 @@ export default async function InquiriesPage({
         .eq("type", "point_redemption")
         .in("user_id", profileIds)
         .order("created_at", { ascending: false })
-        .limit(100)
+        .limit(200)
 
       if (status === "pending") {
         requestQuery = requestQuery.eq("is_read", false)
@@ -156,7 +138,7 @@ export default async function InquiriesPage({
       `)
       .eq("type", "point_redemption")
       .order("created_at", { ascending: false })
-      .limit(100)
+      .limit(200)
 
     if (status === "pending") {
       requestQuery = requestQuery.eq("is_read", false)
@@ -180,7 +162,7 @@ export default async function InquiriesPage({
     if (nextFilter === "missing") params.set("attachment", "missing")
     if (summaryMode) params.set("summary", "on")
     const queryString = params.toString()
-    return queryString ? `/admin/inquiries?${queryString}` : "/admin/inquiries"
+    return queryString ? `/admin/point-redemptions?${queryString}` : "/admin/point-redemptions"
   }
 
   const buildSummaryToggleLink = () => {
@@ -190,18 +172,16 @@ export default async function InquiriesPage({
     if (attachmentFilter === "missing") params.set("attachment", "missing")
     if (summaryMode) params.set("summary", "off")
     const queryString = params.toString()
-    return queryString ? `/admin/inquiries?${queryString}` : "/admin/inquiries"
+    return queryString ? `/admin/point-redemptions?${queryString}` : "/admin/point-redemptions"
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-balance">CS 응대</h1>
-            <p className="text-muted-foreground mt-1">
-              문의 목록, AI 1차 답변 기록, 필요 시 수동 응답
-            </p>
+            <h1 className="text-3xl font-bold text-balance">포인트 교환 요청</h1>
+            <p className="text-muted-foreground mt-1">교환 요청 확인 및 처리</p>
           </div>
           <Button asChild variant="outline">
             <Link href="/admin">관리자 홈으로</Link>
@@ -211,15 +191,13 @@ export default async function InquiriesPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              문의 목록
+              <Gift className="h-5 w-5" />
+              교환 요청 목록
             </CardTitle>
-            <CardDescription>
-              고객 문의사항을 확인하고 응답하세요
-            </CardDescription>
+            <CardDescription>상품권 교환 요청을 확인하고 처리하세요</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form action="/admin/inquiries" className="flex flex-col gap-2 md:flex-row md:items-end">
+            <form action="/admin/point-redemptions" className="flex flex-col gap-2 md:flex-row md:items-end">
               <div className="flex-1">
                 <Label htmlFor="point_request_search">고객 검색</Label>
                 <Input
@@ -259,72 +237,6 @@ export default async function InquiriesPage({
                 </Link>
               </Button>
             </form>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>접수 시간</TableHead>
-                  <TableHead>고객</TableHead>
-                  <TableHead>제목</TableHead>
-                  <TableHead>내용</TableHead>
-                  <TableHead>처리 상태</TableHead>
-                  <TableHead>AI 답변</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {inquiries && inquiries.length > 0 ? (
-                  inquiries.map((inquiry: any) => (
-                    <TableRow key={inquiry.id}>
-                      <TableCell>
-                        {new Date(inquiry.created_at).toLocaleString("ko-KR")}
-                      </TableCell>
-                      <TableCell>
-                        {inquiry.profiles?.full_name || inquiry.profiles?.email || "알 수 없음"}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {inquiry.title || "제목 없음"}
-                      </TableCell>
-                      <TableCell className="max-w-md truncate">
-                        {inquiry.message}
-                      </TableCell>
-                      <TableCell>
-                        {inquiry.is_read ? (
-                          <Badge variant="default" className="flex items-center gap-1 w-fit">
-                            <CheckCircle className="h-3 w-3" />
-                            처리됨
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                            <Clock className="h-3 w-3" />
-                            대기중
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">준비중</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <p className="text-muted-foreground">문의사항이 없습니다</p>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              포인트 교환 요청
-            </CardTitle>
-            <CardDescription>고객이 요청한 상품권 교환 내역</CardDescription>
-          </CardHeader>
-          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -436,11 +348,11 @@ export default async function InquiriesPage({
                           <Button size="sm" type="submit" disabled={request.is_read}>
                             처리
                           </Button>
-                          <Button asChild size="sm" variant="outline">
-                            <Link href={buildPointHistoryLink(request.profiles)} target="_blank" rel="noreferrer">
-                              내역 보기
-                            </Link>
-                          </Button>
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={buildPointHistoryLink(request.profiles)} target="_blank" rel="noreferrer">
+                            내역 보기
+                          </Link>
+                        </Button>
                         </form>
                       </TableCell>
                     </TableRow>
@@ -456,19 +368,7 @@ export default async function InquiriesPage({
             </Table>
           </CardContent>
         </Card>
-
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle>AI 답변 기능</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              AI 1차 답변 기능은 준비 중입니다. 현재는 문의사항을 직접 확인하고 수동으로 응답하실 수 있습니다.
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
 }
-
