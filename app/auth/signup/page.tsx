@@ -20,6 +20,7 @@ function SignUpForm() {
   const [role, setRole] = useState<string>("customer")
   const [insuranceAgreed, setInsuranceAgreed] = useState(false)
   const [termsAgreed, setTermsAgreed] = useState(false)
+  const testRiderCode = "R864041"
 
   useEffect(() => {
     // 쿼리 파라미터에서 에러 확인
@@ -100,6 +101,19 @@ function SignUpForm() {
               </Select>
             </div>
 
+            {role === "customer" && (
+              <div className="space-y-2">
+                <Label htmlFor="referringDriverId">추천 기사 ID (선택)</Label>
+                <Input
+                  id="referringDriverId"
+                  name="referringDriverId"
+                  type="text"
+                  placeholder="추천 기사 UUID 입력"
+                />
+                <p className="text-xs text-muted-foreground">추천 기사에게 소개받았다면 입력하세요.</p>
+              </div>
+            )}
+
             {/* 배송원 추가 정보 */}
             {role === "driver" && (
               <div className="space-y-4 p-4 border rounded-lg bg-blue-50">
@@ -169,9 +183,26 @@ function SignUpForm() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "처리 중..." : "회원가입"}
-            </Button>
+            <div className="flex flex-col gap-2 md:flex-row">
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? "처리 중..." : "회원가입"}
+              </Button>
+              <Button asChild variant="outline" className="w-full" type="button">
+                <Link href={`/r/${testRiderCode}`}>기사추천가입(테스트용)</Link>
+              </Button>
+            </div>
+            <div className="flex flex-col items-center gap-2 rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+              <div className="font-medium text-foreground">테스트용 QR코드</div>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(
+                  `http://localhost:3000/r/${testRiderCode}`,
+                )}`}
+                alt="기사추천가입 테스트 QR"
+                className="h-28 w-28 rounded bg-white"
+                loading="lazy"
+              />
+              <div>http://localhost:3000/r/{testRiderCode}</div>
+            </div>
           </form>
 
           <div className="mt-4 text-center text-sm">

@@ -25,6 +25,19 @@ export default async function DriverDashboard() {
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  let riderCode: string | null = null
+  if (serviceRoleKey) {
+    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+    const supabaseService = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+    const { data: riderRow } = await supabaseService
+      .from("riders")
+      .select("code")
+      .eq("id", user.id)
+      .maybeSingle()
+    riderCode = riderRow?.code ?? null
+  }
+
   const roleOverride = await getRoleOverride()
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {
@@ -62,7 +75,18 @@ export default async function DriverDashboard() {
             <h1 className="text-3xl font-bold text-balance">배송원 대시보드2</h1>
             <p className="text-muted-foreground mt-1">{profile?.full_name}님, 안전 운행하세요</p>
           </div>
-          <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
+          <div className="flex flex-col items-end gap-2">
+            <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
+            <Card className="w-full md:w-auto">
+              <CardHeader className="pb-2">
+                <CardDescription>기사 코드</CardDescription>
+                <CardTitle className="text-lg">{riderCode || "미등록"}</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 text-xs text-muted-foreground">
+                기사 ID: {user.id}
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

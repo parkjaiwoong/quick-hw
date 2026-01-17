@@ -2,6 +2,7 @@
 
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { resolveRiderForOrder } from "@/lib/actions/rider-referral"
 
 interface CreateDeliveryData {
   pickupAddress: string
@@ -113,6 +114,7 @@ export async function createDelivery(data: CreateDeliveryData) {
       total_fee: totalFee,
       driver_fee: driverFee,
       platform_fee: platformFee,
+      referring_rider_id: (await resolveRiderForOrder(user.id)).riderId || null,
       status: "pending",
     })
     .select()

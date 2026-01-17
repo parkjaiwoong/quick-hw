@@ -1,8 +1,10 @@
 "use server"
 
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { cookies, headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { confirmReferralFromCookie } from "@/lib/actions/rider-referral"
 
 export async function signUp(formData: FormData) {
   const supabase = await getSupabaseServerClient()
@@ -12,6 +14,8 @@ export async function signUp(formData: FormData) {
   const fullName = formData.get("fullName") as string
   const phone = formData.get("phone") as string
   const role = (formData.get("role") as string) || "customer"
+  const rawReferringDriverId = String(formData.get("referringDriverId") || "").trim()
+  const referringDriverId = role === "customer" && rawReferringDriverId ? rawReferringDriverId : null
 
   // 입력값 검증
   if (!email || !password || !fullName || !phone) {
@@ -40,6 +44,7 @@ export async function signUp(formData: FormData) {
         full_name: fullName,
         phone,
         role,
+        referring_driver_id: referringDriverId,
       },
     },
   })
@@ -84,6 +89,23 @@ export async function signUp(formData: FormData) {
     process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!,
     serviceRoleKey
   )
+
+  if (referringDriverId) {
+    if (referringDriverId === userId) {
+      return { error: "본인을 추천 기사로 등록할 수 없습니다." }
+    }
+
+    const { data: driverProfile } = await supabaseService
+      .from("profiles")
+      .select("id")
+      .eq("id", referringDriverId)
+      .eq("role", "driver")
+      .maybeSingle()
+
+    if (!driverProfile) {
+      return { error: "유효한 추천 기사 ID가 아닙니다." }
+    }
+  }
   
   // 프로필 생성 - 사용자가 auth.users에 존재하는지 확인 후 생성
   console.log("Creating profile for user:", userId)
@@ -148,6 +170,7 @@ export async function signUp(formData: FormData) {
         full_name: fullName,
         phone,
         role,
+        referring_driver_id: referringDriverId,
       })
       .select()
       .single()
@@ -301,9 +324,109 @@ export async function signUp(formData: FormData) {
         console.error("Driver info update error:", updateError)
       }
     }
+
+    const { data: existingRider } = await supabaseService
+      .from("riders")
+      .select("id, code")
+      .eq("id", userId)
+      .maybeSingle()
+
+    if (!existingRider) {
+      const generateRiderCode = () => `R${Math.floor(100000 + Math.random() * 900000)}`
+      let riderCreated = false
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const riderCode = generateRiderCode()
+        const { error: riderError } = await supabaseService
+          .from("riders")
+          .insert({ id: userId, code: riderCode })
+          .select()
+          .single()
+
+        if (!riderError) {
+          riderCreated = true
+          break
+        }
+
+        if (riderError.code === "23505" && riderError.message.includes("riders_code")) {
+          continue
+        }
+
+        if (riderError.code === "23505" && riderError.message.includes("riders_pkey")) {
+          riderCreated = true
+          break
+        }
+
+        console.error("Rider code creation error:", riderError)
+        break
+      }
+
+      if (!riderCreated) {
+        console.warn("Failed to create rider code after retries.")
+      }
+    }
   }
 
+  if (role === "customer") {
+    const { error: customerInsertError } = await supabaseService
+      .from("customers")
+      .insert({ id: userId })
+      .select()
+      .maybeSingle()
+
+    if (customerInsertError && customerInsertError.code !== "23505") {
+      console.error("Customer record creation error:", customerInsertError)
+    }
+
+    const referralStore = await cookies()
+    const referralCode = referralStore.get("rider_referral_code")?.value
+
+    if (referralCode && serviceRoleKey) {
+      const headerList = await headers()
+      const ip =
+        headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        headerList.get("x-real-ip") ||
+        "0.0.0.0"
+      const ua = headerList.get("user-agent") || ""
+      const existingSession = referralStore.get("rider_referral_session")?.value
+      const sessionId = existingSession || crypto.randomUUID()
+
+      const { data: referralResult, error: referralError } = await supabaseService.rpc(
+        "confirm_customer_referral_for_customer",
+        {
+          p_customer_id: userId,
+          p_code: referralCode,
+          p_ip: ip,
+          p_ua: ua,
+          p_session_id: sessionId,
+        },
+      )
+
+      if (!referralError && referralResult?.status === "assigned") {
+        if (referralResult?.rider_id) {
+          const { error: profileReferralError } = await supabaseService
+            .from("profiles")
+            .update({ referring_driver_id: referralResult.rider_id })
+            .eq("id", userId)
+          if (profileReferralError) {
+            console.error("Profile referral update error:", profileReferralError)
+          }
+        }
+        referralStore.delete("rider_referral_code")
+      }
+    } else {
+      await confirmReferralFromCookie()
+    }
+  }
+
+  const roleStore = await cookies()
+  roleStore.delete("role_override")
+
   revalidatePath("/", "layout")
+  const redirectTarget = role === "driver" ? "/driver" : role === "admin" ? "/admin" : "/customer"
+  if (authData.session) {
+    redirect(redirectTarget)
+  }
   redirect("/auth/verify-email")
 }
 
@@ -386,6 +509,7 @@ export async function signIn(formData: FormData) {
       const fullName = userMetadata.full_name || ""
       const phone = userMetadata.phone || ""
       const role = userMetadata.role || "customer"
+      const referringDriverId = userMetadata.referring_driver_id || null
       
       // Service Role을 사용하여 프로필 생성
       const { createClient: createServiceClient } = await import("@supabase/supabase-js")
@@ -423,6 +547,7 @@ export async function signIn(formData: FormData) {
               full_name: fullName || "사용자",
               phone: phone || "",
               role: role || "customer",
+            referring_driver_id: referringDriverId || null,
             })
             .select()
             .single()
@@ -480,6 +605,10 @@ export async function signIn(formData: FormData) {
     // 서버 사이드 redirect()는 클라이언트 컴포넌트와 충돌할 수 있음
     if (!profile) {
       return { error: "프로필 정보를 찾을 수 없습니다." }
+    }
+
+    if (profile.role === "customer") {
+      await confirmReferralFromCookie()
     }
     
     return { 

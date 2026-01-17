@@ -82,6 +82,7 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
 
   const pickupCoords = parsePoint(delivery.pickup_location)
   const deliveryCoords = parsePoint(delivery.delivery_location)
+  const baseDriverFee = Number(delivery.driver_fee ?? delivery.total_fee ?? 0)
 
   async function handleAccept() {
     "use server"
@@ -217,11 +218,12 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">예상 수익</span>
-              <span className="text-xl font-bold text-green-600">
-                {(delivery.driver_fee || delivery.total_fee || 0).toLocaleString()}원
-              </span>
+              <span className="text-xl font-bold text-green-600">{baseDriverFee.toLocaleString()}원</span>
             </div>
-            <p className="text-sm text-muted-foreground">거리/좌표 기준으로 자동 산정된 요금입니다.</p>
+            <p className="text-sm text-muted-foreground">거리/좌표 기준 카카오픽 방식으로 산정됩니다.</p>
+            <Button asChild variant="outline" size="sm" className="mt-2">
+              <Link href={`/driver/reward/${delivery.id}`}>리워드 적용 보기</Link>
+            </Button>
           </CardContent>
         </Card>
 

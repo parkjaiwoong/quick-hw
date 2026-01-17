@@ -8,8 +8,14 @@ import { Package, MapPin, Shield, AlertCircle } from "lucide-react"
 import { DeliveryList } from "@/components/customer/delivery-list"
 import { getMyDeliveries } from "@/lib/actions/deliveries"
 import { getRoleOverride } from "@/lib/role"
+import { ReferringDriverForm } from "@/components/customer/referring-driver-form"
+import { RiderChangeForm } from "@/components/customer/rider-change-form"
 
-export default async function CustomerDashboard() {
+export default async function CustomerDashboard({
+  searchParams,
+}: {
+  searchParams?: { change?: string; until?: string; reason?: string }
+}) {
   const supabase = await getSupabaseServerClient()
 
   const {
@@ -21,6 +27,61 @@ export default async function CustomerDashboard() {
   }
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const referringDriverId = profile?.referring_driver_id || null
+
+  let referringDriver: {
+    id?: string | null
+    full_name?: string | null
+    email?: string | null
+    phone?: string | null
+  } | null = null
+  let referringRiderCode: string | null = null
+
+  if (referringDriverId) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (serviceRoleKey) {
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+      const supabaseService = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+
+      const { data: riderRow } = await supabaseService
+        .from("riders")
+        .select("code")
+        .eq("id", referringDriverId)
+        .maybeSingle()
+
+      const { data: profileRow } = await supabaseService
+        .from("profiles")
+        .select("full_name, email, phone")
+        .eq("id", referringDriverId)
+        .maybeSingle()
+
+      referringRiderCode = riderRow?.code ?? null
+      referringDriver = profileRow ?? null
+    }
+  }
+
+  const changeStatus = searchParams?.change
+  const cooldownUntil = searchParams?.until
+  const errorReason = searchParams?.reason
+  const formattedCooldown = cooldownUntil ? new Date(cooldownUntil).toLocaleString("ko-KR") : ""
+  const changeMessage =
+    changeStatus === "pending"
+      ? "기사 변경 요청이 접수되었습니다."
+      : changeStatus === "no_current_referral"
+        ? "현재 귀속된 기사가 없어 변경 요청을 진행할 수 없습니다."
+      : changeStatus === "cooldown"
+        ? `쿨타임이 적용 중입니다. ${formattedCooldown || ""}`.trim()
+        : changeStatus === "blocked"
+          ? errorReason === "already_requested"
+            ? "기사 변경 요청은 1회만 가능합니다."
+            : "요청이 차단되었습니다."
+          : changeStatus === "invalid_code"
+            ? "입력한 기사 코드를 찾을 수 없습니다."
+            : changeStatus === "same_rider"
+              ? "현재 귀속 기사와 동일한 코드입니다."
+              : changeStatus === "error"
+                ? `요청 처리 중 오류가 발생했습니다.${errorReason ? ` (${errorReason})` : ""}`
+                : null
 
   const roleOverride = await getRoleOverride()
   const canActAsCustomer =
@@ -30,6 +91,14 @@ export default async function CustomerDashboard() {
   }
 
   const { deliveries = [] } = await getMyDeliveries()
+
+  const { data: latestChangeRequest } = await supabase
+    .from("rider_change_history")
+    .select("id, status, admin_reason, cooldown_until, created_at")
+    .eq("customer_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   const stats = {
     total: deliveries.length,
@@ -166,6 +235,94 @@ export default async function CustomerDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        <div className="flex items-center gap-3 pt-4 mt-2 border-t border-border">
+          <span className="text-sm font-semibold text-muted-foreground">하단 섹션</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>기사 귀속 상태</CardTitle>
+            <CardDescription>현재 귀속된 기사 정보를 표시합니다.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {changeMessage && (
+              <Alert variant="default">
+                <AlertDescription>{changeMessage}</AlertDescription>
+              </Alert>
+            )}
+            {referringDriverId ? (
+              <p className="text-sm">
+                귀속 기사: {referringDriver?.full_name || "이름 없음"} 기사 (
+                {referringRiderCode || referringDriverId.slice(0, 8).toUpperCase()})
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">귀속된 기사가 없습니다.</p>
+            )}
+            <RiderChangeForm />
+            <div>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/customer/rider-change-request">기사 변경 요청 내역 보기</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>최근 기사 변경 요청</CardTitle>
+            <CardDescription>가장 최근 요청의 처리 상태를 확인합니다.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {latestChangeRequest ? (
+              <>
+                <div>
+                  상태: {latestChangeRequest.status === "denied" ? "rejected" : latestChangeRequest.status}
+                </div>
+                <div>요청 시간: {new Date(latestChangeRequest.created_at).toLocaleString("ko-KR")}</div>
+                <div>거절 사유: {latestChangeRequest.admin_reason || "-"}</div>
+                {latestChangeRequest.cooldown_until && (
+                  <div>
+                    쿨타임 종료: {new Date(latestChangeRequest.cooldown_until).toLocaleString("ko-KR")}
+                  </div>
+                )}
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    href={`/customer/rider-change-request-detail?id=${encodeURIComponent(latestChangeRequest.id)}`}
+                  >
+                    상세 보기
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <div className="text-muted-foreground">최근 요청 내역이 없습니다.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>추천 기사 ID</CardTitle>
+            <CardDescription>추천 기사 정보를 등록하거나 변경할 수 있습니다.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {referringDriver ? (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm space-y-1">
+                <p className="font-medium">등록된 추천 기사</p>
+                <p>ID: {referringDriver.id}</p>
+                <p>이름: {referringDriver.full_name || "-"}</p>
+                <p>이메일: {referringDriver.email || "-"}</p>
+                <p>전화번호: {referringDriver.phone || "-"}</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+                등록된 추천 기사 ID가 없습니다.
+              </div>
+            )}
+            <ReferringDriverForm initialReferringDriverId={referringDriverId} />
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

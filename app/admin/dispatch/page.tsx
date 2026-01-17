@@ -30,19 +30,17 @@ export default async function DispatchPage() {
   // 주문 & 연결 로그 가져오기
   const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
-    .select(`
-      id,
-      created_at,
-      status,
-      pickup_address,
-      delivery_address,
-      customer_id,
-      driver_id,
-      customer:profiles!deliveries_customer_id_fkey(full_name, email),
-      driver:profiles!deliveries_driver_id_fkey(full_name, email)
-    `)
+    .select("id, created_at, status, pickup_address, delivery_address, customer_id, driver_id")
     .order("created_at", { ascending: false })
     .limit(100)
+
+  const profileIds = Array.from(
+    new Set((deliveries || []).flatMap((d: any) => [d.customer_id, d.driver_id]).filter(Boolean)),
+  )
+  const { data: profileRows } = profileIds.length
+    ? await supabase.from("profiles").select("id, full_name, email").in("id", profileIds)
+    : { data: [] }
+  const profileMap = new Map((profileRows || []).map((row: any) => [row.id, row]))
 
   // 사고 발생 여부 확인
   const { data: accidents } = await supabase
@@ -104,11 +102,15 @@ export default async function DispatchPage() {
                           {new Date(delivery.created_at).toLocaleString("ko-KR")}
                         </TableCell>
                         <TableCell>
-                          {delivery.customer?.full_name || delivery.customer?.email || "알 수 없음"}
+                          {profileMap.get(delivery.customer_id)?.full_name ||
+                            profileMap.get(delivery.customer_id)?.email ||
+                            "알 수 없음"}
                         </TableCell>
                         <TableCell>
                           {delivery.driver_id ? (
-                            delivery.driver?.full_name || delivery.driver?.email || "알 수 없음"
+                            profileMap.get(delivery.driver_id)?.full_name ||
+                            profileMap.get(delivery.driver_id)?.email ||
+                            "알 수 없음"
                           ) : (
                             <Badge variant="outline">미연결</Badge>
                           )}

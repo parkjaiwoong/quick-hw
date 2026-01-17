@@ -18,11 +18,15 @@ CREATE TABLE IF NOT EXISTS profiles (
   full_name TEXT,
   phone TEXT,
   role user_role DEFAULT 'customer',
+  referring_driver_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   avatar_url TEXT,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS referring_driver_id UUID REFERENCES profiles(id) ON DELETE SET NULL;
 
 -- 배송원 추가 정보
 CREATE TABLE IF NOT EXISTS driver_info (
