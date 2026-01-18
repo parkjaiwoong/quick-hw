@@ -27,8 +27,10 @@ export function DeliveryRequestForm({ userProfile, pricingConfig }: DeliveryRequ
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [itemType, setItemType] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState("card")
   const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null)
   const [estimatedFee, setEstimatedFee] = useState<number | null>(null)
+  const [customerAmount, setCustomerAmount] = useState<number | null>(null)
   const baseFee = Number(pricingConfig?.base_fee ?? 4000)
   const perKmFee = Number(pricingConfig?.per_km_fee ?? 1000)
   const includedDistanceKm = 2
@@ -73,7 +75,11 @@ export function DeliveryRequestForm({ userProfile, pricingConfig }: DeliveryRequ
       const distance = calculateDistance(pickupLat, pickupLng, deliveryLat, deliveryLng)
       if (distance !== null) {
         setCalculatedDistance(distance)
-        setEstimatedFee(calculateEstimatedFee(distance))
+        const fee = calculateEstimatedFee(distance)
+        setEstimatedFee(fee)
+        if (customerAmount === null) {
+          setCustomerAmount(fee)
+        }
       } else {
         setCalculatedDistance(null)
         setEstimatedFee(null)
@@ -110,6 +116,8 @@ export function DeliveryRequestForm({ userProfile, pricingConfig }: DeliveryRequ
       itemDescription: formData.get("itemDescription") as string,
       itemWeight: Number.parseFloat(formData.get("itemWeight") as string) || undefined,
       packageSize: formData.get("packageSize") as string,
+      paymentMethod: formData.get("paymentMethod") as string,
+      customerAmount: Number.parseFloat(formData.get("customerAmount") as string) || undefined,
     }
 
     const result = await createDelivery(data)
@@ -324,6 +332,46 @@ export function DeliveryRequestForm({ userProfile, pricingConfig }: DeliveryRequ
                 <Label htmlFor="packageSize">크기 (선택)</Label>
                 <Input id="packageSize" name="packageSize" placeholder="가로x세로x높이" />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>결제 정보</CardTitle>
+            <CardDescription>결제 수단과 결제 금액을 확인하세요</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">결제 수단</Label>
+              <Select name="paymentMethod" value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger id="paymentMethod">
+                  <SelectValue placeholder="결제 수단 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="card">카드결제</SelectItem>
+                  <SelectItem value="bank_transfer">계좌이체</SelectItem>
+                  <SelectItem value="cash">현금 (기사 직접 수령)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerAmount">결제 금액 (원)</Label>
+              <Input
+                id="customerAmount"
+                name="customerAmount"
+                type="number"
+                min={0}
+                step="1"
+                value={customerAmount ?? ""}
+                onChange={(event) => {
+                  const nextValue = event.target.value.trim()
+                  setCustomerAmount(nextValue === "" ? null : Number(nextValue))
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                기본 산정 금액에서 필요 시 조정 가능합니다. (기사에게는 최종 정산 금액만 노출)
+              </p>
             </div>
           </CardContent>
         </Card>

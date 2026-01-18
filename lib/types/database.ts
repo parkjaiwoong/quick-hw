@@ -2,6 +2,14 @@ export type UserRole = "customer" | "driver" | "admin"
 
 export type DeliveryStatus = "pending" | "accepted" | "picked_up" | "in_transit" | "delivered" | "cancelled"
 
+export type OrderStatus = "REQUEST" | "PAID" | "ASSIGNED" | "PICKED_UP" | "DELIVERED" | "CANCELED"
+
+export type PaymentStatus = "PENDING" | "PAID" | "CANCELED" | "REFUNDED"
+
+export type SettlementStatus = "NONE" | "PENDING" | "CONFIRMED" | "PAID_OUT" | "EXCLUDED"
+
+export type PaymentMethod = "card" | "bank_transfer" | "cash"
+
 export interface Profile {
   id: string
   email: string
@@ -75,6 +83,38 @@ export interface Delivery {
   updated_at: string
 }
 
+export interface Order {
+  id: string
+  customer_id: string
+  delivery_id: string | null
+  order_amount: number
+  customer_adjusted_amount: number | null
+  payment_method: string | null
+  order_status: OrderStatus | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Payment {
+  id: string
+  order_id: string | null
+  delivery_id: string | null
+  customer_id: string | null
+  amount: number
+  payment_method: string
+  status: PaymentStatus
+  pg_provider: string | null
+  pg_tid: string | null
+  requested_at: string
+  paid_at: string | null
+  canceled_at: string | null
+  refunded_at: string | null
+  canceled_amount: number | null
+  refunded_amount: number | null
+  created_at: string
+  updated_at: string
+}
+
 export interface DeliveryTracking {
   id: string
   delivery_id: string
@@ -94,6 +134,46 @@ export interface Transaction {
   status: string
   payment_method: string | null
   payment_details: any
+  created_at: string
+  updated_at: string
+}
+
+export interface Settlement {
+  id: string
+  driver_id: string | null
+  delivery_id: string | null
+  order_id: string | null
+  payment_id: string | null
+  settlement_status: SettlementStatus | null
+  settlement_amount: number | null
+  settlement_period_start: string | null
+  settlement_period_end: string | null
+  status: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DriverWallet {
+  id: string
+  driver_id: string
+  total_balance: number
+  available_balance: number
+  pending_balance: number
+  min_payout_amount: number
+  last_settlement_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PayoutRequest {
+  id: string
+  driver_id: string
+  requested_amount: number
+  status: string
+  bank_account: string | null
+  bank_name: string | null
+  requested_at: string
+  processed_at: string | null
   created_at: string
   updated_at: string
 }

@@ -35,10 +35,11 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           <div className="col-span-2">거리</div>
           <div className="col-span-4">픽업</div>
           <div className="col-span-4">배송</div>
-          <div className="col-span-2 text-right">가격</div>
+          <div className="col-span-2 text-right">확정 금액</div>
         </div>
         {deliveries.map((delivery) => {
-          const priceLabel = `${(delivery.total_fee || 0).toLocaleString()}원`
+          const displayFee = delivery.driver_fee ?? delivery.total_fee ?? 0
+          const priceLabel = `${Number(displayFee).toLocaleString()}원`
 
           return (
             <div

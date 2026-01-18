@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getAllSettlements } from "@/lib/actions/settlement"
+import { confirmSettlement } from "@/lib/actions/finance"
 import Link from "next/link"
 import { DollarSign, Calendar, CheckCircle, Clock } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
@@ -133,6 +134,18 @@ export default async function SettlementsPage() {
                               ? "처리 중"
                               : "대기 중"}
                         </span>
+                        {settlement.settlement_status === "PENDING" && (
+                          <form
+                            action={async () => {
+                              "use server"
+                              await confirmSettlement(settlement.id)
+                            }}
+                          >
+                            <Button size="sm" className="mt-2">
+                              정산 확정
+                            </Button>
+                          </form>
+                        )}
                       </div>
                     </div>
                   </div>

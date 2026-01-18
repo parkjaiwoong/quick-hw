@@ -76,6 +76,14 @@ export default async function DriverDashboard() {
             <p className="text-muted-foreground mt-1">{profile?.full_name}님, 안전 운행하세요</p>
           </div>
           <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href="/driver/wallet">적립금 지갑</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/driver/settlements">정산 내역</Link>
+              </Button>
+            </div>
             <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
             <Card className="w-full md:w-auto">
               <CardHeader className="pb-2">

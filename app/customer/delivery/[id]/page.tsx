@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { MapPin, Phone, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
 
 const statusConfig = {
   pending: { label: "대기중", color: "bg-yellow-100 text-yellow-800" },
@@ -16,6 +17,13 @@ const statusConfig = {
   in_transit: { label: "배송중", color: "bg-purple-100 text-purple-800" },
   delivered: { label: "완료", color: "bg-green-100 text-green-800" },
   cancelled: { label: "취소됨", color: "bg-gray-100 text-gray-800" },
+}
+
+const paymentStatusLabel: Record<string, string> = {
+  PENDING: "결제 대기",
+  PAID: "결제 완료",
+  CANCELED: "결제 취소",
+  REFUNDED: "환불 완료",
 }
 
 export default async function DeliveryDetailPage({ params }: { params: { id: string } }) {
@@ -31,6 +39,7 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
 
   const { id } = await params
   const { delivery } = await getDeliveryForCustomer(id)
+  const { order, payment } = await getOrderPaymentSummaryByDelivery(id)
 
   if (!delivery || delivery.customer_id !== user.id) {
     redirect("/customer")
@@ -39,6 +48,23 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <div className="max-w-7xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>메인 화면 이동</CardTitle>
+            <CardDescription>역할별 메인 화면으로 바로 이동합니다</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row gap-3">
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/customer">고객 메인</Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/driver">기사 메인</Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/admin">관리자 메인</Link>
+            </Button>
+          </CardContent>
+        </Card>
         <div className="flex items-center gap-4">
           <Button asChild variant="outline">
             <Link href="/customer">← 돌아가기</Link>
@@ -116,6 +142,26 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
                     <span className="text-muted-foreground">배송비</span>
                     <span className="text-xl font-bold">{delivery.total_fee.toLocaleString()}원</span>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>결제 정보</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">결제 수단</span>
+                  <span className="font-medium">{payment?.payment_method || order?.payment_method || "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">결제 금액</span>
+                  <span className="font-semibold">{(payment?.amount || order?.order_amount || 0).toLocaleString()}원</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">결제 상태</span>
+                  <span className="font-medium">{payment?.status ? paymentStatusLabel[payment.status] || payment.status : "-"}</span>
                 </div>
               </CardContent>
             </Card>

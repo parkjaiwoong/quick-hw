@@ -23,6 +23,8 @@ interface CreateDeliveryData {
   itemDescription?: string
   itemWeight?: number
   packageSize?: string
+  paymentMethod?: string
+  customerAmount?: number
 }
 
 export async function createDelivery(data: CreateDeliveryData) {
@@ -83,7 +85,9 @@ export async function createDelivery(data: CreateDeliveryData) {
   const includedDistanceKm = 2
 
   const distanceFee = Math.max(0, distanceKm - includedDistanceKm) * perKmFee
-  const totalFee = baseFee + distanceFee
+  const quotedTotalFee = baseFee + distanceFee
+  const adjustedAmount = Number.isFinite(Number(data.customerAmount)) ? Number(data.customerAmount) : quotedTotalFee
+  const totalFee = adjustedAmount > 0 ? adjustedAmount : quotedTotalFee
   let platformFee = Math.round((totalFee * commissionRate) / 100)
   let driverFee = Math.max(totalFee - platformFee, minDriverFee)
   if (driverFee + platformFee > totalFee) {
@@ -124,6 +128,15 @@ export async function createDelivery(data: CreateDeliveryData) {
     return { error: error.message }
   }
 
+  const { createOrderAndPaymentForDelivery } = await import("@/lib/actions/finance")
+  await createOrderAndPaymentForDelivery({
+    deliveryId: delivery.id,
+    customerId: user.id,
+    amount: totalFee,
+    paymentMethod: data.paymentMethod,
+    customerAdjustedAmount: adjustedAmount !== quotedTotalFee ? adjustedAmount : null,
+  })
+
   const { data: nearbyDrivers } = await supabase.rpc("find_nearby_drivers", {
     pickup_lat: data.pickupLat,
     pickup_lng: data.pickupLng,
@@ -153,7 +166,13 @@ export async function getMyDeliveries() {
 
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select(
+      `
+      *,
+      orders:orders!orders_delivery_id_fkey(order_amount, order_status, payment_method),
+      payments:payments!payments_delivery_id_fkey(status, amount, payment_method)
+    `,
+    )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
 
@@ -166,6 +185,28 @@ export async function getMyDeliveries() {
  
 export async function cancelDelivery(deliveryId: string) {
   const supabase = await getSupabaseServerClient()
+
+  const { data: delivery } = await supabase
+    .from("deliveries")
+    .select("id, status")
+    .eq("id", deliveryId)
+    .single()
+
+  if (!delivery) {
+    return { error: "배송 정보를 찾을 수 없습니다" }
+  }
+
+  const isStarted = ["picked_up", "in_transit", "delivered"].includes(delivery.status)
+  const { cancelPaymentForDelivery, refundPaymentForDelivery, excludeSettlementForDelivery } = await import(
+    "@/lib/actions/finance"
+  )
+
+  if (isStarted) {
+    await refundPaymentForDelivery(deliveryId)
+    await excludeSettlementForDelivery(deliveryId, "배송 시작 이후 취소")
+  } else {
+    await cancelPaymentForDelivery(deliveryId)
+  }
 
   const { error } = await supabase
     .from("deliveries")

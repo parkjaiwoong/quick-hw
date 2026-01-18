@@ -8,8 +8,13 @@ import { formatDistanceToNow } from "date-fns"
 import { ko } from "date-fns/locale"
 import Link from "next/link"
 
+type DeliveryListItem = Delivery & {
+  orders?: Array<{ order_amount?: number; order_status?: string; payment_method?: string }>
+  payments?: Array<{ status?: string; amount?: number; payment_method?: string }>
+}
+
 interface DeliveryListProps {
-  deliveries: Delivery[]
+  deliveries: DeliveryListItem[]
 }
 
 const statusConfig = {
@@ -19,6 +24,13 @@ const statusConfig = {
   in_transit: { label: "배송중", color: "bg-purple-100 text-purple-800" },
   delivered: { label: "완료", color: "bg-green-100 text-green-800" },
   cancelled: { label: "취소됨", color: "bg-gray-100 text-gray-800" },
+}
+
+const paymentStatusLabel: Record<string, string> = {
+  PENDING: "결제 대기",
+  PAID: "결제 완료",
+  CANCELED: "결제 취소",
+  REFUNDED: "환불 완료",
 }
 
 export function DeliveryList({ deliveries }: DeliveryListProps) {
@@ -67,6 +79,11 @@ export function DeliveryList({ deliveries }: DeliveryListProps) {
             <div className="text-right">
               <p className="text-2xl font-bold">{delivery.total_fee.toLocaleString()}원</p>
               <p className="text-xs text-muted-foreground">{delivery.distance_km?.toFixed(1)}km</p>
+              {delivery.payments?.[0]?.status && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {paymentStatusLabel[delivery.payments[0].status] || delivery.payments[0].status}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-2">

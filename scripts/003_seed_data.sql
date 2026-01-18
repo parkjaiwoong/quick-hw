@@ -28,9 +28,17 @@ CREATE TABLE IF NOT EXISTS platform_settings (
   company_address TEXT DEFAULT '서울특별시 강남구 테헤란로 123',
   contact_phone TEXT DEFAULT '02-1234-5678',
   contact_email TEXT DEFAULT 'contact@quickhw.com',
+  driver_wallet_initial_balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+  driver_wallet_min_payout NUMERIC(12,2) NOT NULL DEFAULT 0,
+  driver_payout_cycle_days INTEGER NOT NULL DEFAULT 7,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 INSERT INTO platform_settings (company_name, business_number, ceo_name, company_address, contact_phone, contact_email)
 VALUES ('퀵HW', '123-45-67890', '홍길동', '서울특별시 강남구 테헤란로 123', '02-1234-5678', 'contact@quickhw.com');
+
+ALTER TABLE platform_settings
+  ADD COLUMN IF NOT EXISTS driver_wallet_initial_balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS driver_wallet_min_payout NUMERIC(12,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS driver_payout_cycle_days INTEGER NOT NULL DEFAULT 7;

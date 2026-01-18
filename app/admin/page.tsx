@@ -155,6 +155,21 @@ export default async function AdminDashboard() {
           </Card>
         </div>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>결제/출금 관리</CardTitle>
+            <CardDescription>결제 상태와 출금 요청을 확인합니다</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row gap-3">
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/admin/payments">결제 관리</Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/admin/payouts">출금 관리</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <AdminDashboardTabs
           recentDeliveries={recentDeliveries}
           recentDeliveriesError={recentDeliveriesError?.message}

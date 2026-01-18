@@ -105,6 +105,9 @@ export async function acceptDelivery(deliveryId: string) {
     return { error: error.message }
   }
 
+  const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+  await syncOrderStatusForDelivery(deliveryId, "accepted")
+
   revalidatePath("/driver")
   revalidatePath(`/driver/delivery/${deliveryId}`)
   return { success: true }
@@ -143,6 +146,10 @@ export async function updateDeliveryStatus(deliveryId: string, status: string) {
         await processReferralReward(delivery.customer_id, deliveryId)
       }
     }
+
+    const { createSettlementForDelivery, syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+    await createSettlementForDelivery(deliveryId)
+    await syncOrderStatusForDelivery(deliveryId, "delivered")
   }
 
   const { error } = await supabase.from("deliveries").update(updateData).eq("id", deliveryId)
@@ -150,6 +157,9 @@ export async function updateDeliveryStatus(deliveryId: string, status: string) {
   if (error) {
     return { error: error.message }
   }
+
+  const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+  await syncOrderStatusForDelivery(deliveryId, status)
 
   revalidatePath("/driver")
   return { success: true }

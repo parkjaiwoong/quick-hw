@@ -1,6 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getDeliveryForDriver } from "@/lib/actions/tracking"
 import { DriverLocationUpdater } from "@/components/driver/driver-location-updater"
@@ -27,6 +27,14 @@ const statusActionConfig = {
   in_transit: { next: "delivered", label: "배송 완료" },
 } as const
 
+const settlementStatusLabel: Record<string, string> = {
+  NONE: "정산 없음",
+  PENDING: "정산 대기",
+  CONFIRMED: "정산 확정",
+  PAID_OUT: "출금 완료",
+  EXCLUDED: "정산 제외",
+}
+
 export default async function DriverDeliveryDetailPage({ params }: { params: { id: string } }) {
   const supabase = await getSupabaseServerClient()
 
@@ -48,6 +56,12 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
 
   const { id } = await params
   const { delivery } = await getDeliveryForDriver(id)
+
+  const { data: settlement } = await supabase
+    .from("settlements")
+    .select("settlement_status, settlement_amount")
+    .eq("delivery_id", id)
+    .maybeSingle()
 
   if (!delivery) {
     redirect("/driver")
@@ -103,6 +117,23 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>메인 화면 이동</CardTitle>
+            <CardDescription>역할별 메인 화면으로 바로 이동합니다</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row gap-3">
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/driver">기사 메인</Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/customer">고객 메인</Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/admin">관리자 메인</Link>
+            </Button>
+          </CardContent>
+        </Card>
         <div className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
@@ -226,6 +257,30 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
             </Button>
           </CardContent>
         </Card>
+
+        {(delivery.status === "delivered" || settlement?.settlement_status) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>정산 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">정산 금액</span>
+                <span className="font-semibold">
+                  {Number(settlement?.settlement_amount ?? baseDriverFee).toLocaleString()}원
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">정산 상태</span>
+                <span className="font-medium">
+                  {settlement?.settlement_status
+                    ? settlementStatusLabel[settlement.settlement_status] || settlement.settlement_status
+                    : "정산 대기"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex items-center justify-between gap-3">
           <Button asChild variant="outline" size="lg" className="flex-1">

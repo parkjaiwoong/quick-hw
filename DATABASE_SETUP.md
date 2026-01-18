@@ -84,6 +84,7 @@ npm run dev
 5. `004_functions.sql` - 함수 생성
 6. `005_nearby_driver_allocation.sql` - 배송원 할당 함수
 7. `006_additional_features.sql` - 추가 기능 (선택사항)
+8. `042_payment_settlement_mvp.sql` - 결제/정산/지갑 구조
 
 ## 문제 해결
 
