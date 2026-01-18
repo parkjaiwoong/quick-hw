@@ -135,10 +135,11 @@ export default async function DriverDashboard() {
         </div>
 
         <Tabs defaultValue="available" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="available">대기 중 배송 ({available.length})</TabsTrigger>
             <TabsTrigger value="assigned">진행 중 배송 ({assigned.length})</TabsTrigger>
             <TabsTrigger value="history">운행 이력</TabsTrigger>
+            <TabsTrigger value="sales">📊 영업 성과</TabsTrigger>
           </TabsList>
 
           <TabsContent value="available" className="mt-6">
@@ -213,6 +214,20 @@ export default async function DriverDashboard() {
                     <p className="text-muted-foreground">운행 이력이 없습니다</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="sales" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>📊 영업 성과</CardTitle>
+                <CardDescription>소개 고객과 추가 수익을 확인합니다.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild className="w-full">
+                  <Link href="/driver/dashboard">영업 성과 대시보드 보기</Link>
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
