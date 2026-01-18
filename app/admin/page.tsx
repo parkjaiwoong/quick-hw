@@ -167,6 +167,9 @@ export default async function AdminDashboard() {
             <Button asChild variant="outline" className="flex-1">
               <Link href="/admin/payouts">출금 관리</Link>
             </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/admin/finance-logs">금액 액션 로그</Link>
+            </Button>
           </CardContent>
         </Card>
 

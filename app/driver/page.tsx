@@ -70,6 +70,14 @@ export default async function DriverDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <RealtimeDeliveryNotifications userId={user.id} />
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        <Card className="border-amber-200 bg-amber-50/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">프로그램 사용료 안내</CardTitle>
+            <CardDescription>
+              초기에는 0원으로 운영되며, 적용 시 사전 고지됩니다.
+            </CardDescription>
+          </CardHeader>
+        </Card>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-balance">배송원 대시보드2</h1>

@@ -78,6 +78,26 @@ export function PricingForm({
           />
         </div>
       </div>
+      <div className="rounded-lg border bg-muted/30 p-4">
+        <p className="text-sm font-semibold mb-4">수수료/사용료 정책 (분리 관리)</p>
+        <div className="grid md:grid-cols-3 gap-4 text-sm">
+          <div className="space-y-2">
+            <Label>고객 수수료 (%)</Label>
+            <Input value={0} disabled />
+          </div>
+          <div className="space-y-2">
+            <Label>기사 수수료 (%)</Label>
+            <Input value={0} disabled />
+          </div>
+          <div className="space-y-2">
+            <Label>프로그램 사용료 (원)</Label>
+            <Input value={0} disabled />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          현재는 0으로 유지되며, 추후 정책 적용 시 분리 관리 가능합니다.
+        </p>
+      </div>
       <div className="rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
         현재 계산식: 기본요금 + max(0, 거리 - {includedDistanceKm}km) × km당 요금
       </div>

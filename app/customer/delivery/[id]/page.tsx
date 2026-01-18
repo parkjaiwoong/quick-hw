@@ -40,6 +40,15 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
   const { id } = await params
   const { delivery } = await getDeliveryForCustomer(id)
   const { order, payment } = await getOrderPaymentSummaryByDelivery(id)
+  const { data: pointRows } = await supabase
+    .from("points")
+    .select("points, point_type")
+    .eq("user_id", user.id)
+    .eq("source_id", id)
+    .eq("point_type", "earned")
+
+  const earnedPoints =
+    pointRows?.reduce((sum, row) => sum + Number(row.points || 0), 0) || 0
 
   if (!delivery || delivery.customer_id !== user.id) {
     redirect("/customer")
@@ -73,7 +82,9 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
             <h1 className="text-2xl font-bold">배송 추적</h1>
             <p className="text-sm text-muted-foreground">실시간으로 배송 상태를 확인하세요</p>
           </div>
-          <Badge className={statusConfig[delivery.status].color}>{statusConfig[delivery.status].label}</Badge>
+          <Badge className={statusConfig[delivery.status as keyof typeof statusConfig].color}>
+            {statusConfig[delivery.status as keyof typeof statusConfig].label}
+          </Badge>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -162,6 +173,30 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">결제 상태</span>
                   <span className="font-medium">{payment?.status ? paymentStatusLabel[payment.status] || payment.status : "-"}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>결제 금액 구성</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">기사 운임</span>
+                  <span className="font-medium">{Number(delivery.driver_fee || 0).toLocaleString()}원</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">플랫폼 수수료</span>
+                  <span className="font-medium">{Number(delivery.platform_fee || 0).toLocaleString()}원</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">플랫폼 이용료 (초기)</span>
+                  <span className="font-medium">0원</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">포인트 적립</span>
+                  <span className="font-medium">{earnedPoints.toLocaleString()}P</span>
                 </div>
               </CardContent>
             </Card>

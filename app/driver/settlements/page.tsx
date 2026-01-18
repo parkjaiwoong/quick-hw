@@ -101,6 +101,9 @@ export default async function DriverSettlementsPage() {
                           총 수익: {settlement.total_earnings?.toLocaleString()}원 | 정산 금액:{" "}
                           {settlement.net_earnings?.toLocaleString()}원
                         </p>
+                        <div className="mt-2 rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                          차감 내역: 프로그램 사용료 0원 · 기사 수수료 0원
+                        </div>
                         {settlement.settlement_date && (
                           <p className="text-xs text-muted-foreground mt-1">
                             정산일: {new Date(settlement.settlement_date).toLocaleDateString("ko-KR")}

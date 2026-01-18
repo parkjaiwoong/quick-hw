@@ -84,6 +84,10 @@ export function DeliveryList({ deliveries }: DeliveryListProps) {
                   {paymentStatusLabel[delivery.payments[0].status] || delivery.payments[0].status}
                 </p>
               )}
+              {delivery.payments?.[0]?.payment_method && (
+                <p className="text-xs text-muted-foreground mt-1">결제 수단: {delivery.payments[0].payment_method}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">플랫폼 이용료: 0원</p>
             </div>
           </div>
           <div className="flex gap-2">

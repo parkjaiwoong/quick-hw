@@ -278,6 +278,14 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
                     : "정산 대기"}
                 </span>
               </div>
+              {settlement?.settlement_status === "CONFIRMED" && (
+                <p className="text-xs text-emerald-700 font-semibold">
+                  관리자 정산 확정 → 출금 가능 금액에 반영됨
+                </p>
+              )}
+              {settlement?.settlement_status === "PENDING" && (
+                <p className="text-xs text-muted-foreground">정산 확정 전에는 출금 가능 금액에 포함되지 않습니다.</p>
+              )}
             </CardContent>
           </Card>
         )}

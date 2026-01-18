@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { getRoleOverride } from "@/lib/role"
 import { getAdminPayoutRequests, markPayoutPaid } from "@/lib/actions/finance"
+import { PayoutRequestsPanel } from "@/components/admin/payout-requests-panel"
 
 export default async function AdminPayoutsPage() {
   const supabase = await getSupabaseServerClient()
@@ -26,16 +27,21 @@ export default async function AdminPayoutsPage() {
 
   const { payouts = [] } = await getAdminPayoutRequests()
 
-  async function handleMarkPaid(formData: FormData) {
+  async function handleMarkPaid(payoutId: string) {
     "use server"
-    const payoutId = String(formData.get("id") || "")
     if (!payoutId) return
     await markPayoutPaid(payoutId)
     redirect("/admin/payouts")
   }
 
   const pendingTotal = payouts
-    .filter((p: any) => p.status === "pending")
+    .filter((p: any) => p.status === "pending" || p.status === "approved")
+    .reduce((sum: number, p: any) => sum + Number(p.requested_amount || 0), 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayCount = payouts.filter((p: any) => p.requested_at && new Date(p.requested_at) >= today).length
+  const todayTotal = payouts
+    .filter((p: any) => p.requested_at && new Date(p.requested_at) >= today)
     .reduce((sum: number, p: any) => sum + Number(p.requested_amount || 0), 0)
 
   return (
@@ -51,12 +57,26 @@ export default async function AdminPayoutsPage() {
           </Button>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>출금 요청 합계 (대기)</CardDescription>
-            <CardTitle className="text-2xl">{pendingTotal.toLocaleString()}원</CardTitle>
-          </CardHeader>
-        </Card>
+        <div className="grid md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>오늘 요청 건수</CardDescription>
+              <CardTitle className="text-2xl">{todayCount}건</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>오늘 요청 금액</CardDescription>
+              <CardTitle className="text-2xl">{todayTotal.toLocaleString()}원</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>출금 요청 합계 (대기)</CardDescription>
+              <CardTitle className="text-2xl">{pendingTotal.toLocaleString()}원</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
 
         <Card>
           <CardHeader>
@@ -64,34 +84,7 @@ export default async function AdminPayoutsPage() {
             <CardDescription>은행 업로드용 데이터를 확인합니다</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {payouts.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">출금 요청이 없습니다</p>
-            ) : (
-              payouts.map((payout: any) => (
-                <div key={payout.id} className="border rounded-lg p-4 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-semibold">{payout.driver?.full_name || payout.driver?.email || "기사"}</p>
-                    <p className="text-sm text-muted-foreground">
-                      요청 금액: {Number(payout.requested_amount).toLocaleString()}원
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      계좌: {payout.bank_name || "-"} {payout.bank_account || "-"}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="text-xs rounded px-2 py-1 bg-muted">{payout.status}</span>
-                    {payout.status !== "paid" && (
-                      <form action={handleMarkPaid}>
-                        <input type="hidden" name="id" value={payout.id} />
-                        <Button type="submit" size="sm">
-                          출금 완료 처리
-                        </Button>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
+            <PayoutRequestsPanel payouts={payouts} onMarkPaid={handleMarkPaid} />
           </CardContent>
         </Card>
       </div>
