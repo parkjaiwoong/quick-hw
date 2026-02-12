@@ -101,19 +101,6 @@ function SignUpForm() {
               </Select>
             </div>
 
-            {role === "customer" && (
-              <div className="space-y-2">
-                <Label htmlFor="referringDriverId">추천 기사 ID (선택)</Label>
-                <Input
-                  id="referringDriverId"
-                  name="referringDriverId"
-                  type="text"
-                  placeholder="추천 기사 UUID 입력"
-                />
-                <p className="text-xs text-muted-foreground">추천 기사에게 소개받았다면 입력하세요.</p>
-              </div>
-            )}
-
             {/* 배송원 추가 정보 */}
             {role === "driver" && (
               <div className="space-y-4 p-4 border rounded-lg bg-blue-50">

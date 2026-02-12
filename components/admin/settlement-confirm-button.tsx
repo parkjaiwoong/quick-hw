@@ -5,14 +5,17 @@
  import { Button } from "@/components/ui/button"
  import { confirmSettlement } from "@/lib/actions/finance"
  
- interface SettlementConfirmButtonProps {
-   settlementId: string
- }
+interface SettlementConfirmButtonProps {
+  settlementId: string
+  disabled?: boolean
+  helperText?: string
+}
  
- export function SettlementConfirmButton({ settlementId }: SettlementConfirmButtonProps) {
+export function SettlementConfirmButton({ settlementId, disabled, helperText }: SettlementConfirmButtonProps) {
    const [isPending, startTransition] = useTransition()
  
    const handleClick = () => {
+    if (disabled) return
      startTransition(async () => {
        const result = await confirmSettlement(settlementId)
        if ("error" in result && result.error) {
@@ -24,8 +27,11 @@
    }
  
    return (
-     <Button size="sm" className="mt-2" disabled={isPending} onClick={handleClick}>
-       {isPending ? "확정 중..." : "정산 확정"}
-     </Button>
+    <div className="mt-2 space-y-1">
+      <Button size="sm" disabled={isPending || disabled} onClick={handleClick} title={helperText}>
+        {isPending ? "확정 중..." : "정산 확정"}
+      </Button>
+      {disabled && helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
+    </div>
    )
  }

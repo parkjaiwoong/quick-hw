@@ -210,7 +210,7 @@ export function BottomNav() {
                 )}
               >
                 <Wallet className="w-5 h-5" />
-                <span className="text-xs">지갑</span>
+                <span className="text-xs">지갑/출금</span>
               </Link>
             </>
           )}

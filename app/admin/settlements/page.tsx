@@ -3,10 +3,10 @@ import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getAllSettlements } from "@/lib/actions/settlement"
-import { SettlementConfirmButton } from "@/components/admin/settlement-confirm-button"
 import Link from "next/link"
 import { DollarSign, Calendar, CheckCircle, Clock } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
+import { SettlementBulkPanel } from "@/components/admin/settlement-bulk-panel"
 
 export default async function SettlementsPage() {
   const supabase = await getSupabaseServerClient()
@@ -98,56 +98,7 @@ export default async function SettlementsPage() {
             <CardDescription>모든 정산 내역을 확인하세요</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {settlements.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">정산 내역이 없습니다</p>
-              ) : (
-                settlements.map((settlement: any) => (
-                  <div key={settlement.id} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold">
-                          {settlement.driver?.full_name || settlement.driver?.email || "알 수 없음"}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          기간: {new Date(settlement.settlement_period_start).toLocaleDateString("ko-KR")} ~{" "}
-                          {new Date(settlement.settlement_period_end).toLocaleDateString("ko-KR")}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          배송 건수: {settlement.total_deliveries}건 | 정산 금액:{" "}
-                          {settlement.net_earnings?.toLocaleString()}원
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span
-                          className={`px-2 py-1 rounded text-xs ${
-                            settlement.status === "completed"
-                              ? "bg-green-100 text-green-800"
-                              : settlement.status === "processing"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {settlement.status === "completed"
-                            ? "완료"
-                            : settlement.status === "processing"
-                              ? "처리 중"
-                              : "대기 중"}
-                        </span>
-                        {settlement.settlement_status === "PENDING" && (
-                          <SettlementConfirmButton settlementId={settlement.id} />
-                        )}
-                        {settlement.settlement_status === "CONFIRMED" && (
-                          <div className="mt-2 text-xs text-emerald-700 font-semibold">
-                            출금 가능 상태로 전환됨
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <SettlementBulkPanel settlements={settlements} />
           </CardContent>
         </Card>
       </div>

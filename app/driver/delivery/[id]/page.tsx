@@ -6,7 +6,7 @@ import { getDeliveryForDriver } from "@/lib/actions/tracking"
 import { DriverLocationUpdater } from "@/components/driver/driver-location-updater"
 import { DeliveryStatusTimeline } from "@/components/tracking/delivery-status-timeline"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Phone } from "lucide-react"
+import { MapPin, Phone, Bike, Clock, Calendar, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
@@ -145,7 +145,42 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
               <Input value={delivery.delivery_address} readOnly />
             </div>
           </div>
-          <OpenLayersMap pickup={pickupCoords} delivery={deliveryCoords} />
+          <OpenLayersMap pickup={pickupCoords} delivery={deliveryCoords} showMyLocation />
+          <div className="space-y-2 pt-2">
+            <p className="text-sm font-medium text-muted-foreground">배송 옵션</p>
+            <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="gap-1">
+              <Bike className="h-3.5 w-3" />
+              {delivery.vehicle_type === "motorcycle" ? "오토바이" : delivery.vehicle_type || "오토바이"}
+            </Badge>
+            {delivery.delivery_option === "scheduled" ? (
+              <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300">
+                <Calendar className="h-3.5 w-3" />
+                예약 픽업
+                {delivery.scheduled_pickup_at && (
+                  <span className="ml-1">
+                    {new Date(delivery.scheduled_pickup_at).toLocaleString("ko-KR", {
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1">
+                <Clock className="h-3.5 w-3" />
+                즉시 픽업
+                {delivery.urgency === "express" && (
+                  <span className="ml-1 text-orange-600 flex items-center gap-0.5">
+                    <Zap className="h-3 w-3" /> 급송
+                  </span>
+                )}
+              </Badge>
+            )}
+            </div>
+          </div>
         </div>
 
         {isAssignedToMe && <DriverLocationUpdater deliveryId={delivery.id} />}

@@ -157,17 +157,20 @@ export default async function AdminDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>결제/출금 관리</CardTitle>
-            <CardDescription>결제 상태와 출금 요청을 확인합니다</CardDescription>
+            <CardTitle>결제 · 정산 · 출금 관리</CardTitle>
+            <CardDescription>고객 결제, 기사 정산, 기사 출금 요청을 한곳에서 처리합니다</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col md:flex-row gap-3">
-            <Button asChild variant="outline" className="flex-1">
+          <CardContent className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <Button asChild variant="outline" className="flex-1 min-w-[120px]">
               <Link href="/admin/payments">결제 관리</Link>
             </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/admin/payouts">출금 관리</Link>
+            <Button asChild variant="outline" className="flex-1 min-w-[120px]">
+              <Link href="/admin/settlements">정산 관리</Link>
             </Button>
-            <Button asChild variant="outline" className="flex-1">
+            <Button asChild variant="outline" className="flex-1 min-w-[120px]">
+              <Link href="/admin/payouts">출금(지급) 관리</Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1 min-w-[120px]">
               <Link href="/admin/finance-logs">금액 액션 로그</Link>
             </Button>
           </CardContent>

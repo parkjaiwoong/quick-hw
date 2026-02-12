@@ -28,7 +28,7 @@ export async function GET() {
       driver:profiles!payout_requests_driver_id_fkey(full_name, email, phone)
     `,
     )
-    .in("status", ["pending", "approved"])
+    .in("status", ["requested", "on_hold", "approved"])
     .order("requested_at", { ascending: true })
 
   const header = ["기사명", "은행", "계좌번호", "출금액", "상태"]

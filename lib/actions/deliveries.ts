@@ -3,6 +3,7 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { resolveRiderForOrder } from "@/lib/actions/rider-referral"
+import { calculateDeliveryFee } from "@/lib/pricing"
 
 interface CreateDeliveryData {
   pickupAddress: string
@@ -25,6 +26,11 @@ interface CreateDeliveryData {
   packageSize?: string
   paymentMethod?: string
   customerAmount?: number
+
+  deliveryOption?: string
+  vehicleType?: string
+  urgency?: string
+  scheduledPickupAt?: string
 }
 
 export async function createDelivery(data: CreateDeliveryData) {
@@ -85,9 +91,19 @@ export async function createDelivery(data: CreateDeliveryData) {
   const includedDistanceKm = 2
 
   const distanceFee = Math.max(0, distanceKm - includedDistanceKm) * perKmFee
-  const quotedTotalFee = baseFee + distanceFee
-  const adjustedAmount = Number.isFinite(Number(data.customerAmount)) ? Number(data.customerAmount) : quotedTotalFee
-  const totalFee = adjustedAmount > 0 ? adjustedAmount : quotedTotalFee
+  const quotedTotalFee = calculateDeliveryFee({
+    baseFee,
+    perKmFee,
+    includedDistanceKm,
+    distanceKm,
+    itemType: data.itemType || undefined,
+    itemWeightKg: data.itemWeight,
+    packageSize: data.packageSize,
+  })
+  const adjustedAmount = Number.isFinite(Number(data.customerAmount))
+    ? Math.round(Number(data.customerAmount))
+    : quotedTotalFee
+  const totalFee = Math.round(adjustedAmount > 0 ? adjustedAmount : quotedTotalFee)
   let platformFee = Math.round((totalFee * commissionRate) / 100)
   let driverFee = Math.max(totalFee - platformFee, minDriverFee)
   if (driverFee + platformFee > totalFee) {
@@ -120,6 +136,10 @@ export async function createDelivery(data: CreateDeliveryData) {
       platform_fee: platformFee,
       referring_rider_id: (await resolveRiderForOrder(user.id)).riderId || null,
       status: "pending",
+      delivery_option: data.deliveryOption || "immediate",
+      vehicle_type: data.vehicleType || "motorcycle",
+      urgency: data.urgency || "standard",
+      scheduled_pickup_at: data.scheduledPickupAt ? new Date(data.scheduledPickupAt).toISOString() : null,
     })
     .select()
     .single()
@@ -182,6 +202,41 @@ export async function getMyDeliveries() {
 
   return { deliveries: data }
 }
+
+export async function getDeliveriesByCustomerId(customerId: string) {
+  const supabase = await getSupabaseServerClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "인증이 필요합니다" }
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+  if (profile?.role !== "admin") {
+    return { error: "관리자 권한이 필요합니다" }
+  }
+
+  const { data, error } = await supabase
+    .from("deliveries")
+    .select(
+      `
+      *,
+      orders:orders!orders_delivery_id_fkey(order_amount, order_status, payment_method),
+      payments:payments!payments_delivery_id_fkey(status, amount, payment_method)
+    `,
+    )
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { deliveries: data }
+}
  
 export async function cancelDelivery(deliveryId: string) {
   const supabase = await getSupabaseServerClient()
@@ -202,10 +257,12 @@ export async function cancelDelivery(deliveryId: string) {
   )
 
   if (isStarted) {
-    await refundPaymentForDelivery(deliveryId)
+    const refundResult = await refundPaymentForDelivery(deliveryId)
+    if (!refundResult.success && refundResult.error) return { error: refundResult.error }
     await excludeSettlementForDelivery(deliveryId, "배송 시작 이후 취소")
   } else {
-    await cancelPaymentForDelivery(deliveryId)
+    const cancelResult = await cancelPaymentForDelivery(deliveryId)
+    if (!cancelResult.success && cancelResult.error) return { error: cancelResult.error }
   }
 
   const { error } = await supabase

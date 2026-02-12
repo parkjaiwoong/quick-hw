@@ -39,7 +39,7 @@ export default async function AdminFinanceLogsPage() {
   const { data: payouts } = await supabase
     .from("payout_requests")
     .select("id, requested_amount, status, processed_at, driver:profiles!payout_requests_driver_id_fkey(full_name, email)")
-    .in("status", ["paid", "rejected"])
+    .in("status", ["approved", "transferred", "failed", "canceled", "rejected"])
     .order("processed_at", { ascending: false })
     .limit(200)
 
@@ -53,7 +53,14 @@ export default async function AdminFinanceLogsPage() {
     })),
     ...(payouts || []).map((payout: any) => ({
       id: payout.id,
-      type: payout.status === "paid" ? "출금 완료" : "출금 반려",
+      type:
+        payout.status === "transferred"
+          ? "이체 완료"
+          : payout.status === "failed"
+            ? "이체 실패"
+            : payout.status === "canceled" || payout.status === "rejected"
+              ? "출금 반려"
+              : "출금 승인",
       occurred_at: payout.processed_at || "",
       amount: Number(payout.requested_amount || 0),
       driver_name: payout.driver?.full_name || payout.driver?.email || "기사",

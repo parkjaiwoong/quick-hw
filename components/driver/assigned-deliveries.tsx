@@ -3,7 +3,7 @@
 import type { Delivery } from "@/lib/types/database"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Phone } from "lucide-react"
+import { MapPin, Phone, Bike, Clock, Calendar, Zap } from "lucide-react"
 import { updateDeliveryStatus } from "@/lib/actions/driver"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -52,7 +52,27 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
         return (
           <div key={delivery.id} className="border rounded-lg p-4 bg-card">
             <div className="flex items-start justify-between mb-3">
-              <Badge className={config.color}>{config.label}</Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={config.color}>{config.label}</Badge>
+                <Badge variant="outline" className="gap-1 text-xs font-normal">
+                  <Bike className="h-3 w-3" />
+                  {delivery.vehicle_type === "motorcycle" ? "오토바이" : delivery.vehicle_type || "오토바이"}
+                </Badge>
+                {delivery.delivery_option === "scheduled" ? (
+                  <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300 text-xs font-normal">
+                    <Calendar className="h-3 w-3" />
+                    예약 픽업
+                    {delivery.scheduled_pickup_at && (
+                      <span>{new Date(delivery.scheduled_pickup_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    )}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1 text-xs font-normal">
+                    <Clock className="h-3 w-3" />
+                    즉시 {delivery.urgency === "express" && <><Zap className="h-3 w-3 text-orange-500" /> 급송</>}
+                  </Badge>
+                )}
+              </div>
               <div className="text-right">
                 <p className="text-xl font-bold text-green-600">{delivery.driver_fee?.toLocaleString()}원</p>
                 <p className="text-xs text-muted-foreground">{delivery.distance_km?.toFixed(1)}km</p>

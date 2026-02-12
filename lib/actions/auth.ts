@@ -14,8 +14,8 @@ export async function signUp(formData: FormData) {
   const fullName = formData.get("fullName") as string
   const phone = formData.get("phone") as string
   const role = (formData.get("role") as string) || "customer"
-  const rawReferringDriverId = String(formData.get("referringDriverId") || "").trim()
-  const referringDriverId = role === "customer" && rawReferringDriverId ? rawReferringDriverId : null
+  // 고객-기사 연결은 딥링크/QR(기사 코드)로만 가능. 폼 입력 제거.
+  const referringDriverId = null
 
   // 입력값 검증
   if (!email || !password || !fullName || !phone) {
@@ -90,23 +90,6 @@ export async function signUp(formData: FormData) {
     serviceRoleKey
   )
 
-  if (referringDriverId) {
-    if (referringDriverId === userId) {
-      return { error: "본인을 추천 기사로 등록할 수 없습니다." }
-    }
-
-    const { data: driverProfile } = await supabaseService
-      .from("profiles")
-      .select("id")
-      .eq("id", referringDriverId)
-      .eq("role", "driver")
-      .maybeSingle()
-
-    if (!driverProfile) {
-      return { error: "유효한 추천 기사 ID가 아닙니다." }
-    }
-  }
-  
   // 프로필 생성 - 사용자가 auth.users에 존재하는지 확인 후 생성
   console.log("Creating profile for user:", userId)
   

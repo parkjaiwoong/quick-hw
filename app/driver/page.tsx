@@ -70,23 +70,15 @@ export default async function DriverDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <RealtimeDeliveryNotifications userId={user.id} />
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        <Card className="border-amber-200 bg-amber-50/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">프로그램 사용료 안내</CardTitle>
-            <CardDescription>
-              초기에는 0원으로 운영되며, 적용 시 사전 고지됩니다.
-            </CardDescription>
-          </CardHeader>
-        </Card>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-balance">배송원 대시보드2</h1>
+            <h1 className="text-3xl font-bold text-balance">배송원 대시보드</h1>
             <p className="text-muted-foreground mt-1">{profile?.full_name}님, 안전 운행하세요</p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-2">
               <Button asChild variant="outline" size="sm">
-                <Link href="/driver/wallet">적립금 지갑</Link>
+                <Link href="/driver/wallet">적립금 지갑 · 출금</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
                 <Link href="/driver/settlements">정산 내역</Link>
@@ -151,10 +143,11 @@ export default async function DriverDashboard() {
         </div>
 
         <Tabs defaultValue="available" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="available">대기 중 배송 ({available.length})</TabsTrigger>
             <TabsTrigger value="assigned">진행 중 배송 ({assigned.length})</TabsTrigger>
             <TabsTrigger value="history">운행 이력</TabsTrigger>
+            <TabsTrigger value="settlements">정산</TabsTrigger>
             <TabsTrigger value="sales">📊 영업 성과</TabsTrigger>
           </TabsList>
 
@@ -230,6 +223,20 @@ export default async function DriverDashboard() {
                     <p className="text-muted-foreground">운행 이력이 없습니다</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settlements" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>정산</CardTitle>
+                <CardDescription>정산 내역과 출금 요청은 정산 화면에서 관리합니다.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild className="w-full">
+                  <Link href="/driver/settlements">정산 화면 이동</Link>
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

@@ -149,7 +149,8 @@ export async function getAllSettlements() {
     .select(
       `
       *,
-      driver:profiles!settlements_driver_id_fkey(full_name, email, phone)
+      driver:profiles!settlements_driver_id_fkey(full_name, email, phone),
+      payment:payments!settlements_payment_id_fkey(amount, status)
     `,
     )
     .order("settlement_period_end", { ascending: false })

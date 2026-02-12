@@ -34,7 +34,7 @@ export default async function DriverWalletPage() {
   const { wallet } = await getDriverWalletSummary(userId)
   const { data: payoutRequests } = await supabase
     .from("payout_requests")
-    .select("id, requested_amount, status, notes, requested_at")
+    .select("id, requested_amount, status, notes, requested_at, settlement_status, payout_status")
     .eq("driver_id", userId)
     .order("requested_at", { ascending: false })
   const { data: recentSettlements } = await supabase
@@ -52,10 +52,12 @@ export default async function DriverWalletPage() {
   const pendingBalance = Number(wallet?.pending_balance || 0)
   const pendingRequestAmount =
     payoutRequests
-      ?.filter((p) => p.status === "pending" || p.status === "approved")
+      ?.filter((p) => p.status === "requested" || p.status === "on_hold" || p.status === "approved")
       .reduce((sum, p) => sum + Number(p.requested_amount || 0), 0) || 0
   const completedRequestAmount =
-    payoutRequests?.filter((p) => p.status === "paid").reduce((sum, p) => sum + Number(p.requested_amount || 0), 0) || 0
+    payoutRequests
+      ?.filter((p) => p.status === "transferred" || p.status === "paid")
+      .reduce((sum, p) => sum + Number(p.requested_amount || 0), 0) || 0
   const isRequestInProgress = pendingRequestAmount > 0
   const isPayoutEligible = availableBalance > 0 && !isRequestInProgress
   const latestSettlement = recentSettlements?.[0]
@@ -173,7 +175,9 @@ export default async function DriverWalletPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">출금 완료</span>
-              <span className="font-medium">{latestPayoutRequest?.status === "paid" ? "완료" : "대기"}</span>
+              <span className="font-medium">
+                {latestPayoutRequest?.status === "transferred" || latestPayoutRequest?.status === "paid" ? "완료" : "대기"}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -252,12 +256,48 @@ export default async function DriverWalletPage() {
               <p className="text-sm text-muted-foreground text-center py-6">출금 요청 내역이 없습니다</p>
             ) : (
               (payoutRequests || []).map((payout) => {
+                const mappedSettlementStatus =
+                  payout.settlement_status ||
+                  (payout.status === "approved" || payout.status === "transferred"
+                    ? "CONFIRMED"
+                    : payout.status === "on_hold"
+                      ? "HOLD"
+                      : "READY")
+                const mappedPayoutStatus =
+                  payout.payout_status ||
+                  (payout.status === "approved"
+                    ? "WAITING"
+                    : payout.status === "transferred"
+                      ? "PAID_OUT"
+                      : "NONE")
                 const statusLabel =
-                  payout.status === "paid"
-                    ? "완료"
-                    : payout.status === "rejected"
-                      ? "반려"
-                      : "요청됨"
+                  payout.status === "transferred" || payout.status === "paid"
+                    ? "출금 완료"
+                    : payout.status === "approved"
+                      ? "승인"
+                      : payout.status === "failed"
+                        ? "실패"
+                        : payout.status === "canceled"
+                          ? "취소"
+                    : payout.status === "on_hold"
+                      ? "보류"
+                      : payout.status === "rejected"
+                        ? "반려"
+                    : "요청됨"
+                const statusMessage =
+                  payout.status === "transferred" || payout.status === "paid"
+                    ? "출금 완료"
+                    : payout.status === "approved"
+                      ? "출금 승인됨 (이체 대기)"
+                      : payout.status === "failed"
+                        ? "출금 처리 실패 (관리자 확인 중)"
+                        : payout.status === "canceled"
+                          ? "출금 요청이 취소되었습니다."
+                    : payout.status === "on_hold"
+                      ? "출금 요청이 확인 중입니다."
+                      : payout.status === "rejected"
+                        ? "출금 요청이 반려되었습니다."
+                    : "출금 요청이 접수되었습니다."
                 return (
                   <div key={payout.id} className="border rounded-lg p-4 space-y-2">
                     <div className="flex items-center justify-between">
@@ -269,8 +309,13 @@ export default async function DriverWalletPage() {
                       </div>
                       <span className="text-xs rounded px-2 py-1 bg-muted">{statusLabel}</span>
                     </div>
-                    {payout.status === "rejected" && payout.notes && (
-                      <p className="text-xs text-red-600">반려 사유: {payout.notes}</p>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span>회계 상태: {mappedSettlementStatus}</span>
+                      <span>이체 상태: {mappedPayoutStatus}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{statusMessage}</p>
+                    {(payout.status === "rejected" || payout.status === "on_hold") && payout.notes && (
+                      <p className="text-xs text-red-600">사유: {payout.notes}</p>
                     )}
                   </div>
                 )

@@ -187,8 +187,8 @@ export function Header() {
                 </SelectContent>
               </Select>
             )}
-            {isAuthenticated && (
-              <Link href="/customer">
+            {isAuthenticated && (pathname?.startsWith("/customer") || userRole === "customer" || selectedRole === "customer") && (
+              <Link href="/customer/new-delivery">
                 <Button variant="ghost" size="sm" className="gap-2">
                   <Package className="w-4 h-4" />
                   <span className="hidden sm:inline">배송 요청</span>

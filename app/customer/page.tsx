@@ -8,7 +8,6 @@ import { Package, MapPin, Shield, AlertCircle } from "lucide-react"
 import { DeliveryList } from "@/components/customer/delivery-list"
 import { getMyDeliveries } from "@/lib/actions/deliveries"
 import { getRoleOverride } from "@/lib/role"
-import { ReferringDriverForm } from "@/components/customer/referring-driver-form"
 import { RiderChangeForm } from "@/components/customer/rider-change-form"
 
 export default async function CustomerDashboard({
@@ -252,13 +251,12 @@ export default async function CustomerDashboard({
                 <AlertDescription>{changeMessage}</AlertDescription>
               </Alert>
             )}
-            {referringDriverId ? (
+            {referringRiderCode ? (
               <p className="text-sm">
-                귀속 기사: {referringDriver?.full_name || "이름 없음"} 기사 (
-                {referringRiderCode || referringDriverId.slice(0, 8).toUpperCase()})
+                귀속 기사 코드: <span className="font-medium">{referringRiderCode}</span>
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground">귀속된 기사가 없습니다.</p>
+              <p className="text-sm text-muted-foreground">귀속된 기사가 없습니다. 딥링크 또는 QR로만 연결됩니다.</p>
             )}
             <RiderChangeForm />
             <div>
@@ -303,24 +301,21 @@ export default async function CustomerDashboard({
 
         <Card>
           <CardHeader>
-            <CardTitle>추천 기사 ID</CardTitle>
-            <CardDescription>추천 기사 정보를 등록하거나 변경할 수 있습니다.</CardDescription>
+            <CardTitle>귀속 기사 (딥링크 · QR)</CardTitle>
+            <CardDescription>기사와의 연결은 기사가 공유한 딥링크 또는 QR 코드로만 가능합니다.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {referringDriver ? (
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm space-y-1">
-                <p className="font-medium">등록된 추천 기사</p>
-                <p>ID: {referringDriver.id}</p>
-                <p>이름: {referringDriver.full_name || "-"}</p>
-                <p>이메일: {referringDriver.email || "-"}</p>
-                <p>전화번호: {referringDriver.phone || "-"}</p>
+          <CardContent className="space-y-3">
+            {referringRiderCode ? (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+                <p className="font-medium">연결된 기사 코드</p>
+                <p className="text-lg font-semibold text-foreground">{referringRiderCode}</p>
+                <p className="text-xs text-muted-foreground mt-1">딥링크 또는 QR 코드로 연결되었습니다.</p>
               </div>
             ) : (
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-                등록된 추천 기사 ID가 없습니다.
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                연결된 기사가 없습니다. 기사가 공유한 링크 또는 QR 코드로 접속하면 자동으로 연결됩니다.
               </div>
             )}
-            <ReferringDriverForm initialReferringDriverId={referringDriverId} />
           </CardContent>
         </Card>
       </div>

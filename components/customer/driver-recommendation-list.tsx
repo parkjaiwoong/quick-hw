@@ -40,9 +40,9 @@ export function DriverRecommendationList({ drivers, deliveryId }: DriverRecommen
       setLoadingDriverId(null)
     } else {
       setConnectedDriverId(driverId)
-      // 2초 후 고객 대시보드로 이동
+      // 2초 후 배송 상세로 이동. 카드 결제 시 토스 결제 창 자동 오픈(?pay=1)
       setTimeout(() => {
-        router.push("/customer")
+        router.push(`/customer/delivery/${deliveryId}?pay=1`)
       }, 2000)
     }
   }

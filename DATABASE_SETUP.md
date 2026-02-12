@@ -85,6 +85,12 @@ npm run dev
 6. `005_nearby_driver_allocation.sql` - 배송원 할당 함수
 7. `006_additional_features.sql` - 추가 기능 (선택사항)
 8. `042_payment_settlement_mvp.sql` - 결제/정산/지갑 구조
+9. `043_toss_payments_mvp.sql` - 토스 결제 상태 확장
+10. `044_payout_request_logs.sql` - 출금 요청 상태 로그
+11. `045_payout_transfers_mvp.sql` - 출금 이체 집행 로그
+12. `046_accounting_audit_schema.sql` - 회계/세무 로그 확장
+13. `047_payout_accounting_mapping.sql` - 정산/출금 상태 매핑 컬럼
+14. `048_rider_reward_settlement.sql` - 귀속 기사 수수료 (rider_reward_history, reward_policy_master)
 
 ## 문제 해결
 

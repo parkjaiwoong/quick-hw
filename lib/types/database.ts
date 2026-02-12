@@ -4,9 +4,19 @@ export type DeliveryStatus = "pending" | "accepted" | "picked_up" | "in_transit"
 
 export type OrderStatus = "REQUEST" | "PAID" | "ASSIGNED" | "PICKED_UP" | "DELIVERED" | "CANCELED"
 
-export type PaymentStatus = "PENDING" | "PAID" | "CANCELED" | "REFUNDED"
+export type PaymentStatus = "READY" | "PAID" | "FAILED" | "CANCELED" | "PENDING" | "REFUNDED"
 
-export type SettlementStatus = "NONE" | "PENDING" | "CONFIRMED" | "PAID_OUT" | "EXCLUDED"
+export type SettlementStatus =
+  | "NONE"
+  | "PENDING"
+  | "READY"
+  | "CONFIRMED"
+  | "HOLD"
+  | "LOCKED"
+  | "PAID_OUT"
+  | "EXCLUDED"
+
+export type PayoutStatus = "NONE" | "WAITING" | "PAID_OUT"
 
 export type PaymentMethod = "card" | "bank_transfer" | "cash"
 
@@ -74,6 +84,11 @@ export interface Delivery {
   delivered_at: string | null
   cancelled_at: string | null
 
+  delivery_option?: string | null
+  vehicle_type?: string | null
+  urgency?: string | null
+  scheduled_pickup_at?: string | null
+
   customer_rating: number | null
   customer_review: string | null
   driver_rating: number | null
@@ -100,12 +115,19 @@ export interface Payment {
   order_id: string | null
   delivery_id: string | null
   customer_id: string | null
+  settlement_id?: string | null
   amount: number
+  amount_total?: number | null
+  pg_fee?: number | null
+  platform_fee?: number | null
+  vat_amount?: number | null
   payment_method: string
   status: PaymentStatus
   pg_provider: string | null
+  payment_key?: string | null
   pg_tid: string | null
   requested_at: string
+  approved_at?: string | null
   paid_at: string | null
   canceled_at: string | null
   refunded_at: string | null
@@ -144,10 +166,16 @@ export interface Settlement {
   delivery_id: string | null
   order_id: string | null
   payment_id: string | null
+  payment_status?: PaymentStatus | null
+  gross_amount?: number | null
+  platform_fee?: number | null
+  net_amount?: number | null
   settlement_status: SettlementStatus | null
   settlement_amount: number | null
   settlement_period_start: string | null
   settlement_period_end: string | null
+  confirmed_at?: string | null
+  locked_at?: string | null
   status: string | null
   created_at: string
   updated_at: string
@@ -173,6 +201,12 @@ export interface PayoutRequest {
   bank_account: string | null
   bank_name: string | null
   requested_at: string
+  approved_at?: string | null
+  transferred_at?: string | null
+  transfer_method?: string | null
+  settlement_status?: SettlementStatus | null
+  settlement_locked?: boolean | null
+  payout_status?: PayoutStatus | null
   processed_at: string | null
   created_at: string
   updated_at: string

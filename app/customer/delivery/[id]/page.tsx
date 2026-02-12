@@ -2,13 +2,13 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getDeliveryForCustomer } from "@/lib/actions/tracking"
-import { DeliveryTrackingMap } from "@/components/tracking/delivery-tracking-map"
 import { DeliveryStatusTimeline } from "@/components/tracking/delivery-status-timeline"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Phone, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
+import { TossPaymentButton } from "@/components/customer/toss-payment-button"
 
 const statusConfig = {
   pending: { label: "대기중", color: "bg-yellow-100 text-yellow-800" },
@@ -20,13 +20,21 @@ const statusConfig = {
 }
 
 const paymentStatusLabel: Record<string, string> = {
+  READY: "결제 대기",
   PENDING: "결제 대기",
   PAID: "결제 완료",
+  FAILED: "결제 실패",
   CANCELED: "결제 취소",
   REFUNDED: "환불 완료",
 }
 
-export default async function DeliveryDetailPage({ params }: { params: { id: string } }) {
+export default async function DeliveryDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
   const supabase = await getSupabaseServerClient()
 
   const {
@@ -38,6 +46,10 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
   }
 
   const { id } = await params
+  const sp = searchParams ? await searchParams : {}
+  const payParam = sp?.pay
+  const isPayRedirect = payParam === "1" || (Array.isArray(payParam) && payParam[0] === "1")
+
   const { delivery } = await getDeliveryForCustomer(id)
   const { order, payment } = await getOrderPaymentSummaryByDelivery(id)
   const { data: pointRows } = await supabase
@@ -49,6 +61,9 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
 
   const earnedPoints =
     pointRows?.reduce((sum, row) => sum + Number(row.points || 0), 0) || 0
+  const isCardPayment = (payment?.payment_method || order?.payment_method) === "card"
+  const paymentAmount = Number(payment?.amount || order?.order_amount || 0)
+  const canPay = paymentAmount > 0 && payment?.status !== "PAID"
 
   if (!delivery || delivery.customer_id !== user.id) {
     redirect("/customer")
@@ -80,24 +95,15 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">배송 추적</h1>
-            <p className="text-sm text-muted-foreground">실시간으로 배송 상태를 확인하세요</p>
+            <p className="text-sm text-muted-foreground">배송 상태를 확인하세요</p>
           </div>
           <Badge className={statusConfig[delivery.status as keyof typeof statusConfig].color}>
             {statusConfig[delivery.status as keyof typeof statusConfig].label}
           </Badge>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>실시간 위치</CardTitle>
-              <CardDescription>배송원의 현재 위치를 확인할 수 있습니다</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DeliveryTrackingMap deliveryId={delivery.id} delivery={delivery} />
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 왼쪽: 배송 정보 + 배송원 정보 */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -107,11 +113,11 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <div className="flex items-start gap-2 mb-2">
                     <MapPin className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="font-semibold">픽업 위치</p>
-                      <p className="text-sm text-muted-foreground">{delivery.pickup_address}</p>
-                      <div className="flex items-center gap-2 mt-2 text-sm">
-                        <Phone className="h-4 w-4" />
+                      <p className="text-sm text-muted-foreground break-words">{delivery.pickup_address}</p>
+                      <div className="flex items-center gap-2 mt-2 text-sm flex-wrap">
+                        <Phone className="h-4 w-4 flex-shrink-0" />
                         <span>{delivery.pickup_contact_name}</span>
                         <span className="text-primary">{delivery.pickup_contact_phone}</span>
                       </div>
@@ -122,11 +128,11 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
                 <div className="bg-red-50 p-4 rounded-lg">
                   <div className="flex items-start gap-2 mb-2">
                     <MapPin className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="font-semibold">배송 위치</p>
-                      <p className="text-sm text-muted-foreground">{delivery.delivery_address}</p>
-                      <div className="flex items-center gap-2 mt-2 text-sm">
-                        <Phone className="h-4 w-4" />
+                      <p className="text-sm text-muted-foreground break-words">{delivery.delivery_address}</p>
+                      <div className="flex items-center gap-2 mt-2 text-sm flex-wrap">
+                        <Phone className="h-4 w-4 flex-shrink-0" />
                         <span>{delivery.delivery_contact_name}</span>
                         <span className="text-primary">{delivery.delivery_contact_phone}</span>
                       </div>
@@ -136,10 +142,10 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
 
                 {delivery.item_description && (
                   <div className="flex items-center gap-2 p-4 bg-accent/50 rounded-lg">
-                    <Package className="h-5 w-5 text-muted-foreground" />
-                    <div>
+                    <Package className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">물품 정보</p>
-                      <p className="text-sm text-muted-foreground">{delivery.item_description}</p>
+                      <p className="text-sm text-muted-foreground break-words">{delivery.item_description}</p>
                     </div>
                   </div>
                 )}
@@ -157,6 +163,28 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
               </CardContent>
             </Card>
 
+            {delivery.driver && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>배송원 정보</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{delivery.driver.full_name}</p>
+                      <p className="text-sm text-muted-foreground">{delivery.driver.phone}</p>
+                    </div>
+                    <Button asChild className="flex-shrink-0">
+                      <a href={`tel:${delivery.driver.phone}`}>전화하기</a>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* 오른쪽: 결제 정보 + 결제 금액 구성 */}
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>결제 정보</CardTitle>
@@ -174,6 +202,16 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
                   <span className="text-muted-foreground">결제 상태</span>
                   <span className="font-medium">{payment?.status ? paymentStatusLabel[payment.status] || payment.status : "-"}</span>
                 </div>
+                {isCardPayment && order?.id && canPay && (
+                  <div className="pt-3 border-t">
+                    <TossPaymentButton
+                      orderId={order.id}
+                      amount={paymentAmount}
+                      disabled={paymentAmount <= 0}
+                      autoPay={isPayRedirect}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -200,25 +238,6 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
                 </div>
               </CardContent>
             </Card>
-
-            {delivery.driver && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>배송원 정보</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold">{delivery.driver.full_name}</p>
-                      <p className="text-sm text-muted-foreground">{delivery.driver.phone}</p>
-                    </div>
-                    <Button asChild>
-                      <a href={`tel:${delivery.driver.phone}`}>전화하기</a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
 
