@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MapPin, Search, Navigation } from "lucide-react"
 import { searchAddress, getAddressFromCoords, type AddressSearchItem } from "@/lib/actions/address"
 
-export default function AddressSearchPage() {
+function AddressSearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const type = (searchParams.get("type") === "delivery" ? "delivery" : "pickup") as "pickup" | "delivery"
@@ -152,5 +152,25 @@ export default function AddressSearchPage() {
         </Button>
       </div>
     </div>
+  )
+}
+
+function AddressSearchFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4 flex items-center justify-center">
+      <Card className="w-full max-w-2xl">
+        <CardContent className="py-12 text-center text-muted-foreground">
+          주소 조회 화면을 불러오는 중…
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export default function AddressSearchPage() {
+  return (
+    <Suspense fallback={<AddressSearchFallback />}>
+      <AddressSearchContent />
+    </Suspense>
   )
 }
