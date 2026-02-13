@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
 import { TossPaymentButton } from "@/components/customer/toss-payment-button"
+import { PayPageOrderLoading } from "@/components/customer/pay-page-order-loading"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CreditCard } from "lucide-react"
@@ -39,10 +40,11 @@ export default async function DeliveryPayPage({
   const amount = Number(payment?.amount ?? order?.order_amount ?? 0)
   const canPay = amount > 0 && payment?.status !== "PAID"
 
-  if (!isCard || !order?.id) {
-    redirect(`/customer/delivery/${deliveryId}`)
+  // 주문이 아직 없으면 재시도 화면 표시 (배송 생성 직후 지연 시)
+  if (!order?.id) {
+    return <PayPageOrderLoading deliveryId={deliveryId} />
   }
-  if (!canPay) {
+  if (!isCard || !canPay) {
     redirect(`/customer/delivery/${deliveryId}`)
   }
 

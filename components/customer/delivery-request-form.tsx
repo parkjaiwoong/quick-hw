@@ -29,6 +29,12 @@ interface DeliveryRequestFormProps {
   initialDeliveryAddress?: string
   initialDeliveryLat?: string
   initialDeliveryLng?: string
+  initialPickupContactName?: string
+  initialPickupContactPhone?: string
+  initialPickupNotes?: string
+  initialDeliveryContactName?: string
+  initialDeliveryContactPhone?: string
+  initialDeliveryNotes?: string
 }
 
 const NEW_DELIVERY_PATH = "/customer/new-delivery"
@@ -43,6 +49,12 @@ export function DeliveryRequestForm({
   initialDeliveryAddress,
   initialDeliveryLat,
   initialDeliveryLng,
+  initialPickupContactName,
+  initialPickupContactPhone,
+  initialPickupNotes,
+  initialDeliveryContactName,
+  initialDeliveryContactPhone,
+  initialDeliveryNotes,
 }: DeliveryRequestFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
@@ -267,7 +279,7 @@ export function DeliveryRequestForm({
                 id="pickupContactName"
                 name="pickupContactName"
                 placeholder="홍길동"
-                defaultValue={userProfile?.full_name || ""}
+                defaultValue={initialPickupContactName ?? userProfile?.full_name ?? ""}
                 required
               />
             </div>
@@ -279,14 +291,20 @@ export function DeliveryRequestForm({
                 name="pickupContactPhone"
                 type="tel"
                 placeholder="010-1234-5678"
-                defaultValue={userProfile?.phone || ""}
+                defaultValue={initialPickupContactPhone ?? userProfile?.phone ?? ""}
                 required
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="pickupNotes">픽업 메모 (선택)</Label>
-              <Textarea id="pickupNotes" name="pickupNotes" placeholder="1층 로비에서 픽업" rows={2} />
+              <Textarea
+                id="pickupNotes"
+                name="pickupNotes"
+                placeholder="1층 로비에서 픽업"
+                rows={2}
+                defaultValue={initialPickupNotes ?? ""}
+              />
             </div>
           </CardContent>
         </Card>
@@ -345,7 +363,13 @@ export function DeliveryRequestForm({
 
             <div className="space-y-2">
               <Label htmlFor="deliveryContactName">수령인</Label>
-              <Input id="deliveryContactName" name="deliveryContactName" placeholder="김철수" required />
+              <Input
+                id="deliveryContactName"
+                name="deliveryContactName"
+                placeholder="김철수"
+                defaultValue={initialDeliveryContactName ?? ""}
+                required
+              />
             </div>
 
             <div className="space-y-2">
@@ -355,13 +379,20 @@ export function DeliveryRequestForm({
                 name="deliveryContactPhone"
                 type="tel"
                 placeholder="010-9876-5432"
+                defaultValue={initialDeliveryContactPhone ?? ""}
                 required
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="deliveryNotes">배송 메모 (선택)</Label>
-              <Textarea id="deliveryNotes" name="deliveryNotes" placeholder="경비실에 맡겨주세요" rows={2} />
+              <Textarea
+                id="deliveryNotes"
+                name="deliveryNotes"
+                placeholder="경비실에 맡겨주세요"
+                rows={2}
+                defaultValue={initialDeliveryNotes ?? ""}
+              />
             </div>
           </CardContent>
         </Card>

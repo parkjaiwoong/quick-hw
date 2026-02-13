@@ -149,13 +149,20 @@ export async function createDelivery(data: CreateDeliveryData) {
   }
 
   const { createOrderAndPaymentForDelivery } = await import("@/lib/actions/finance")
-  await createOrderAndPaymentForDelivery({
+  const paymentMethodNormalized =
+    data.paymentMethod === "card" || data.paymentMethod === "cash" || data.paymentMethod === "bank_transfer"
+      ? data.paymentMethod
+      : "card"
+  const orderResult = await createOrderAndPaymentForDelivery({
     deliveryId: delivery.id,
     customerId: user.id,
     amount: totalFee,
-    paymentMethod: data.paymentMethod,
+    paymentMethod: paymentMethodNormalized,
     customerAdjustedAmount: adjustedAmount !== quotedTotalFee ? adjustedAmount : null,
   })
+  if (orderResult?.error) {
+    return { error: orderResult.error }
+  }
 
   const { data: nearbyDrivers } = await supabase.rpc("find_nearby_drivers", {
     pickup_lat: data.pickupLat,
@@ -163,6 +170,30 @@ export async function createDelivery(data: CreateDeliveryData) {
     max_distance_km: 10.0,
     limit_count: 5,
   })
+
+  // 근처 기사가 0명이면 배송 가능한 전체 기사에게 알림 (위치 미설정 기사도 수신 가능)
+  if (!nearbyDrivers || nearbyDrivers.length === 0) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (serviceRoleKey) {
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+      const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+      const { data: availableDrivers } = await service
+        .from("driver_info")
+        .select("id")
+        .eq("is_available", true)
+      if (availableDrivers?.length) {
+        await service.from("notifications").insert(
+          availableDrivers.map((d) => ({
+            user_id: d.id,
+            delivery_id: delivery.id,
+            title: "새로운 배송 요청",
+            message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
+            type: "new_delivery_request",
+          })),
+        )
+      }
+    }
+  }
 
   revalidatePath("/customer")
   return {
