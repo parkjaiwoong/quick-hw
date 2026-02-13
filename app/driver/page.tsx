@@ -2,7 +2,8 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Package, Star, TrendingUp, History } from "lucide-react"
+import { Package, Star, TrendingUp, History, MapPin } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AvailableDeliveries } from "@/components/driver/available-deliveries"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
@@ -85,6 +86,12 @@ export default async function DriverDashboard() {
               </Button>
             </div>
             <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
+            <Alert className="border-blue-200 bg-blue-50/80 max-w-sm">
+              <MapPin className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 text-sm">
+                위치를 허용하면 주변 배송 요청을 더 많이 받을 수 있습니다. 배송 가능 ON 시 한 번만 허용해 주세요.
+              </AlertDescription>
+            </Alert>
             <Card className="w-full md:w-auto">
               <CardHeader className="pb-2">
                 <CardDescription>기사 코드</CardDescription>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,7 @@ import { Truck, Shield, Phone, CheckCircle } from "lucide-react"
 import { requestDriverConnection } from "@/lib/actions/deliveries"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 
 interface Driver {
   id: string
@@ -23,27 +24,108 @@ interface Driver {
 interface DriverRecommendationListProps {
   drivers: Driver[]
   deliveryId: string
+  /** 카드 결제 시 연결 요청 성공 후 바로 토스 결제 창 띄우기 */
+  openTossAfterConnect?: boolean
+  orderId?: string
+  paymentAmount?: number
 }
 
-export function DriverRecommendationList({ drivers, deliveryId }: DriverRecommendationListProps) {
+declare global {
+  interface Window {
+    TossPayments?: (clientKey: string) => {
+      requestPayment: (method: "CARD", options: Record<string, unknown>) => Promise<void>
+    }
+  }
+}
+
+export function DriverRecommendationList({
+  drivers,
+  deliveryId,
+  openTossAfterConnect,
+  orderId,
+  paymentAmount = 0,
+}: DriverRecommendationListProps) {
   const router = useRouter()
   const [loadingDriverId, setLoadingDriverId] = useState<string | null>(null)
   const [connectedDriverId, setConnectedDriverId] = useState<string | null>(null)
+  const [paymentOpening, setPaymentOpening] = useState(false)
+
+  useEffect(() => {
+    if (document.querySelector("script[data-toss-payments]")) return
+    const script = document.createElement("script")
+    script.src = "https://js.tosspayments.com/v1/payment"
+    script.async = true
+    script.dataset.tossPayments = "true"
+    document.body.appendChild(script)
+  }, [])
+
+  async function openTossPayment() {
+    if (!orderId || paymentAmount <= 0 || !window.TossPayments) return
+    setPaymentOpening(true)
+    try {
+      const res = await fetch("/api/payments/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, amount: paymentAmount }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(payload?.error || "결제 요청에 실패했습니다.")
+        return
+      }
+      if (!window.TossPayments) {
+        toast.error("결제 모듈을 불러오지 못했습니다.")
+        return
+      }
+      const toss = window.TossPayments(payload.clientKey)
+      await toss.requestPayment("CARD", {
+        amount: payload.amount,
+        orderId: payload.orderId,
+        orderName: payload.orderName,
+        customerName: payload.customerName,
+        successUrl: payload.successUrl,
+        failUrl: payload.failUrl,
+      })
+      // 결제 완료 시 successUrl로 이동하므로 여기서는 팝업 닫힌 경우만 옴(취소 등)
+      toast.info("결제를 완료하면 배송 상세에서 확인할 수 있습니다.")
+      router.push(`/customer/delivery/${deliveryId}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "결제 요청에 실패했습니다.")
+      router.push(`/customer/delivery/${deliveryId}`)
+    } finally {
+      setPaymentOpening(false)
+    }
+  }
 
   async function handleConnectRequest(driverId: string) {
     setLoadingDriverId(driverId)
-    
+
     const result = await requestDriverConnection(deliveryId, driverId)
-    
+
     if (result.error) {
-      alert(result.error)
+      toast.error(result.error)
       setLoadingDriverId(null)
     } else {
+      setLoadingDriverId(null)
       setConnectedDriverId(driverId)
-      // 2초 후 배송 상세로 이동. 카드 결제 시 토스 결제 창 자동 오픈(?pay=1)
-      setTimeout(() => {
-        router.push(`/customer/delivery/${deliveryId}?pay=1`)
-      }, 2000)
+      if (openTossAfterConnect && orderId && paymentAmount > 0) {
+        toast.success("연결 요청되었습니다. 결제 창을 엽니다.")
+        const waitToss = (attempts: number) => {
+          if (window.TossPayments) {
+            openTossPayment()
+            return
+          }
+          if (attempts < 30) setTimeout(() => waitToss(attempts + 1), 200)
+          else {
+            toast.error("결제 모듈 로딩이 지연됩니다. 배송 상세에서 결제해 주세요.")
+            router.push(`/customer/delivery/${deliveryId}`)
+          }
+        }
+        setTimeout(() => waitToss(0), 400)
+      } else {
+        toast.success("연결 요청되었습니다. 배송 상세에서 진행 상황을 확인하세요.")
+        router.push(`/customer/delivery/${deliveryId}`)
+      }
     }
   }
 

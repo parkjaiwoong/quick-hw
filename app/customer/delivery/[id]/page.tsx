@@ -9,9 +9,12 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
 import { TossPaymentButton } from "@/components/customer/toss-payment-button"
+import { DeliveryStatusRealtime } from "@/components/customer/delivery-status-realtime"
+
+export const dynamic = "force-dynamic"
 
 const statusConfig = {
-  pending: { label: "대기중", color: "bg-yellow-100 text-yellow-800" },
+  pending: { label: "기사 배정 대기 중", color: "bg-yellow-100 text-yellow-800" },
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
   picked_up: { label: "픽업완료", color: "bg-indigo-100 text-indigo-800" },
   in_transit: { label: "배송중", color: "bg-purple-100 text-purple-800" },
@@ -71,6 +74,7 @@ export default async function DeliveryDetailPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+      <DeliveryStatusRealtime deliveryId={id} />
       <div className="max-w-7xl mx-auto space-y-6">
         <Card>
           <CardHeader>
@@ -101,6 +105,12 @@ export default async function DeliveryDetailPage({
             {statusConfig[delivery.status as keyof typeof statusConfig].label}
           </Badge>
         </div>
+
+        {delivery.status === "pending" && (
+          <p className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+            기사가 배송 요청을 수락하면 배정됩니다. 잠시만 기다려 주세요.
+          </p>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 왼쪽: 배송 정보 + 배송원 정보 */}

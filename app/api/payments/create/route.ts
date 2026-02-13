@@ -95,6 +95,7 @@ export async function POST(request: Request) {
   }
 
   const origin = new URL(request.url).origin
+  const deliveryId = order.delivery_id ?? ""
 
   return NextResponse.json({
     paymentId,
@@ -102,7 +103,9 @@ export async function POST(request: Request) {
     amount: expectedAmount,
     orderName: "퀵서비스 주문",
     customerName: profile?.full_name || profile?.email || "고객",
-    successUrl: `${origin}/payments/success`,
+    successUrl: deliveryId
+      ? `${origin}/payments/success?deliveryId=${encodeURIComponent(deliveryId)}`
+      : `${origin}/payments/success`,
     failUrl: `${origin}/payments/fail`,
     clientKey,
   })

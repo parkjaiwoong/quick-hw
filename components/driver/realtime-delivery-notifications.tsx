@@ -109,6 +109,9 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
               (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
               notification.delivery_id
             ) {
+              // 받을 수 있는 배송 목록 실시간 갱신
+              routerRef.current.refresh()
+
               // 배송 정보 가져오기
               const { data: delivery, error: deliveryError } = await supabase
                 .from("deliveries")

@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, Search, Navigation } from "lucide-react"
+import { MapPin, Search, Navigation, Bookmark, ChevronDown, ChevronUp } from "lucide-react"
 import { searchAddress, getAddressFromCoords, type AddressSearchItem } from "@/lib/actions/address"
+import { getSavedAddresses, type SavedAddress } from "@/lib/actions/saved-addresses"
 
 function AddressSearchContent() {
   const router = useRouter()
@@ -20,8 +22,22 @@ function AddressSearchContent() {
   const [error, setError] = useState("")
   const [list, setList] = useState<AddressSearchItem[]>([])
   const [currentLocationLoading, setCurrentLocationLoading] = useState(false)
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([])
+  const [savedOpen, setSavedOpen] = useState(false)
+  const [savedLoading, setSavedLoading] = useState(false)
 
   const title = type === "pickup" ? "출발지 주소 조회" : "도착지 주소 조회"
+
+  async function loadSaved() {
+    setSavedLoading(true)
+    const res = await getSavedAddresses(type)
+    setSavedAddresses(res.data ?? [])
+    setSavedLoading(false)
+  }
+
+  useEffect(() => {
+    if (savedOpen) loadSaved()
+  }, [savedOpen])
 
   function buildReturnUrl(item: { address: string; lat: number; lng: number }) {
     const u = new URL(returnTo, window.location.origin)
@@ -94,6 +110,47 @@ function AddressSearchContent() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-center gap-2 border-dashed"
+              onClick={() => setSavedOpen(!savedOpen)}
+            >
+              <Bookmark className="h-4 w-4" />
+              {savedOpen ? "내가 등록한 주소 접기" : "내가 등록한 주소 보기"}
+              {savedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+
+            {savedOpen && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                {savedLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">불러오는 중…</p>
+                ) : savedAddresses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    등록된 주소가 없습니다.{" "}
+                    <Link href="/customer/saved-addresses" className="text-primary underline">
+                      자주 쓰는 주소 등록
+                    </Link>
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {savedAddresses.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left rounded-md hover:bg-muted transition-colors"
+                          onClick={() => router.push(buildReturnUrl({ address: item.address, lat: item.lat, lng: item.lng }))}
+                        >
+                          <span className="font-medium text-sm block">{item.label}</span>
+                          <span className="text-xs text-muted-foreground truncate block">{item.address}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             {type === "pickup" && (
               <Button
                 type="button"
@@ -147,9 +204,14 @@ function AddressSearchContent() {
           </CardContent>
         </Card>
 
-        <Button type="button" variant="ghost" onClick={() => router.push(returnTo)}>
-          배송 요청으로 돌아가기
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Link href="/customer/saved-addresses" className="text-sm text-primary hover:underline">
+            자주 쓰는 주소 등록·관리
+          </Link>
+          <Button type="button" variant="ghost" onClick={() => router.push(returnTo)}>
+            배송 요청으로 돌아가기
+          </Button>
+        </div>
       </div>
     </div>
   )

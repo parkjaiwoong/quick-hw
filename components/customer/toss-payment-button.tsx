@@ -22,7 +22,16 @@ interface TossPaymentButtonProps {
 
 export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPaymentButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [payFromUrl, setPayFromUrl] = useState(false)
   const autoPayTriggered = useRef(false)
+
+  const shouldAutoPay = Boolean(autoPay || payFromUrl)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const pay = new URLSearchParams(window.location.search).get("pay")
+    if (pay === "1") setPayFromUrl(true)
+  }, [])
 
   useEffect(() => {
     if (document.querySelector("script[data-toss-payments]")) {
@@ -70,20 +79,27 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
     }
   }
 
-  // 기사 연결 후 ?pay=1로 들어온 경우: 토스 스크립트 로드 후 결제 창 자동 오픈
   useEffect(() => {
-    if (!autoPay || disabled || autoPayTriggered.current) return
+    if (!shouldAutoPay || disabled || autoPayTriggered.current) return
     autoPayTriggered.current = true
-    const waitForScript = (attempts = 0) => {
+
+    const runPayment = () => {
       if (window.TossPayments) {
-        setTimeout(() => handleClick(), 300)
-        return
+        handleClick()
+        return true
       }
-      if (attempts < 25) setTimeout(() => waitForScript(attempts + 1), 200)
+      return false
     }
-    const t = setTimeout(() => waitForScript(), 500)
+
+    const waitForScript = (attempts: number) => {
+      if (runPayment()) return
+      if (attempts >= 50) return
+      setTimeout(() => waitForScript(attempts + 1), 200)
+    }
+
+    const t = setTimeout(() => waitForScript(0), 1200)
     return () => clearTimeout(t)
-  }, [autoPay, disabled])
+  }, [shouldAutoPay, disabled])
 
   return (
     <Button type="button" onClick={handleClick} disabled={disabled || isLoading} className="w-full">

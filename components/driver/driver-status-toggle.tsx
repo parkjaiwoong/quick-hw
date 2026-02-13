@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { updateDriverAvailability } from "@/lib/actions/driver"
+import { updateDriverAvailability, updateDriverLocation } from "@/lib/actions/driver"
 import { useRouter } from "next/navigation"
 
 interface DriverStatusToggleProps {
@@ -21,8 +21,22 @@ export function DriverStatusToggle({ initialStatus }: DriverStatusToggleProps) {
 
     if (result.error) {
       alert(result.error)
+      setIsLoading(false)
+      return
+    }
+    setIsAvailable(checked)
+
+    // 배송가능 ON일 때 현재 위치를 한 번 전송 → 근처 기사 추천에 노출되도록
+    if (checked && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          await updateDriverLocation(pos.coords.latitude, pos.coords.longitude)
+          router.refresh()
+        },
+        () => { /* 위치 거부해도 배송가능은 유지 */ router.refresh() },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      )
     } else {
-      setIsAvailable(checked)
       router.refresh()
     }
 

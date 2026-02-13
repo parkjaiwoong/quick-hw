@@ -14,6 +14,8 @@ function PaymentSuccessContent() {
   const confirmRequested = useRef(false)
   const [status, setStatus] = useState<PaymentStatus>("loading")
 
+  const deliveryId = searchParams.get("deliveryId")
+
   useEffect(() => {
     if (confirmRequested.current) return
     confirmRequested.current = true
@@ -45,6 +47,14 @@ function PaymentSuccessContent() {
     confirmPayment().catch(() => setStatus("error"))
   }, [searchParams])
 
+  useEffect(() => {
+    if (status !== "success" || !deliveryId) return
+    const t = setTimeout(() => {
+      router.replace(`/customer/delivery/${deliveryId}`)
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [status, deliveryId, router])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <div className="max-w-lg mx-auto flex min-h-[70vh] items-center">
@@ -60,7 +70,7 @@ function PaymentSuccessContent() {
             </CardTitle>
             <CardDescription>
               {status === "success"
-                ? "결제가 정상적으로 처리되었습니다."
+                ? "배송 상세(기사 배정 대기) 화면으로 이동합니다."
                 : status === "error"
                   ? "결제 승인에 실패했습니다."
                   : "결제 승인 요청을 처리하고 있습니다."}
@@ -69,6 +79,8 @@ function PaymentSuccessContent() {
           <CardContent className="flex flex-col gap-3">
             {status === "error" ? (
               <Button onClick={() => router.back()}>다시 결제하기</Button>
+            ) : status === "success" && deliveryId ? (
+              <p className="text-sm text-muted-foreground text-center">잠시 후 배송 상세로 이동합니다...</p>
             ) : (
               <Button onClick={() => router.back()}>주문 내역으로 돌아가기</Button>
             )}

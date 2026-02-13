@@ -2,13 +2,22 @@
 
 const KAKAO_BASE = "https://dapi.kakao.com/v2/local"
 
-const REST_KEY_MESSAGE =
+const REST_KEY_MESSAGE_LOCAL =
   "주소 검색/현재 위치 변환은 카카오 REST API 키가 필요합니다. " +
   "카카오 개발자 콘솔(developers.kakao.com) → 내 애플리케이션 → 앱 키 → REST API 키를 복사해 " +
   ".env.local에 KAKAO_REST_API_KEY=복사한키 형태로 추가한 뒤 서버를 다시 실행해 주세요. (JavaScript 키가 아닌 REST API 키입니다.)"
 
+const REST_KEY_MESSAGE_DEPLOY =
+  "현재 위치 주소 변환이 설정되지 않았습니다. " +
+  "배포 환경(Vercel 등)의 환경 변수에 KAKAO_REST_API_KEY(REST API 키)를 추가한 뒤 재배포해 주세요. " +
+  "로컬에서는 .env.local에 추가 후 서버를 재시작하면 됩니다."
+
 function getKakaoRestKey(): string {
   return (process.env.KAKAO_REST_API_KEY ?? "").trim()
+}
+
+function getRestKeyMessage(): string {
+  return process.env.VERCEL === "1" ? REST_KEY_MESSAGE_DEPLOY : REST_KEY_MESSAGE_LOCAL
 }
 
 export interface AddressSearchItem {
@@ -36,7 +45,7 @@ function parseKakaoErrorFromBody(json: any, status: number, fallback: string): s
 /** 키워드(장소) 검색 - 성북구 → 성북구, 성북구청, 성북구보건소 등 여러 결과 (Kakao Local REST API) */
 export async function searchAddress(query: string): Promise<{ data?: AddressSearchItem[]; error?: string }> {
   const key = getKakaoRestKey()
-  if (!key) return { error: REST_KEY_MESSAGE }
+  if (!key) return { error: getRestKeyMessage() }
   const q = (query ?? "").trim()
   if (!q) return { data: [] }
 
@@ -68,7 +77,7 @@ export async function getAddressFromCoords(
   lng: number
 ): Promise<{ address?: string; error?: string }> {
   const key = getKakaoRestKey()
-  if (!key) return { error: REST_KEY_MESSAGE }
+  if (!key) return { error: getRestKeyMessage() }
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return { error: "좌표가 올바르지 않습니다." }
 
   try {

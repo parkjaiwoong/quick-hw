@@ -182,7 +182,7 @@ export function DeliveryRequestForm({
 
       itemType: itemType,
       itemDescription: (formData.get("itemDescription") as string) || undefined,
-      paymentMethod: formData.get("paymentMethod") as string,
+      paymentMethod: (formData.get("paymentMethod") as string) || paymentMethod,
       customerAmount: (() => {
         const raw = (formData.get("customerAmount") as string)?.replace(/,/g, "") ?? ""
         const num = Number.parseFloat(raw)
@@ -200,8 +200,18 @@ export function DeliveryRequestForm({
       setError(result.error)
       setIsLoading(false)
     } else {
-      // 기사 추천 화면으로 이동
-      router.push(`/customer/drivers/${result.delivery?.id}`)
+      const id = result.delivery?.id
+      if (!id) {
+        setError("배송 정보를 불러올 수 없습니다.")
+        setIsLoading(false)
+        return
+      }
+      const method = (data.paymentMethod || paymentMethod || "").toLowerCase()
+      if (method === "card") {
+        router.push(`/customer/delivery/${id}/pay`)
+      } else {
+        router.push(`/customer/delivery/${id}`)
+      }
     }
   }
 

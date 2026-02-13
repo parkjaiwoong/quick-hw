@@ -259,14 +259,12 @@ export async function updateDriverLocation(lat: number, lng: number, deliveryId?
     return { error: "인증이 필요합니다" }
   }
 
-  // driver_info 테이블의 현재 위치 업데이트
-  // PostgreSQL POINT 타입은 (lng,lat) 형식으로 입력해야 함
+  // driver_info 테이블의 현재 위치 업데이트 (근처 기사 추천에 노출되도록)
+  // PostgreSQL POINT 타입: (x,y) = (longitude, latitude)
   const { error: updateError } = await supabase
     .from("driver_info")
     .update({
       current_location: `(${lng},${lat})`,
-      current_latitude: lat,
-      current_longitude: lng,
     })
     .eq("id", user.id)
 
