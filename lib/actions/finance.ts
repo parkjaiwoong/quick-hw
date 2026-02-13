@@ -472,6 +472,30 @@ export async function getDriverWalletSummary(driverId: string) {
   return { wallet, payouts: payouts || [], pendingPayoutAmount }
 }
 
+/** 기사 정산 페이지에서 호출: 폼 데이터만 받고, 액션 내부에서 인증 후 출금 요청 (클로저 미사용으로 서버 오류 방지) */
+export async function requestPayoutFromDriver(formData: FormData) {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: "로그인이 필요합니다." }
+  }
+  const amount = Number(formData.get("amount") || 0)
+  const bankName = String(formData.get("bank_name") || "").trim()
+  const accountNo = String(formData.get("account_no") || "").trim()
+  if (bankName || accountNo) {
+    await supabase
+      .from("driver_info")
+      .update({ bank_name: bankName || null, bank_account: accountNo || null })
+      .eq("id", user.id)
+  }
+  const result = await requestPayout(user.id, amount)
+  if (result?.error) return result
+  revalidatePath("/driver/settlements")
+  return result
+}
+
 export async function requestPayout(driverId: string, amount: number) {
   const supabase = await getSupabaseServerClient()
 

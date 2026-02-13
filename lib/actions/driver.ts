@@ -116,6 +116,11 @@ export async function acceptDelivery(deliveryId: string) {
 export async function updateDeliveryStatus(deliveryId: string, status: string) {
   const supabase = await getSupabaseServerClient()
 
+  const { data: current } = await supabase.from("deliveries").select("status").eq("id", deliveryId).single()
+  if (current?.status === "delivered") {
+    return { error: "이미 배송 완료된 건은 변경할 수 없습니다." }
+  }
+
   const updateData: any = {
     status,
   }

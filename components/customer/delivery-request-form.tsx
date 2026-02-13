@@ -591,7 +591,12 @@ export function DeliveryRequestForm({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="paymentMethod">결제 수단</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="paymentMethod">결제 수단</Label>
+                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
+                  <Link href="/customer/account-link">계좌/카드 연동</Link>
+                </Button>
+              </div>
               <Select name="paymentMethod" value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger id="paymentMethod">
                   <SelectValue placeholder="결제 수단 선택" />

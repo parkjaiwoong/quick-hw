@@ -44,6 +44,56 @@ export async function createDelivery(data: CreateDeliveryData) {
     return { error: "인증이 필요합니다" }
   }
 
+  // orders.customer_id_fkey: 주문 생성 전에 profiles(또는 customer)에 고객 행이 있어야 함. 서비스 롤로 확실히 생성.
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (serviceRoleKey) {
+    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+    const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+    const email = (user.email?.trim() || "").length > 0 ? user.email! : `${user.id}@profile.placeholder`
+    const fullName = (user.user_metadata as { full_name?: string })?.full_name ?? user.email ?? "고객"
+
+    const { data: existingProfile } = await service.from("profiles").select("id").eq("id", user.id).maybeSingle()
+    if (!existingProfile) {
+      const { error: profileError } = await service.from("profiles").insert({
+        id: user.id,
+        email,
+        full_name: fullName,
+        role: "customer",
+      })
+      if (profileError) {
+        return { error: "프로필을 생성할 수 없습니다. 다시 로그인하거나 관리자에게 문의하세요." }
+      }
+    }
+
+    // 일부 스키마는 orders.customer_id가 customer(id)를 참조함
+    const { data: existingCustomer } = await service.from("customer").select("id").eq("id", user.id).maybeSingle()
+    if (!existingCustomer) {
+      const { error: customerInsertError } = await service.from("customer").insert({
+        id: user.id,
+        name: fullName || "고객",
+        email: email || null,
+        phone: null,
+      })
+      if (customerInsertError) {
+        // customer 테이블이 없거나 스키마가 다르면 무시 (orders FK가 profiles만 참조할 수 있음)
+      }
+    }
+  } else {
+    const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle()
+    if (!existingProfile) {
+      const email = (user.email?.trim() || "").length > 0 ? user.email! : `${user.id}@profile.placeholder`
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: user.id,
+        email,
+        full_name: (user.user_metadata as { full_name?: string })?.full_name ?? user.email ?? "",
+        role: "customer",
+      })
+      if (profileError) {
+        return { error: "프로필을 생성할 수 없습니다. 다시 로그인하거나 관리자에게 문의하세요." }
+      }
+    }
+  }
+
   // 거리 계산 (하버사인 공식으로 직접 계산, RPC 실패 대비)
   let distanceKm = 0
   try {
@@ -171,8 +221,13 @@ export async function createDelivery(data: CreateDeliveryData) {
     limit_count: 5,
   })
 
-  // 근처 기사가 0명이면 배송 가능한 전체 기사에게 알림 (위치 미설정 기사도 수신 가능)
-  if (!nearbyDrivers || nearbyDrivers.length === 0) {
+  // 신규 배송 알림: 근처 기사에게 또는 (0명이면) 배송 가능 전체 기사에게. Realtime 모달/띵동/진동용.
+  const driverIdsToNotify: string[] =
+    nearbyDrivers?.length > 0
+      ? nearbyDrivers.map((d: { driver_id?: string; id?: string }) => d.driver_id ?? d.id).filter(Boolean)
+      : []
+
+  if (driverIdsToNotify.length === 0) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (serviceRoleKey) {
       const { createClient: createServiceClient } = await import("@supabase/supabase-js")
@@ -182,16 +237,25 @@ export async function createDelivery(data: CreateDeliveryData) {
         .select("id")
         .eq("is_available", true)
       if (availableDrivers?.length) {
-        await service.from("notifications").insert(
-          availableDrivers.map((d) => ({
-            user_id: d.id,
-            delivery_id: delivery.id,
-            title: "새로운 배송 요청",
-            message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
-            type: "new_delivery_request",
-          })),
-        )
+        driverIdsToNotify.push(...availableDrivers.map((d) => d.id))
       }
+    }
+  }
+
+  if (driverIdsToNotify.length > 0) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (serviceRoleKey) {
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+      const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+      await service.from("notifications").insert(
+        driverIdsToNotify.map((driverId) => ({
+          user_id: driverId,
+          delivery_id: delivery.id,
+          title: "새로운 배송 요청",
+          message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
+          type: "new_delivery_request",
+        })),
+      )
     }
   }
 

@@ -325,6 +325,12 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
           </Card>
         )}
 
+        {delivery.status === "delivered" && (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            배송이 완료되었습니다. 이 건은 더 이상 수정할 수 없습니다.
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-3">
           <Button asChild variant="outline" size="lg" className="flex-1">
             <Link href="/driver">넘기기</Link>

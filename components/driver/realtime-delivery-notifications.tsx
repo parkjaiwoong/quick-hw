@@ -72,10 +72,8 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     }
   }, [])
 
-  // 띵동 효과음 (Web Audio API)
+  // 띵동 효과음 (Web Audio API). 사용자 상호작용 없이도 시도(일부 환경에서 재생됨)
   const playNotificationSound = useCallback(() => {
-    if (!userInteracted) return
-
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
       const playBeep = (frequency: number, delay: number) => {
@@ -95,9 +93,9 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
       playBeep(800, 0)
       playBeep(600, 200)
     } catch (error) {
-      console.error("소리 재생 실패:", error)
+      console.warn("소리 재생 실패(정상일 수 있음):", error)
     }
-  }, [userInteracted])
+  }, [])
 
   // 진동 (Vibration API, 모바일 지원)
   const playVibration = useCallback(() => {
@@ -169,11 +167,9 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
                 notificationId,
               })
 
-              // 띵동 효과음 + 진동
+              // 모달 표시 후 띵동 + 진동 (모달은 userInteracted 무관하게 표시)
               playNotificationSound()
               playVibration()
-
-              // 토스트 안내
 
               toastRef.current({
                 title: "📦 새 배송 요청 도착",
@@ -248,7 +244,9 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
                 <Package className="h-5 w-5 text-blue-600" />
                 새 배송 요청 (즉시 수락 가능)
               </DialogTitle>
-              <DialogDescription>수락하시면 배송 상세로 이동합니다.</DialogDescription>
+              <DialogDescription>
+              수락하시면 배송 상세로 이동합니다. (페이지를 한 번 터치하면 다음 알림부터 소리가 재생됩니다)
+            </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1">
