@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { requestPayoutFromDriver } from "@/lib/actions/finance"
+import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 
 export default async function DriverSettlementsPage({
   searchParams,
@@ -147,9 +148,13 @@ export default async function DriverSettlementsPage({
                       <Label htmlFor="amount">출금 요청 금액</Label>
                       <Input id="amount" name="amount" type="number" min={0} step="1" placeholder="출금 금액" />
                     </div>
-                    <Button type="submit" className="w-full" disabled={availableBalance <= 0}>
+                    <SubmitButtonPending
+                      className="w-full"
+                      disabled={availableBalance <= 0}
+                      pendingLabel="요청 중…"
+                    >
                       출금요청
-                    </Button>
+                    </SubmitButtonPending>
                     {availableBalance <= 0 && (
                       <p className="text-xs text-muted-foreground text-center">
                         출금가능 금액이 0원입니다.

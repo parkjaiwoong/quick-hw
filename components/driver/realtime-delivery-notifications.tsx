@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, startTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -37,76 +37,68 @@ interface LatestNewDelivery {
   notificationId: string
 }
 
+// 띵동 소리 (사용자 터치 시 재생 보장. 볼륨 키우면 들림)
+function playDingDongSound(ctxRef: { current: AudioContext | null }) {
+  try {
+    const Ctor = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctor) return
+    if (!ctxRef.current) ctxRef.current = new Ctor()
+    const ctx = ctxRef.current
+    if (ctx.state === "suspended") ctx.resume()
+    const playBeep = (frequency: number, delay: number) => {
+      setTimeout(() => {
+        try {
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.frequency.value = frequency
+          osc.type = "sine"
+          gain.gain.setValueAtTime(0.35, ctx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25)
+          osc.start(ctx.currentTime)
+          osc.stop(ctx.currentTime + 0.25)
+        } catch (_) {}
+      }, delay)
+    }
+    playBeep(800, 0)
+    playBeep(600, 220)
+  } catch (_) {}
+}
+
+// 진동: 무조건 시도 (지원 시 항상 동작하도록)
+function triggerVibration() {
+  try {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([200, 100, 200])
+    }
+  } catch (_) {}
+}
+
 export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const { toast } = useToast()
   const router = useRouter()
-  const [userInteracted, setUserInteracted] = useState(false)
   const [latestNewDelivery, setLatestNewDelivery] = useState<LatestNewDelivery | null>(null)
   const [acceptLoading, setAcceptLoading] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const toastRef = useRef(toast)
   const routerRef = useRef(router)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const soundPlayedForCurrentRef = useRef(false)
 
-  // toast와 router의 최신 참조 유지
   useEffect(() => {
     toastRef.current = toast
     routerRef.current = router
   }, [toast, router])
 
-  // 사용자 상호작용 감지 (소리 재생을 위해 필요)
+  // 모달이 뜬 직후 진동 한 번 더 (콜백과 동시에 느껴지도록)
   useEffect(() => {
-    const enableSound = () => {
-      setUserInteracted(true)
+    if (!latestNewDelivery) {
+      soundPlayedForCurrentRef.current = false
+      return
     }
-
-    // 페이지 로드 시 한 번 클릭하면 소리 활성화
-    const events = ["click", "touchstart", "keydown"]
-    events.forEach((event) => {
-      document.addEventListener(event, enableSound, { once: true })
-    })
-
-    return () => {
-      events.forEach((event) => {
-        document.removeEventListener(event, enableSound)
-      })
-    }
-  }, [])
-
-  // 띵동 효과음 (Web Audio API). 사용자 상호작용 없이도 시도(일부 환경에서 재생됨)
-  const playNotificationSound = useCallback(() => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const playBeep = (frequency: number, delay: number) => {
-        setTimeout(() => {
-          const oscillator = audioContext.createOscillator()
-          const gainNode = audioContext.createGain()
-          oscillator.connect(gainNode)
-          gainNode.connect(audioContext.destination)
-          oscillator.frequency.value = frequency
-          oscillator.type = "sine"
-          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2)
-          oscillator.start(audioContext.currentTime)
-          oscillator.stop(audioContext.currentTime + 0.2)
-        }, delay)
-      }
-      playBeep(800, 0)
-      playBeep(600, 200)
-    } catch (error) {
-      console.warn("소리 재생 실패(정상일 수 있음):", error)
-    }
-  }, [])
-
-  // 진동 (Vibration API, 모바일 지원)
-  const playVibration = useCallback(() => {
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      try {
-        navigator.vibrate([200, 100, 200]) // 진동-쉬기-진동 (띵동 느낌)
-      } catch {
-        // ignore
-      }
-    }
-  }, [])
+    triggerVibration()
+  }, [latestNewDelivery])
 
   // 실시간 알림 구독
   useEffect(() => {
@@ -152,10 +144,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
 
               if (delivery) {
               const notificationId = notification.id
-              const deliveryId = notification.delivery_id
-
-              // 최신 요청을 목록 위 모달로 표시 (즉시 수락 가능)
-              setLatestNewDelivery({
+              const payload = {
                 delivery: {
                   id: delivery.id,
                   pickup_address: delivery.pickup_address,
@@ -165,11 +154,12 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
                   driver_fee: delivery.driver_fee,
                 },
                 notificationId,
-              })
-
-              // 모달 표시 후 띵동 + 진동 (모달은 userInteracted 무관하게 표시)
-              playNotificationSound()
-              playVibration()
+              }
+              // 진동: 모달과 동시에 나오도록 setState 직전에 즉시 실행
+              triggerVibration()
+              setLatestNewDelivery(payload)
+              // 띵동 소리: 시도 (볼륨 있으면 재생. 브라우저 제한 시 모달 터치로 재생)
+              playDingDongSound(audioContextRef)
 
               toastRef.current({
                 title: "📦 새 배송 요청 도착",
@@ -199,7 +189,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, playNotificationSound, playVibration])
+  }, [userId])
 
   const handleAccept = async () => {
     if (!latestNewDelivery || acceptLoading) return
@@ -219,7 +209,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     toast({ title: "✅ 배송 수락 완료", description: "배송을 수락했습니다." })
     setLatestNewDelivery(null)
     setAcceptLoading(false)
-    router.refresh()
+    startTransition(() => router.refresh())
   }
 
   const handleDecline = async () => {
@@ -231,12 +221,25 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
         .eq("id", latestNewDelivery.notificationId)
     }
     setLatestNewDelivery(null)
-    router.refresh()
+    startTransition(() => router.refresh())
   }
+
+  // 모달 터치 시: 소리만 (브라우저가 자동재생 막았을 때 볼륨 키우고 터치하면 띵동)
+  const onModalInteraction = useCallback(() => {
+    if (!soundPlayedForCurrentRef.current) {
+      soundPlayedForCurrentRef.current = true
+      playDingDongSound(audioContextRef)
+    }
+  }, [])
 
   return (
     <Dialog open={!!latestNewDelivery} onOpenChange={(open) => !open && setLatestNewDelivery(null)}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg" showCloseButton={true}>
+      <DialogContent
+        className="max-w-[calc(100vw-2rem)] sm:max-w-lg"
+        showCloseButton={true}
+        onPointerDown={onModalInteraction}
+        onTouchStart={onModalInteraction}
+      >
         {latestNewDelivery && (
           <>
             <DialogHeader>
@@ -245,7 +248,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
                 새 배송 요청 (즉시 수락 가능)
               </DialogTitle>
               <DialogDescription>
-              수락하시면 배송 상세로 이동합니다. (페이지를 한 번 터치하면 다음 알림부터 소리가 재생됩니다)
+              수락하시면 배송 상세로 이동합니다. 소리가 안 들리면 모달을 터치하면 띵동이 재생됩니다.
             </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">

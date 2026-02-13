@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, startTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -219,11 +219,13 @@ export function DeliveryRequestForm({
         return
       }
       const method = (data.paymentMethod || paymentMethod || "").toLowerCase()
-      if (method === "card") {
-        router.push(`/customer/delivery/${id}/pay`)
-      } else {
-        router.push(`/customer/delivery/${id}`)
-      }
+      startTransition(() => {
+        if (method === "card") {
+          router.push(`/customer/delivery/${id}/pay`)
+        } else {
+          router.push(`/customer/delivery/${id}`)
+        }
+      })
     }
   }
 

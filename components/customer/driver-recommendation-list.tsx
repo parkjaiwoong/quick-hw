@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Truck, Shield, Phone, CheckCircle } from "lucide-react"
 import { requestDriverConnection } from "@/lib/actions/deliveries"
 import { useRouter } from "next/navigation"
+import { startTransition } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "sonner"
 
@@ -124,7 +125,7 @@ export function DriverRecommendationList({
         setTimeout(() => waitToss(0), 400)
       } else {
         toast.success("연결 요청되었습니다. 배송 상세에서 진행 상황을 확인하세요.")
-        router.push(`/customer/delivery/${deliveryId}`)
+        startTransition(() => router.push(`/customer/delivery/${deliveryId}`))
       }
     }
   }

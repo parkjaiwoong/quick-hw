@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, startTransition } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -41,7 +41,7 @@ export function DispatchDialog({ delivery, drivers }: DispatchDialogProps) {
     } else {
       toast.success("배송원 배차가 완료되었습니다")
       setOpen(false)
-      router.refresh()
+      startTransition(() => router.refresh())
     }
     setLoading(false)
   }

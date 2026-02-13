@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -26,7 +26,7 @@ export function DeliveryStatusRealtime({ deliveryId }: { deliveryId: string }) {
           filter: `id=eq.${deliveryId}`,
         },
         () => {
-          router.refresh()
+          startTransition(() => router.refresh())
         },
       )
       .subscribe()

@@ -6,17 +6,18 @@ import { Badge } from "@/components/ui/badge"
 import { MapPin, Phone, Bike, Clock, Calendar, Zap } from "lucide-react"
 import { updateDeliveryStatus } from "@/lib/actions/driver"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, startTransition } from "react"
 import Link from "next/link"
 
 interface AssignedDeliveriesProps {
   deliveries: Delivery[]
 }
 
+// 픽업 완료 = 배송 시작으로 통합. 수락 → 픽업 완료 → 배송 완료 (3단계)
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800", next: "picked_up", nextLabel: "픽업 완료" },
-  picked_up: { label: "픽업완료", color: "bg-indigo-100 text-indigo-800", next: "in_transit", nextLabel: "배송 시작" },
-  in_transit: { label: "배송중", color: "bg-purple-100 text-purple-800", next: "delivered", nextLabel: "배송 완료" },
+  picked_up: { label: "배송 중", color: "bg-indigo-100 text-indigo-800", next: "delivered", nextLabel: "배송 완료" },
+  in_transit: { label: "배송 중", color: "bg-purple-100 text-purple-800", next: "delivered", nextLabel: "배송 완료" },
 }
 
 export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
@@ -26,14 +27,13 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
   async function handleUpdateStatus(deliveryId: string, newStatus: string) {
     setLoadingId(deliveryId)
     const result = await updateDeliveryStatus(deliveryId, newStatus)
-
     if (result.error) {
+      setLoadingId(null)
       alert(result.error)
-    } else {
-      router.refresh()
+      return
     }
-
     setLoadingId(null)
+    startTransition(() => router.refresh())
   }
 
   if (deliveries.length === 0) {

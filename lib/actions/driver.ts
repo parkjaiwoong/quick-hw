@@ -167,6 +167,7 @@ export async function updateDeliveryStatus(deliveryId: string, status: string) {
   await syncOrderStatusForDelivery(deliveryId, status)
 
   revalidatePath("/driver")
+  revalidatePath(`/driver/delivery/${deliveryId}`)
   return { success: true }
 }
 

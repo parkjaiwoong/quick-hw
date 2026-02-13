@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ export function PayPageOrderLoading({ deliveryId }: { deliveryId: string }) {
     if (retries >= MAX_RETRIES) return
     const t = setTimeout(() => {
       setRetries((r) => r + 1)
-      router.refresh()
+      startTransition(() => router.refresh())
     }, RETRY_DELAY_MS)
     return () => clearTimeout(t)
   }, [retries, router])

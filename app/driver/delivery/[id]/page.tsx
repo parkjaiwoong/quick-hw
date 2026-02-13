@@ -13,17 +13,19 @@ import Link from "next/link"
 import { acceptDelivery, updateDeliveryStatus } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import { OpenLayersMap } from "@/components/driver/openlayers-map"
+import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
-  picked_up: { label: "픽업완료", color: "bg-indigo-100 text-indigo-800" },
-  in_transit: { label: "배송중", color: "bg-purple-100 text-purple-800" },
+  picked_up: { label: "배송 중", color: "bg-indigo-100 text-indigo-800" },
+  in_transit: { label: "배송 중", color: "bg-purple-100 text-purple-800" },
   delivered: { label: "완료", color: "bg-green-100 text-green-800" },
 }
 
+// 픽업 완료 = 물건 수령 후 출발(배송 시작)으로 보고, 단계 단순화: 수락 → 픽업 완료 → 배송 완료
 const statusActionConfig = {
   accepted: { next: "picked_up", label: "픽업 완료" },
-  picked_up: { next: "in_transit", label: "배송 시작" },
+  picked_up: { next: "delivered", label: "배송 완료" },
   in_transit: { next: "delivered", label: "배송 완료" },
 } as const
 
@@ -117,23 +119,6 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>메인 화면 이동</CardTitle>
-            <CardDescription>역할별 메인 화면으로 바로 이동합니다</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col md:flex-row gap-3">
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/driver">기사 메인</Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/customer">고객 메인</Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/admin">관리자 메인</Link>
-            </Button>
-          </CardContent>
-        </Card>
         <div className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
@@ -183,7 +168,8 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
           </div>
         </div>
 
-        {isAssignedToMe && <DriverLocationUpdater deliveryId={delivery.id} />}
+        {/* 위치추적: 나중에 사용할 수 있도록 코드 유지, 표시만 비활성화 */}
+        {false && isAssignedToMe && <DriverLocationUpdater deliveryId={delivery.id} />}
 
         <Card>
           <CardHeader>
@@ -337,9 +323,9 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
           </Button>
           {isPending ? (
             <form action={handleAccept} className="flex-1">
-              <Button className="w-full" size="lg">
+              <SubmitButtonPending className="w-full" size="lg" pendingLabel="수락 중…">
                 배송 수락하기
-              </Button>
+              </SubmitButtonPending>
             </form>
           ) : statusActionConfig[delivery.status as keyof typeof statusActionConfig] ? (
             <form action={handleUpdateStatus} className="flex-1">
@@ -348,9 +334,9 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
                 name="status"
                 value={statusActionConfig[delivery.status as keyof typeof statusActionConfig].next}
               />
-              <Button className="w-full" size="lg">
+              <SubmitButtonPending className="w-full" size="lg">
                 {statusActionConfig[delivery.status as keyof typeof statusActionConfig].label}
-              </Button>
+              </SubmitButtonPending>
             </form>
           ) : (
             <Button className="flex-1" size="lg" disabled>
