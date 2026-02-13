@@ -6,6 +6,15 @@ import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { acceptDelivery } from "@/lib/actions/driver"
 import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { MapPin, Package } from "lucide-react"
 
 interface DeliveryNotification {
   id: string
@@ -16,10 +25,24 @@ interface DeliveryNotification {
   created_at: string
 }
 
+interface LatestNewDelivery {
+  delivery: {
+    id: string
+    pickup_address: string
+    delivery_address: string
+    distance_km?: number
+    total_fee?: number
+    driver_fee?: number
+  }
+  notificationId: string
+}
+
 export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const { toast } = useToast()
   const router = useRouter()
   const [userInteracted, setUserInteracted] = useState(false)
+  const [latestNewDelivery, setLatestNewDelivery] = useState<LatestNewDelivery | null>(null)
+  const [acceptLoading, setAcceptLoading] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const toastRef = useRef(toast)
   const routerRef = useRef(router)
@@ -49,38 +72,43 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     }
   }, [])
 
-  // 소리 재생 함수 (Web Audio API 사용) - useCallback으로 메모이제이션
+  // 띵동 효과음 (Web Audio API)
   const playNotificationSound = useCallback(() => {
     if (!userInteracted) return
 
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      
-      // 두 번의 beep 소리 (띵동 효과)
       const playBeep = (frequency: number, delay: number) => {
         setTimeout(() => {
           const oscillator = audioContext.createOscillator()
           const gainNode = audioContext.createGain()
-
           oscillator.connect(gainNode)
           gainNode.connect(audioContext.destination)
-
           oscillator.frequency.value = frequency
           oscillator.type = "sine"
           gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
           gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2)
-
           oscillator.start(audioContext.currentTime)
           oscillator.stop(audioContext.currentTime + 0.2)
         }, delay)
       }
-
-      playBeep(800, 0) // 첫 번째 beep
-      playBeep(600, 200) // 두 번째 beep (200ms 후)
+      playBeep(800, 0)
+      playBeep(600, 200)
     } catch (error) {
       console.error("소리 재생 실패:", error)
     }
   }, [userInteracted])
+
+  // 진동 (Vibration API, 모바일 지원)
+  const playVibration = useCallback(() => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        navigator.vibrate([200, 100, 200]) // 진동-쉬기-진동 (띵동 느낌)
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
 
   // 실시간 알림 구독
   useEffect(() => {
@@ -115,7 +143,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
               // 배송 정보 가져오기
               const { data: delivery, error: deliveryError } = await supabase
                 .from("deliveries")
-                .select("id, pickup_address, delivery_address, distance_km")
+                .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee")
                 .eq("id", notification.delivery_id)
                 .single()
 
@@ -125,80 +153,33 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
               }
 
               if (delivery) {
-              // 소리 재생
-              playNotificationSound()
-
-              // 토스트 알림 표시
               const notificationId = notification.id
               const deliveryId = notification.delivery_id
 
-              // ref를 통해 최신 toast와 router 사용
-              const currentToast = toastRef.current
-              const currentRouter = routerRef.current
+              // 최신 요청을 목록 위 모달로 표시 (즉시 수락 가능)
+              setLatestNewDelivery({
+                delivery: {
+                  id: delivery.id,
+                  pickup_address: delivery.pickup_address,
+                  delivery_address: delivery.delivery_address,
+                  distance_km: delivery.distance_km,
+                  total_fee: delivery.total_fee,
+                  driver_fee: delivery.driver_fee,
+                },
+                notificationId,
+              })
 
-              currentToast({
-                title: "📦 새로운 배송 요청",
-                description: (
-                  <div className="space-y-3 mt-2">
-                    <div className="text-sm space-y-1">
-                      <p className="font-semibold text-base">출발지</p>
-                      <p className="text-muted-foreground">{delivery.pickup_address}</p>
-                      <p className="font-semibold text-base mt-2">도착지</p>
-                      <p className="text-muted-foreground">{delivery.delivery_address}</p>
-                      {delivery.distance_km && (
-                        <p className="text-muted-foreground text-xs mt-1">
-                          거리: {delivery.distance_km.toFixed(1)}km
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        size="sm"
-                        onClick={async () => {
-                          const result = await acceptDelivery(deliveryId)
-                          if (result.error) {
-                            toastRef.current({
-                              title: "오류",
-                              description: result.error,
-                              variant: "destructive",
-                            })
-                          } else {
-                            // 알림 읽음 처리
-                            await supabase
-                              .from("notifications")
-                              .update({ is_read: true })
-                              .eq("id", notificationId)
+              // 띵동 효과음 + 진동
+              playNotificationSound()
+              playVibration()
 
-                            toastRef.current({
-                              title: "✅ 배송 수락 완료",
-                              description: "배송을 수락했습니다.",
-                            })
-                            routerRef.current.refresh()
-                          }
-                        }}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700"
-                      >
-                        수락
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          // 알림 읽음 처리
-                          await supabase
-                            .from("notifications")
-                            .update({ is_read: true })
-                            .eq("id", notificationId)
-                        }}
-                        className="flex-1"
-                      >
-                        거절
-                      </Button>
-                    </div>
-                  </div>
-                ),
-                duration: 15000, // 15초간 표시
-                className: "w-full max-w-md border-blue-200 bg-blue-50",
+              // 토스트 안내
+
+              toastRef.current({
+                title: "📦 새 배송 요청 도착",
+                description: "아래 모달에서 수락하거나 목록에서 확인하세요.",
+                duration: 5000,
+                className: "border-blue-200 bg-blue-50",
               })
             }
           }
@@ -222,7 +203,97 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, playNotificationSound])
+  }, [userId, playNotificationSound, playVibration])
 
-  return null // UI는 toast로 표시되므로 렌더링할 것이 없음
+  const handleAccept = async () => {
+    if (!latestNewDelivery || acceptLoading) return
+    setAcceptLoading(true)
+    const result = await acceptDelivery(latestNewDelivery.delivery.id)
+    if (result.error) {
+      toast({ title: "오류", description: result.error, variant: "destructive" })
+      setAcceptLoading(false)
+      return
+    }
+    if (supabaseRef.current) {
+      await supabaseRef.current
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", latestNewDelivery.notificationId)
+    }
+    toast({ title: "✅ 배송 수락 완료", description: "배송을 수락했습니다." })
+    setLatestNewDelivery(null)
+    setAcceptLoading(false)
+    router.refresh()
+  }
+
+  const handleDecline = async () => {
+    if (!latestNewDelivery) return
+    if (supabaseRef.current) {
+      await supabaseRef.current
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", latestNewDelivery.notificationId)
+    }
+    setLatestNewDelivery(null)
+    router.refresh()
+  }
+
+  return (
+    <Dialog open={!!latestNewDelivery} onOpenChange={(open) => !open && setLatestNewDelivery(null)}>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg" showCloseButton={true}>
+        {latestNewDelivery && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-blue-600" />
+                새 배송 요청 (즉시 수락 가능)
+              </DialogTitle>
+              <DialogDescription>수락하시면 배송 상세로 이동합니다.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold flex items-center gap-1">
+                  <MapPin className="h-4 w-4 text-green-600" /> 출발지
+                </p>
+                <p className="text-sm text-muted-foreground pl-5">{latestNewDelivery.delivery.pickup_address}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold flex items-center gap-1">
+                  <MapPin className="h-4 w-4 text-red-600" /> 도착지
+                </p>
+                <p className="text-sm text-muted-foreground pl-5">{latestNewDelivery.delivery.delivery_address}</p>
+              </div>
+              <div className="flex gap-4 text-sm">
+                {latestNewDelivery.delivery.distance_km != null && (
+                  <span className="text-muted-foreground">거리 {latestNewDelivery.delivery.distance_km.toFixed(1)}km</span>
+                )}
+                {(latestNewDelivery.delivery.driver_fee ?? latestNewDelivery.delivery.total_fee) != null && (
+                  <span className="font-semibold">
+                    {Number(latestNewDelivery.delivery.driver_fee ?? latestNewDelivery.delivery.total_fee).toLocaleString()}원
+                  </span>
+                )}
+              </div>
+            </div>
+            <DialogFooter className="flex-row gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleDecline}
+                disabled={acceptLoading}
+              >
+                거절
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                onClick={handleAccept}
+                disabled={acceptLoading}
+              >
+                {acceptLoading ? "처리 중…" : "수락"}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
 }
