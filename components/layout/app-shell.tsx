@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { BottomNav } from "@/components/layout/bottom-nav"
 import { Footer } from "@/components/layout/footer"
+import { NavigationProgress } from "@/components/layout/navigation-progress"
 
 interface AppShellProps {
   children: React.ReactNode
@@ -17,6 +18,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <>
+      <NavigationProgress />
       {showChrome && <Header />}
       <main className={`${showChrome ? "pt-16 pb-16" : ""} min-h-screen`}>{children}</main>
       {showChrome && <BottomNav />}

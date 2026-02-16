@@ -143,12 +143,12 @@ export default async function DriverDashboard() {
         </div>
 
         <Tabs defaultValue="available" className="w-full">
-          <TabsList className="flex w-full overflow-x-auto overflow-y-hidden gap-1 rounded-lg p-1 md:grid md:grid-cols-5 md:overflow-visible [&::-webkit-scrollbar]:h-1">
-            <TabsTrigger value="available" className="shrink-0 md:shrink">대기 중 배송 ({available.length})</TabsTrigger>
-            <TabsTrigger value="assigned" className="shrink-0 md:shrink">진행 중 배송 ({assigned.length})</TabsTrigger>
-            <TabsTrigger value="history" className="shrink-0 md:shrink">운행 이력</TabsTrigger>
-            <TabsTrigger value="settlements" className="shrink-0 md:shrink">정산</TabsTrigger>
-            <TabsTrigger value="sales" className="shrink-0 md:shrink">📊 영업 성과</TabsTrigger>
+          <TabsList className="flex w-full max-w-full overflow-x-auto overflow-y-hidden gap-1 rounded-lg p-1.5 pl-2 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-muted/50 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
+            <TabsTrigger value="available" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">대기 중 배송 ({available.length})</TabsTrigger>
+            <TabsTrigger value="assigned" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">진행 중 배송 ({assigned.length})</TabsTrigger>
+            <TabsTrigger value="history" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">운행 이력</TabsTrigger>
+            <TabsTrigger value="settlements" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">정산</TabsTrigger>
+            <TabsTrigger value="sales" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">📊 영업 성과</TabsTrigger>
           </TabsList>
 
           <TabsContent value="available" className="mt-6">
