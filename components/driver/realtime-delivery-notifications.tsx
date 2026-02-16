@@ -85,10 +85,16 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const routerRef = useRef(router)
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundPlayedForCurrentRef = useRef(false)
+  const toastRef = useRef(toast)
+  const showBrowserNotificationRef = useRef(showBrowserNotification)
 
   useEffect(() => {
     routerRef.current = router
   }, [router])
+  useEffect(() => {
+    toastRef.current = toast
+    showBrowserNotificationRef.current = showBrowserNotification
+  }, [toast, showBrowserNotification])
 
   // 배송원 대시 진입 시 알림 권한 요청 (탭이 백그라운드일 때도 알림 받기 위함)
   useEffect(() => {
@@ -189,7 +195,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     } catch (_) {}
   }, [notificationPermission])
 
-  // 실시간 알림 구독
+  // 실시간 알림 구독 (의존성은 userId만 — toast/showBrowserNotification 변경 시 재구독하지 않아 결재 시 잘못된 '연결 실패' 방지)
   useEffect(() => {
     if (!userId) return
 
@@ -240,10 +246,10 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
               playDingDongSound(audioContextRef)
 
               if (document.visibilityState === "hidden") {
-                showBrowserNotification(payloadData)
+                showBrowserNotificationRef.current(payloadData)
               }
 
-              toast({
+              toastRef.current({
                 title: "📦 새 배송 요청 도착",
                 description: "아래에서 수락하거나 거절하세요.",
                 duration: 5000,
@@ -268,7 +274,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, toast, showBrowserNotification])
+  }, [userId])
 
   const handleAccept = async () => {
     if (!latestNewDelivery || acceptLoading) return
