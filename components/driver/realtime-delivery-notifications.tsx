@@ -86,7 +86,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundPlayedForCurrentRef = useRef(false)
   const toastRef = useRef(toast)
-  const showBrowserNotificationRef = useRef(showBrowserNotification)
+  const showBrowserNotificationRef = useRef<(payload: LatestNewDelivery) => void>(() => {})
 
   useEffect(() => {
     routerRef.current = router
