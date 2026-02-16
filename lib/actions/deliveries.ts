@@ -247,7 +247,7 @@ export async function createDelivery(data: CreateDeliveryData) {
     if (serviceRoleKey) {
       const { createClient: createServiceClient } = await import("@supabase/supabase-js")
       const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-      await service.from("notifications").insert(
+      const { error: notifError } = await service.from("notifications").insert(
         driverIdsToNotify.map((driverId) => ({
           user_id: driverId,
           delivery_id: delivery.id,
@@ -256,6 +256,9 @@ export async function createDelivery(data: CreateDeliveryData) {
           type: "new_delivery_request",
         })),
       )
+      if (notifError) {
+        console.error("[createDelivery] 기사 알림 INSERT 실패:", notifError.message, { deliveryId: delivery.id, driverIds: driverIdsToNotify })
+      }
     }
   }
 

@@ -89,7 +89,20 @@ export default async function CustomerAccountLinkPage({
                 clientKey={clientKey}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">결제 키가 설정되지 않아 카드 등록을 사용할 수 없습니다.</p>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-1">
+                <p className="font-medium">결제 키가 설정되지 않았습니다</p>
+                <p className="text-xs">
+                  카드 등록을 사용하려면 배포 환경(Vercel 등)에 <code className="bg-amber-100 px-1 rounded">NEXT_PUBLIC_TOSS_CLIENT_KEY</code>를 설정해 주세요.
+                  토스페이먼츠 개발자 콘솔에서 테스트 키를 발급받을 수 있습니다.
+                </p>
+                <p className="text-xs mt-2">
+                  <a href="https://developers.tosspayments.com/my/api-keys" target="_blank" rel="noopener noreferrer" className="underline">
+                    API 키 발급 → developers.tosspayments.com
+                  </a>
+                  {" · "}
+                  <span className="text-muted-foreground">설정 방법: docs/toss_payments_setup.md</span>
+                </p>
+              </div>
             )}
 
             <Button asChild variant="secondary" className="w-full">

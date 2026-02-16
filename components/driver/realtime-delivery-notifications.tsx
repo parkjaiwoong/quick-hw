@@ -80,6 +80,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const [latestNewDelivery, setLatestNewDelivery] = useState<LatestNewDelivery | null>(null)
   const [acceptLoading, setAcceptLoading] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default")
+  const [realtimeStatus, setRealtimeStatus] = useState<"idle" | "subscribed" | "error">("idle")
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const routerRef = useRef(router)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -256,8 +257,10 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
+          setRealtimeStatus("subscribed")
           console.log("실시간 알림 구독 성공")
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setRealtimeStatus("error")
           console.error("실시간 알림 구독 오류:", status)
         }
       })
@@ -308,8 +311,32 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   }, [])
 
   // 카카오T 픽커 스타일: 하단 고정 플로팅 팝업 (띵동 + 진동 + 작은 팝업으로 바로 확인)
+  // 모바일에서 F12 없이 상태 확인: 화면에 항상 "실시간 알림" 상태 표시
   return (
     <>
+      {/* 실시간 알림 상태 (모바일에서 그냥 화면만 보면 됨, F12 불필요) */}
+      <div
+        className="fixed top-14 left-2 right-2 z-[89] flex justify-center pointer-events-none"
+        aria-live="polite"
+      >
+        {realtimeStatus === "subscribed" && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1.5 text-xs font-medium shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" aria-hidden />
+            실시간 알림 연결됨
+          </span>
+        )}
+        {realtimeStatus === "idle" && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs">
+            <span className="h-2 w-2 rounded-full bg-gray-400" aria-hidden />
+            실시간 알림 연결 중…
+          </span>
+        )}
+      </div>
+      {realtimeStatus === "error" && (
+        <div className="fixed top-16 left-2 right-2 z-[90] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
+          <strong>실시간 알림 연결 실패.</strong> 새 배송 요청 시 띵동/진동이 올 수 없습니다. PC에서 Supabase SQL 또는 관리자에게 문의하세요.
+        </div>
+      )}
       {latestNewDelivery && (
         <div
           role="alertdialog"

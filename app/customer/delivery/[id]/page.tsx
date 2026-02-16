@@ -76,23 +76,6 @@ export default async function DeliveryDetailPage({
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <DeliveryStatusRealtime deliveryId={id} />
       <div className="max-w-7xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>메인 화면 이동</CardTitle>
-            <CardDescription>역할별 메인 화면으로 바로 이동합니다</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col md:flex-row gap-3">
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/customer">고객 메인</Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/driver">기사 메인</Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/admin">관리자 메인</Link>
-            </Button>
-          </CardContent>
-        </Card>
         <div className="flex items-center gap-4">
           <Button asChild variant="outline">
             <Link href="/customer">← 돌아가기</Link>
@@ -217,7 +200,7 @@ export default async function DeliveryDetailPage({
                     <TossPaymentButton
                       orderId={order.id}
                       amount={paymentAmount}
-                      disabled={paymentAmount <= 0}
+                      disabled={!canPay}
                       autoPay={isPayRedirect}
                     />
                   </div>

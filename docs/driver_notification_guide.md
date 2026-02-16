@@ -1,0 +1,87 @@
+# 기사 앱/웹 "신규 요청 알림"이 안 올 때
+
+고객이 기사 연결 요청·결제를 했는데 기사 화면에 **띵동/진동/알림이 안 온다**면, 아래 두 가지를 구분해서 확인하세요.
+
+---
+
+## 1. 기사 화면(웹 또는 앱)을 **열어 둔 상태**인데도 안 올 때
+
+이때는 **Supabase Realtime**으로 알림이 옵니다. 브라우저/앱이 `notifications` 테이블 INSERT를 구독하고 있어야 띵동·진동·팝업이 뜹니다.
+
+### 확인할 것
+
+1. **Realtime publication 적용 여부**  
+   Supabase에서 `notifications` 테이블이 Realtime에 포함돼 있어야 합니다.
+   - **Supabase Dashboard** → **SQL Editor**에서 **`scripts/055_verify_realtime_notifications.sql`** 내용 실행 (포함 여부 확인 + 없으면 추가)
+   - 또는 **Database** → **Replication**에서 `supabase_realtime`에 **`public.notifications`** 가 있는지 확인
+   - 기사 웹(`/driver`)에서 "실시간 알림 연결 실패" 배너가 보이면 Realtime 미포함이므로 위 스크립트 실행
+
+2. **알림을 받을 기사 조건**  
+   배송 요청 시 "근처 기사" 또는 "배송 가능(is_available)인 기사"에게만 `notifications`가 INSERT됩니다.
+   - 기사가 **배송 가능** 토글이 켜져 있는지 확인
+   - 테스트 시 같은 지역(근처)이거나, 근처 기사가 없으면 "배송 가능한 전체 기사"에게 가므로, 해당 기사가 한 명이라도 있으면 그 기사에게 INSERT됨
+
+3. **모바일에서 확인 (F12 없음)**  
+   기사 웹(`/driver`) 화면 **맨 위**를 보세요.
+   - **「실시간 알림 연결됨」** (초록 점 + 문구) → 정상. 새 배송 요청 시 띵동/진동 오면 됨.
+   - **「실시간 알림 연결 중…」** 이 계속 보이면 → 구독이 안 된 상태. 새로고침 후 다시 확인.
+   - **「실시간 알림 연결 실패」** (노란 배너) → Realtime 설정 문제. PC에서 Supabase SQL 실행 또는 관리자 문의.
+   - **PC에서만** F12 → Console로 상세 로그 확인 가능.
+
+---
+
+## 2. 기사 앱/웹을 **완전히 닫은 상태**에서 소리·진동 받고 싶을 때
+
+탭을 닫거나 앱을 종료한 뒤에는 **JavaScript가 돌지 않기 때문에** Realtime만으로는 알림을 줄 수 없습니다.  
+그래서 **푸시 알림(Web Push 또는 FCM)** 설정이 따로 필요합니다.
+
+| 사용하는 것 | 필요한 설정 |
+|-------------|-------------|
+| **기사 웹** (브라우저 탭 닫음) | Web Push: VAPID 키 + Supabase **Database Webhook** → `/api/push/send` 호출 |
+| **기사 앱** (Flutter, 앱 종료/백그라운드) | FCM: Firebase 설정 + 같은 **Database Webhook** + FCM 토큰 등록 |
+
+즉, **앱/탭을 닫아도** 소리·진동을 받으려면:
+
+1. **Supabase Database Webhook**을 반드시 설정해야 합니다.  
+   - `notifications` 테이블에 **INSERT**될 때  
+   - 우리 서버의 **`https://(도메인)/api/push/send`** 를 호출하도록 설정  
+   - 자세한 절차: **`docs/push_notifications_setup.md`** 참고
+
+2. **기사 웹**만 쓸 때:  
+   - VAPID 공개/비공개 키 발급 후 환경 변수 설정  
+   - 기사가 `/driver` 접속 시 "알림 허용" 후 한 번이라도 로드되어야 Web Push 구독이 등록됨
+
+3. **기사 Flutter 앱**을 쓸 때:  
+   - Firebase 프로젝트 + `FIREBASE_SERVICE_ACCOUNT_JSON` 환경 변수  
+   - 앱에서 로그인 후 FCM 토큰을 `/api/driver/fcm-token`으로 등록
+
+요약하면, **"앱 화면을 닫더라도 소리·진동 다 되어야 한다"**는 동작은 **Webhook + Web Push 또는 FCM 설정이 되어 있을 때만** 가능합니다.  
+이 설정이 없으면 **화면을 열어 둔 상태에서만** Realtime으로 띵동·진동이 동작합니다.
+
+---
+
+## 빠른 체크리스트
+
+| 확인 항목 | 설명 |
+|-----------|------|
+| Realtime publication | Supabase에서 `notifications` 테이블이 Realtime에 포함되어 있는지 |
+| 기사 배송 가능 | 기사가 "배송 가능" 상태인지 |
+| 웹훅 설정 | Supabase Webhook으로 `notifications` INSERT 시 `/api/push/send` 호출되는지 |
+| 탭 닫았을 때 (웹) | VAPID 키 + `PUSH_WEBHOOK_SECRET` 설정, 기사가 알림 허용 후 /driver 접속했는지 |
+| 앱 닫았을 때 (Flutter) | `FIREBASE_SERVICE_ACCOUNT_JSON` 설정, 앱에서 FCM 토큰 등록했는지 |
+
+상세 설정 절차는 **`docs/push_notifications_setup.md`** 를 참고하세요.
+
+---
+
+## 모바일에서 확인하는 방법 (F12 없이)
+
+스마트폰에서는 개발자 도구(F12)를 쓸 수 없습니다. **기사 웹 화면만 보면 됩니다.**
+
+1. 기사로 로그인 후 **배송 관리(기사 메인)** 화면을 엽니다.
+2. 화면 **맨 위**에 실시간 알림 상태가 표시됩니다.
+   - **초록색 「실시간 알림 연결됨」** → 정상. 배송 요청 시 띵동·진동이 옵니다.
+   - **회색 「실시간 알림 연결 중…」** → 잠시 기다리거나 페이지를 새로고침한 뒤 다시 확인.
+   - **노란색 「실시간 알림 연결 실패」** → 설정 문제입니다. PC에서 Supabase 설정을 확인하거나 관리자에게 문의하세요.
+
+PC에 USB로 연결한 뒤 Chrome **원격 디버깅**을 사용하면 모바일 브라우저의 콘솔 로그도 볼 수 있지만, 보통은 위 화면 표시만 보면 됩니다.
