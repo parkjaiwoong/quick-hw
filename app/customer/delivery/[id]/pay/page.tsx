@@ -2,7 +2,9 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
+import { getCustomerBillingKey } from "@/lib/actions/billing"
 import { TossPaymentButton } from "@/components/customer/toss-payment-button"
+import { PayWithBillingButton } from "@/components/customer/pay-with-billing-button"
 import { PayPageOrderLoading } from "@/components/customer/pay-page-order-loading"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -36,6 +38,7 @@ export default async function DeliveryPayPage({
   if (!delivery || delivery.customer_id !== user.id) redirect("/customer")
 
   const { order, payment } = await getOrderPaymentSummaryByDelivery(deliveryId)
+  const { billingKey: hasBillingKey } = await getCustomerBillingKey(user.id)
   const isCard = (payment?.payment_method || order?.payment_method) === "card"
   const amount = Number(payment?.amount ?? order?.order_amount ?? 0)
   const canPay = amount > 0 && payment?.status !== "PAID"
@@ -66,12 +69,15 @@ export default async function DeliveryPayPage({
               <span className="text-muted-foreground">결제 금액</span>
               <span className="font-semibold">{amount.toLocaleString()}원</span>
             </div>
-            <TossPaymentButton
-              orderId={order.id}
-              amount={amount}
-              disabled={false}
-              autoPay
-            />
+            {hasBillingKey ? (
+              <div className="space-y-2">
+                <PayWithBillingButton orderId={order.id} deliveryId={deliveryId} disabled={!canPay} />
+                <p className="text-xs text-center text-muted-foreground">또는</p>
+                <TossPaymentButton orderId={order.id} amount={amount} disabled={!canPay} autoPay={false} />
+              </div>
+            ) : (
+              <TossPaymentButton orderId={order.id} amount={amount} disabled={!canPay} autoPay />
+            )}
           </CardContent>
         </Card>
         <Button variant="ghost" asChild className="w-full">

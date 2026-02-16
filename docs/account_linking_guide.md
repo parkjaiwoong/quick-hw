@@ -1,43 +1,55 @@
-# 고객 계좌/카드 연동 가이드 (운영 측 준비 사항)
+# 고객 계좌/카드 연동 가이드
 
-## 현재 플로우
+## 플로우 요약
 - 고객이 **기사 연결 요청** 시 결제 수단(카드/계좌이체/현금)을 선택합니다.
-- 카드 선택 시 배송 생성 후 **결제 페이지**(`/customer/delivery/[id]/pay`)로 이동해 토스페이먼츠 **일회성 결제**를 진행합니다.
-- **계좌 연동** 화면: `/customer/account-link` (새 배송 요청 폼의 "계좌/카드 연동" 링크로 이동)
+- 카드 선택 시 배송 생성 후 **결제 페이지**(`/customer/delivery/[id]/pay`)로 이동해 토스페이먼츠 **일회성 결제** 또는 **등록된 카드로 결제**를 진행합니다.
+- **계좌/카드 연동** 화면: `/customer/account-link` (새 배송 요청 폼의 "계좌/카드 연동" 링크로 이동)
 
-## 계좌 연동 시 운영(개발) 측에서 할 일
+## 구현된 카드 연동 플로우
 
-### 1. 토스페이먼츠 빌링키(자동결제) 연동
-- [토스페이먼츠 빌링키 발급](https://docs.tosspayments.com/guides/v2/billing/overview) API를 사용해 고객이 카드를 한 번 등록하면, 이후 결제 시 카드 입력 없이 결제할 수 있게 합니다.
-- 필요한 작업:
-  - 빌링키 발급용 **고객 키(customerKey)** 생성·저장 (예: `profiles.id` 또는 전용 테이블)
-  - **빌링키 발급** API 호출 후 발급된 `billingKey`를 DB에 저장 (예: `customer_billing_keys` 테이블)
-  - 기사 연결 요청 후 결제 시 **빌링키로 결제** API 호출 (일회성 결제 대신)
+### 1. 카드 등록 (빌링키 발급)
+- **페이지**: `/customer/account-link`
+- 고객이 "카드 등록 (토스 결제창)" 버튼 클릭 → 토스 `requestBillingAuth("카드", { customerKey, successUrl, failUrl })` 호출
+- 성공 시 토스가 `successUrl`로 리다이렉트: `/customer/account-link/billing-success?authKey=...&customerKey=...`
+- **billing-success** 페이지에서 `customerKey === user.id` 검사 후 서버 액션 `issueBillingKeyFromAuth(authKey, customerKey)` 호출
+  - 토스 `POST /v1/billing/authorizations/issue`로 빌링키 발급 후 `customer_billing_keys` 테이블에 upsert
+- 실패 시 `/customer/account-link?billing=fail&message=...` 로 리다이렉트
 
-### 2. DB/백엔드
-- 빌링키 저장용 테이블 예시:
-  - `customer_billing_keys (user_id, billing_key, pg_provider, created_at)` 등
-- RLS: 본인만 자신의 빌링키 조회/삭제 가능하도록 정책 설정
+### 2. 계좌 연동 페이지 동작
+- 등록된 카드가 있으면 카드사·마스킹 번호 표시 및 "카드 연동 해제" 버튼 노출
+- 쿼리 `?billing=success` / `?billing=fail` / `?billing=invalid` 에 따라 성공/실패/유효하지 않음 메시지 표시
+- `NEXT_PUBLIC_TOSS_CLIENT_KEY` 가 있어야 카드 등록 버튼 사용 가능
 
-### 3. 프론트/화면
-- `/customer/account-link` 페이지에서:
-  - “카드 등록” 버튼 클릭 → 토스 빌링키 발급 창 띄우기 → 성공 시 `billingKey` 서버로 전달해 저장
-  - 이미 등록된 카드가 있으면 “등록된 카드로 결제” 옵션 노출
-- 배송 요청 시: “등록된 카드로 결제” 선택 시 결제 페이지에서 빌링키 결제 API 호출
+### 3. 등록된 카드로 결제
+- **페이지**: `/customer/delivery/[id]/pay`
+- 등록된 빌링키가 있는 고객에게는 "등록된 카드로 결제" 버튼과 "결제하기"(일회성) 버튼 모두 노출
+- "등록된 카드로 결제" 클릭 시:
+  - `POST /api/payments/pay-with-billing` body `{ orderId }` 호출
+  - 서버에서 `getBillingKeyForPayment(userId)`로 billing_key·customer_key 조회
+  - 토스 **카드 자동결제 승인** API `POST /v1/billing/{billingKey}` 호출 (customerKey, amount, orderId, orderName)
+  - 응답이 성공이면 payments·orders·settlements 업데이트 후 배송 상세로 리다이렉트
 
-### 4. 계좌이체 연동 (선택)
-- 계좌이체는 토스 **출금 동의** + **예치금** 등 별도 플로우가 필요할 수 있습니다.
-- [토스페이먼츠 출금](https://docs.tosspayments.com/guides/v2/transfer/overview) 문서 확인 후, 필요 시 출금 동의·예치금 충전 플로우 구현
+### 4. DB/백엔드
+- **테이블**: `customer_billing_keys` (id, user_id, customer_key, billing_key, card_company, card_number_masked, pg_provider, created_at), UNIQUE(user_id)
+- **스크립트**: `scripts/053_customer_billing_keys.sql` (테이블 + RLS)
+- **서버 액션** (`lib/actions/billing.ts`): `issueBillingKeyFromAuth`, `getCustomerBillingKey`, `getBillingKeyForPayment`, `deleteCustomerBillingKey`
+- **API**: `POST /api/billing/issue` (authKey·customerKey로 빌링키 발급·저장), `POST /api/payments/pay-with-billing` (등록 카드로 결제)
 
 ### 5. 환경 변수
-- 이미 사용 중: `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY` (일회성 결제용)
-- 빌링키/자동결제용 추가 설정은 토스 개발자센터에서 확인
+- `TOSS_SECRET_KEY`: 토스 시크릿 키 (빌링키 발급·빌링 결제용)
+- `NEXT_PUBLIC_TOSS_CLIENT_KEY`: 토스 클라이언트 키 (결제창·카드 등록창)
+- `NEXT_PUBLIC_APP_URL` 또는 `VERCEL_URL`: successUrl/failUrl 절대 경로용 (계좌 연동 리다이렉트)
+
+### 6. 참고 (토스 정책)
+- 자동결제(빌링)는 정기 구독형 서비스에만 사용 가능하다는 안내가 있을 수 있음. 퀵/배달 비구독 결제에 쓰는 것은 토스 측 확인이 필요할 수 있음.
+- `customerKey`는 user.id(UUID) 사용으로 토스 규칙 충족.
 
 ## 화면 경로 점검
 | 화면 | 경로 | 비고 |
 |------|------|------|
 | 새 배송 요청 | `/customer/new-delivery` | 결제 수단 선택 + "계좌/카드 연동" 링크 있음 |
-| 계좌 연동 | `/customer/account-link` | 로그인 필수, 새 배송 요청으로 돌아가기 링크 있음 |
-| 결제 페이지 | `/customer/delivery/[id]/pay` | 카드 선택 시 이동, 토스 일회성 결제 |
+| 계좌 연동 | `/customer/account-link` | 카드 등록·해제, 성공/실패 메시지 |
+| 카드 등록 성공 콜백 | `/customer/account-link/billing-success` | authKey·customerKey로 빌링키 발급·저장 |
+| 결제 페이지 | `/customer/delivery/[id]/pay` | 일회성 결제 + 등록된 카드로 결제 옵션 |
 
 위 경로로 이동하는지 한 번씩 클릭해서 확인하면 됩니다.
