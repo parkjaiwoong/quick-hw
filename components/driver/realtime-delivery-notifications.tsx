@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, startTransition } from "react"
-import { flushSync } from "react-dom"
+import { createPortal, flushSync } from "react-dom"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -269,7 +269,6 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
               notification.delivery_id
             ) {
               setLastEventAt(Date.now())
-              routerRef.current.refresh()
 
               let delivery: { id: string; pickup_address: string; delivery_address: string; distance_km?: number; total_fee?: number; driver_fee?: number } | null = null
               const { data: deliveryRow, error: deliveryError } = await supabase
@@ -327,6 +326,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 duration: 5000,
                 className: "border-blue-200 bg-blue-50",
               })
+
+              setTimeout(() => routerRef.current.refresh(), 2500)
             }
           } catch (error) {
             console.error("실시간 알림 처리 오류:", error)
@@ -474,68 +475,78 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
           </Button>
         </div>
       )}
-      {latestNewDelivery && (
-        <div
-          role="alertdialog"
-          aria-labelledby="delivery-popup-title"
-          className="fixed bottom-0 left-0 right-0 z-[100] flex flex-col rounded-t-2xl bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom duration-300"
-          onPointerDown={onPopupInteraction}
-          onTouchStart={onPopupInteraction}
-        >
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-            <div className="flex items-center gap-2 text-blue-600">
-              <Package className="h-5 w-5 shrink-0" />
-              <span id="delivery-popup-title" className="font-semibold">새 배송 요청</span>
-            </div>
-            <button
-              type="button"
-              aria-label="닫기"
-              className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100"
-              onClick={handleDecline}
+      {latestNewDelivery &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="alertdialog"
+            aria-labelledby="delivery-popup-title"
+            className="fixed inset-0 z-[2147483647] flex flex-col justify-end bg-black/20"
+            style={{ pointerEvents: "auto" }}
+          >
+            <div className="flex-1 min-h-0" onClick={handleDecline} aria-hidden />
+            <div
+              className="flex flex-col rounded-t-2xl bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom duration-300"
+              onPointerDown={onPopupInteraction}
+              onTouchStart={onPopupInteraction}
+              onClick={(e) => e.stopPropagation()}
             >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="px-4 py-3 space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="h-4 w-4 shrink-0 text-green-600" />
-              <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.pickup_address, 24)}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="h-4 w-4 shrink-0 text-red-600" />
-              <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.delivery_address, 24)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm pt-1">
-              <span className="text-muted-foreground">
-                {latestNewDelivery.delivery.distance_km != null && `${latestNewDelivery.delivery.distance_km.toFixed(1)}km`}
-                {(latestNewDelivery.delivery.driver_fee ?? latestNewDelivery.delivery.total_fee) != null && (
-                  <span className="ml-2 font-semibold text-foreground">
-                    {Number(latestNewDelivery.delivery.driver_fee ?? latestNewDelivery.delivery.total_fee).toLocaleString()}원
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Package className="h-5 w-5 shrink-0" />
+                  <span id="delivery-popup-title" className="font-semibold">새 배송 요청</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="닫기"
+                  className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100"
+                  onClick={handleDecline}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 shrink-0 text-green-600" />
+                  <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.pickup_address, 24)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 shrink-0 text-red-600" />
+                  <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.delivery_address, 24)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm pt-1">
+                  <span className="text-muted-foreground">
+                    {latestNewDelivery.delivery.distance_km != null && `${latestNewDelivery.delivery.distance_km.toFixed(1)}km`}
+                    {(latestNewDelivery.delivery.driver_fee ?? latestNewDelivery.delivery.total_fee) != null && (
+                      <span className="ml-2 font-semibold text-foreground">
+                        {Number(latestNewDelivery.delivery.driver_fee ?? latestNewDelivery.delivery.total_fee).toLocaleString()}원
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
+                </div>
+              </div>
+              <div className="flex gap-2 px-4 pb-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleDecline}
+                  disabled={acceptLoading}
+                >
+                  거절
+                </Button>
+                <Button
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  onClick={handleAccept}
+                  disabled={acceptLoading}
+                >
+                  {acceptLoading ? "처리 중…" : "수락"}
+                </Button>
+              </div>
+              <div className="h-1 w-16 mx-auto rounded-full bg-gray-200 mb-1" aria-hidden />
             </div>
-          </div>
-          <div className="flex gap-2 px-4 pb-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleDecline}
-              disabled={acceptLoading}
-            >
-              거절
-            </Button>
-            <Button
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
-              onClick={handleAccept}
-              disabled={acceptLoading}
-            >
-              {acceptLoading ? "처리 중…" : "수락"}
-            </Button>
-          </div>
-          <div className="h-1 w-16 mx-auto rounded-full bg-gray-200 mb-1" aria-hidden />
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   )
 }
