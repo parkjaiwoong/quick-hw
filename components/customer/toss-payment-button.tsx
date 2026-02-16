@@ -99,7 +99,7 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
         failUrl: payload.failUrl,
       })
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("결제 창이 열리지 않았습니다. 팝업 차단을 해제한 뒤 다시 시도해 주세요.")), 15000)
+        setTimeout(() => reject(new Error("결제 창이 열리지 않았습니다. 팝업 차단을 해제한 뒤 다시 시도해 주세요.")), 15000))
       await Promise.race([payPromise, timeout])
     } catch (error) {
       const msg = error instanceof Error ? error.message : "결제 요청에 실패했습니다."
