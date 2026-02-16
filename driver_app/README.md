@@ -3,6 +3,8 @@
 기사 웹페이지(`/driver`)를 그대로 앱 형태로 보여주는 WebView 앱입니다.  
 **웹을 수정하면 앱에서도 동일하게 반영됩니다.** (단일 소스: Next.js 기사 웹)
 
+**Flutter/앱 코드 수정 후 모바일에 반영하려면**: `driver_app`에서 `flutter pub get` 실행 후 앱을 다시 빌드·설치하세요. (`flutter run` 또는 `flutter build apk` 후 APK 재설치)
+
 ## 요구 사항
 
 - **Flutter**: `D:\tools\flutter`
