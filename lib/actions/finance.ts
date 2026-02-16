@@ -68,7 +68,10 @@ export async function createOrderAndPaymentForDelivery(params: {
     return { orderId: existingOrder.id, paymentStatus }
   }
 
-  const { data: order, error: orderError } = await supabase
+  const service = await getServiceClient()
+  const writeClient = service ?? supabase
+
+  const { data: order, error: orderError } = await writeClient
     .from("orders")
     .insert({
       customer_id: params.customerId,
@@ -85,7 +88,7 @@ export async function createOrderAndPaymentForDelivery(params: {
     return { error: orderError?.message || "주문 생성에 실패했습니다." }
   }
 
-  const { data: payment, error: paymentError } = await supabase
+  const { data: payment, error: paymentError } = await writeClient
     .from("payments")
     .insert({
       order_id: order.id,
