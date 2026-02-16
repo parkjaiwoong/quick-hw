@@ -85,9 +85,33 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
   const routerRef = useRef(router)
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundPlayedForCurrentRef = useRef(false)
-  const toastRef = useRef(toast)
-  const showBrowserNotificationRef = useRef<(payload: LatestNewDelivery) => void>(() => {})
 
+  // ref에서 사용하므로 반드시 ref보다 먼저 정의 (선언 전 참조 방지)
+  const showBrowserNotification = useCallback((payload: LatestNewDelivery) => {
+    if (typeof window === "undefined" || !("Notification" in window) || notificationPermission !== "granted") return
+    const d = payload.delivery
+    const from = shortenAddress(d.pickup_address, 20)
+    const to = shortenAddress(d.delivery_address, 20)
+    const fee = (d.driver_fee ?? d.total_fee) != null
+      ? `${Number(d.driver_fee ?? d.total_fee).toLocaleString()}원`
+      : ""
+    const body = [from, to].filter(Boolean).join(" → ") + (fee ? ` · ${fee}` : "")
+    try {
+      const n = new Notification("📦 새 배송 요청 (수락 가능)", {
+        body,
+        tag: "delivery-request",
+        requireInteraction: true,
+        icon: "/icon.svg",
+      })
+      n.onclick = () => {
+        window.focus()
+        n.close()
+      }
+    } catch (_) {}
+  }, [notificationPermission])
+
+  const toastRef = useRef(toast)
+  const showBrowserNotificationRef = useRef(showBrowserNotification)
   useEffect(() => {
     routerRef.current = router
   }, [router])
@@ -170,30 +194,6 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     }
     triggerVibration()
   }, [latestNewDelivery])
-
-  // 시스템 알림 표시 (탭이 백그라운드일 때, 다른 작업 중일 때)
-  const showBrowserNotification = useCallback((payload: LatestNewDelivery) => {
-    if (typeof window === "undefined" || !("Notification" in window) || notificationPermission !== "granted") return
-    const d = payload.delivery
-    const from = shortenAddress(d.pickup_address, 20)
-    const to = shortenAddress(d.delivery_address, 20)
-    const fee = (d.driver_fee ?? d.total_fee) != null
-      ? `${Number(d.driver_fee ?? d.total_fee).toLocaleString()}원`
-      : ""
-    const body = [from, to].filter(Boolean).join(" → ") + (fee ? ` · ${fee}` : "")
-    try {
-      const n = new Notification("📦 새 배송 요청 (수락 가능)", {
-        body,
-        tag: "delivery-request",
-        requireInteraction: true,
-        icon: "/icon.svg",
-      })
-      n.onclick = () => {
-        window.focus()
-        n.close()
-      }
-    } catch (_) {}
-  }, [notificationPermission])
 
   // 실시간 알림 구독 (의존성은 userId만 — toast/showBrowserNotification 변경 시 재구독하지 않아 결재 시 잘못된 '연결 실패' 방지)
   useEffect(() => {
