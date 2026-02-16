@@ -74,6 +74,8 @@ function shortenAddress(addr: string, maxLen = 18) {
   return trimmed.slice(0, maxLen - 1) + "…"
 }
 
+const DRIVER_NEW_DELIVERY_EVENT = "driver-new-delivery-request"
+
 interface RealtimeDeliveryNotificationsProps {
   userId: string
   /** 배송 불가면 새 배송 요청 알림이 오지 않음(연결 상태는 유지). 화면 문구 구분용 */
@@ -222,6 +224,30 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => clearTimeout(t)
   }, [lastEventAt])
 
+  // Realtime 콜백 → 컴포넌트 컨텍스트 브릿지 (WebView에서 setState가 안 먹힐 수 있어 커스텀 이벤트로 전달)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { payloadData, hasDelivery } = (e as CustomEvent<{ payloadData: LatestNewDelivery; hasDelivery: boolean }>).detail
+      if (!payloadData) return
+      setEventReceiveCount((c) => c + 1)
+      setLastEventAt(Date.now())
+      setLatestNewDelivery(payloadData)
+      triggerVibration()
+      playDingDongSound(audioContextRef)
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        showBrowserNotificationRef.current(payloadData)
+      }
+      toastRef.current({
+        title: "📦 새 배송 요청 도착",
+        description: hasDelivery ? "아래에서 수락하거나 거절하세요." : "아래에서 수락하거나 목록에서 확인하세요.",
+        duration: 5000,
+        className: "border-blue-200 bg-blue-50",
+      })
+    }
+    window.addEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
+    return () => window.removeEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
+  }, [])
+
   // 팝업 표시 시 진동
   useEffect(() => {
     if (!latestNewDelivery) {
@@ -268,9 +294,6 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
               (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
               notification.delivery_id
             ) {
-              setEventReceiveCount((c) => c + 1)
-              setLastEventAt(Date.now())
-
               let delivery: { id: string; pickup_address: string; delivery_address: string; distance_km?: number; total_fee?: number; driver_fee?: number } | null = null
               const { data: deliveryRow, error: deliveryError } = await supabase
                 .from("deliveries")
@@ -309,24 +332,13 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     notificationId: notification.id,
                   }
 
-              triggerVibration()
-              playDingDongSound(audioContextRef)
-              setTimeout(() => {
-                setLatestNewDelivery(payloadData)
-              }, 0)
-
-              if (document.visibilityState === "hidden") {
-                showBrowserNotificationRef.current(payloadData)
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent(DRIVER_NEW_DELIVERY_EVENT, {
+                    detail: { payloadData, hasDelivery: !!delivery },
+                  })
+                )
               }
-
-              toastRef.current({
-                title: "📦 새 배송 요청 도착",
-                description: delivery
-                  ? "아래에서 수락하거나 거절하세요."
-                  : "아래에서 수락하거나 목록에서 확인하세요.",
-                duration: 5000,
-                className: "border-blue-200 bg-blue-50",
-              })
             }
           } catch (error) {
             console.error("실시간 알림 처리 오류:", error)

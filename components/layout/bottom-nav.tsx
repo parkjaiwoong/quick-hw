@@ -15,6 +15,7 @@ export function BottomNav() {
   const isDriverDetailPage = pathname?.startsWith("/driver/delivery/")
   const supabase = useMemo(() => createClient(), [])
   const mountedRef = useRef(true)
+  const loadingClearedRef = useRef(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -27,6 +28,7 @@ export function BottomNav() {
       if (error) {
         console.error("BottomNav session check error:", error)
         startTransition(() => {
+          loadingClearedRef.current = true
           setIsAuthenticated(false)
           setUserRole(null)
           setIsLoading(false)
@@ -54,12 +56,14 @@ export function BottomNav() {
           if (profileError) {
             console.error("Profile fetch error:", profileError)
             startTransition(() => {
+              loadingClearedRef.current = true
               setUserRole(null)
               setIsAuthenticated(authenticated)
               setIsLoading(false)
             })
           } else {
             startTransition(() => {
+              loadingClearedRef.current = true
               setIsAuthenticated(authenticated)
               setUserRole(profile?.role || null)
               console.log("User role:", profile?.role)
@@ -68,6 +72,7 @@ export function BottomNav() {
           }
         } else {
           startTransition(() => {
+            loadingClearedRef.current = true
             setIsAuthenticated(authenticated)
             setUserRole(null)
             setIsLoading(false)
@@ -78,6 +83,7 @@ export function BottomNav() {
       if (!mountedRef.current) return
       console.error("BottomNav session check exception:", error)
       startTransition(() => {
+        loadingClearedRef.current = true
         setIsAuthenticated(false)
         setUserRole(null)
         setIsLoading(false)
@@ -87,7 +93,20 @@ export function BottomNav() {
 
   useEffect(() => {
     mountedRef.current = true
+    loadingClearedRef.current = false
     refreshSession()
+
+    const timeoutId = setTimeout(async () => {
+      if (!mountedRef.current || loadingClearedRef.current) return
+      const { data: { session } } = await supabase.auth.getSession()
+      const roleFromPath = pathname?.startsWith("/driver") ? "driver" : pathname?.startsWith("/customer") ? "customer" : pathname?.startsWith("/admin") ? "admin" : null
+      startTransition(() => {
+        loadingClearedRef.current = true
+        setIsAuthenticated(!!session?.user)
+        setUserRole(roleFromPath)
+        setIsLoading(false)
+      })
+    }, 2500)
 
     const {
       data: { subscription },
@@ -109,6 +128,7 @@ export function BottomNav() {
               console.error("Profile fetch error in onAuthStateChange:", profileError)
             }
             startTransition(() => {
+              loadingClearedRef.current = true
               setIsAuthenticated(true)
               setUserRole(profileError ? null : (profile?.role ?? null))
               setIsLoading(false)
@@ -116,6 +136,7 @@ export function BottomNav() {
           })
       } else {
         startTransition(() => {
+          loadingClearedRef.current = true
           setIsAuthenticated(authenticated)
           setUserRole(null)
           setIsLoading(false)
@@ -125,9 +146,10 @@ export function BottomNav() {
 
     return () => {
       mountedRef.current = false
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [refreshSession, supabase])
+  }, [refreshSession, supabase, pathname])
 
   // pathname마다 세션 재조회 제거 → INP 개선 (클릭 시 메인 스레드 블로킹 방지)
 
