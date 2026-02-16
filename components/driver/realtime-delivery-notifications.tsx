@@ -74,21 +74,54 @@ function shortenAddress(addr: string, maxLen = 18) {
   return trimmed.slice(0, maxLen - 1) + "…"
 }
 
-export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
+interface RealtimeDeliveryNotificationsProps {
+  userId: string
+  /** 배송 불가면 새 배송 요청 알림이 오지 않음(연결 상태는 유지). 화면 문구 구분용 */
+  isAvailable?: boolean
+}
+
+export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: RealtimeDeliveryNotificationsProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [latestNewDelivery, setLatestNewDelivery] = useState<LatestNewDelivery | null>(null)
   const [acceptLoading, setAcceptLoading] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default")
   const [realtimeStatus, setRealtimeStatus] = useState<"idle" | "subscribed" | "error">("idle")
+  const [retryKey, setRetryKey] = useState(0)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const routerRef = useRef(router)
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundPlayedForCurrentRef = useRef(false)
+  const audioUnlockedRef = useRef(false)
+
+  // 사용자 제스처 시 AudioContext 언락 (자동재생 정책 통과 — 그래야 나중에 띵동 소리 재생 가능)
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    const unlock = () => {
+      if (audioUnlockedRef.current) return
+      audioUnlockedRef.current = true
+      try {
+        if (!audioContextRef.current) {
+          const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+          if (Ctor) audioContextRef.current = new Ctor()
+        }
+        const ctx = audioContextRef.current
+        if (ctx?.state === "suspended") ctx.resume()
+      } catch (_) {}
+    }
+    const opts = { capture: true, passive: true }
+    document.addEventListener("touchstart", unlock, opts)
+    document.addEventListener("pointerdown", unlock, opts)
+    return () => {
+      document.removeEventListener("touchstart", unlock, opts)
+      document.removeEventListener("pointerdown", unlock, opts)
+    }
+  }, [])
 
   // ref에서 사용하므로 반드시 ref보다 먼저 정의 (선언 전 참조 방지)
   const showBrowserNotification = useCallback((payload: LatestNewDelivery) => {
-    if (typeof window === "undefined" || !("Notification" in window) || notificationPermission !== "granted") return
+    if (typeof window === "undefined" || !("Notification" in window)) return
+    if (Notification.permission !== "granted") return
     const d = payload.delivery
     const from = shortenAddress(d.pickup_address, 20)
     const to = shortenAddress(d.delivery_address, 20)
@@ -108,7 +141,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
         n.close()
       }
     } catch (_) {}
-  }, [notificationPermission])
+  }, [])
 
   const toastRef = useRef(toast)
   const showBrowserNotificationRef = useRef(showBrowserNotification)
@@ -120,21 +153,15 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     showBrowserNotificationRef.current = showBrowserNotification
   }, [toast, showBrowserNotification])
 
-  // 배송원 대시 진입 시 알림 권한 요청 (탭이 백그라운드일 때도 알림 받기 위함)
+  // 배송원 대시 진입 시 알림 권한 상태 동기화 (실제 권한은 Notification.permission으로 사용)
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return
-    if (Notification.permission === "granted") {
-      setNotificationPermission("granted")
-      return
-    }
-    if (Notification.permission === "denied") {
-      setNotificationPermission("denied")
-      return
-    }
-    const t = setTimeout(() => {
-      Notification.requestPermission().then((p) => setNotificationPermission(p))
-    }, 800)
-    return () => clearTimeout(t)
+    setNotificationPermission(Notification.permission)
+  }, [])
+
+  const requestNotificationPermission = useCallback(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return
+    Notification.requestPermission().then((p) => setNotificationPermission(p))
   }, [])
 
   // Flutter 앱에서 FCM 토큰 전달 시 서버에 등록 (앱 백그라운드/종료 시에도 푸시 수신)
@@ -195,7 +222,20 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     triggerVibration()
   }, [latestNewDelivery])
 
-  // 실시간 알림 구독 (의존성은 userId만 — toast/showBrowserNotification 변경 시 재구독하지 않아 결재 시 잘못된 '연결 실패' 방지)
+  // 앱 전환 후 복귀 시 재연결: 카카오 등 다른 앱 갔다가 돌아오면 WebSocket이 끊겨 '연결 실패'가 나므로, 포그라운드 복귀 시 재구독
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return
+      if (realtimeStatus === "error") {
+        setRetryKey((k) => k + 1)
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
+  }, [realtimeStatus])
+
+  // 실시간 알림 구독 (userId 또는 retryKey 변경 시 재구독 — 앱 복귀 시 재연결)
   useEffect(() => {
     if (!userId) return
 
@@ -203,7 +243,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     supabaseRef.current = supabase
 
     const channel = supabase
-      .channel(`driver-notifications:${userId}`)
+      .channel(`driver-notifications:${userId}-${retryKey}`)
       .on(
         "postgres_changes",
         {
@@ -261,10 +301,45 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
           }
         },
       )
-      .subscribe((status) => {
+      .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           setRealtimeStatus("subscribed")
           console.log("실시간 알림 구독 성공")
+          // 앱 복귀 후 재연결 시: 다른 앱 갔다 오는 동안 온 미확인 신규 요청이 있으면 모달로 표시
+          try {
+            const { data: rows } = await supabase
+              .from("notifications")
+              .select("id, delivery_id, type, created_at")
+              .eq("user_id", userId)
+              .eq("is_read", false)
+              .in("type", ["new_delivery_request", "new_delivery"])
+              .not("delivery_id", "is", null)
+              .order("created_at", { ascending: false })
+              .limit(1)
+            const row = rows?.[0]
+            if (row?.delivery_id) {
+              const { data: delivery } = await supabase
+                .from("deliveries")
+                .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee")
+                .eq("id", row.delivery_id)
+                .single()
+              if (delivery) {
+                setLatestNewDelivery({
+                  delivery: {
+                    id: delivery.id,
+                    pickup_address: delivery.pickup_address,
+                    delivery_address: delivery.delivery_address,
+                    distance_km: delivery.distance_km,
+                    total_fee: delivery.total_fee,
+                    driver_fee: delivery.driver_fee,
+                  },
+                  notificationId: row.id,
+                })
+                triggerVibration()
+                playDingDongSound(audioContextRef)
+              }
+            }
+          } catch (_) {}
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setRealtimeStatus("error")
           console.error("실시간 알림 구독 오류:", status)
@@ -274,7 +349,7 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [userId, retryKey])
 
   const handleAccept = async () => {
     if (!latestNewDelivery || acceptLoading) return
@@ -326,9 +401,18 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
         aria-live="polite"
       >
         {realtimeStatus === "subscribed" && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1.5 text-xs font-medium shadow-sm">
-            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" aria-hidden />
-            실시간 알림 연결됨
+          <span
+            className={
+              isAvailable
+                ? "inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1.5 text-xs font-medium shadow-sm"
+                : "inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs shadow-sm"
+            }
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${isAvailable ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
+              aria-hidden
+            />
+            {isAvailable ? "실시간 알림 연결됨" : "실시간 알림 연결됨 (배송 불가 — 새 요청 알림 없음)"}
           </span>
         )}
         {realtimeStatus === "idle" && (
@@ -341,6 +425,14 @@ export function RealtimeDeliveryNotifications({ userId }: { userId: string }) {
       {realtimeStatus === "error" && (
         <div className="fixed top-16 left-2 right-2 z-[90] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
           <strong>실시간 알림 연결 실패.</strong> 새 배송 요청 시 띵동/진동이 올 수 없습니다. PC에서 Supabase SQL 또는 관리자에게 문의하세요.
+        </div>
+      )}
+      {notificationPermission === "default" && realtimeStatus !== "error" && typeof window !== "undefined" && "Notification" in window && (
+        <div className="fixed top-16 left-2 right-2 z-[90] rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 shadow-sm flex items-center justify-between gap-2">
+          <span>다른 앱 사용 중에도 알림을 받으려면 알림을 허용해 주세요.</span>
+          <Button type="button" size="sm" variant="secondary" className="shrink-0 text-xs" onClick={requestNotificationPermission}>
+            알림 허용
+          </Button>
         </div>
       )}
       {latestNewDelivery && (
