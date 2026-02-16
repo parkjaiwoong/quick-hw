@@ -230,7 +230,8 @@ export function DeliveryRequestForm({
       }
       const method = (data.paymentMethod || paymentMethod || "").toLowerCase()
       startTransition(() => {
-        if (method === "card") {
+        // 카드·계좌이체는 결제 페이지로, 현금 등은 배송 상세로
+        if (method === "card" || method === "bank_transfer") {
           router.push(`/customer/delivery/${id}/pay`)
         } else {
           router.push(`/customer/delivery/${id}`)
