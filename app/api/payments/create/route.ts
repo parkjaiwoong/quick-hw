@@ -29,8 +29,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "주문 정보를 찾을 수 없습니다." }, { status: 404 })
   }
 
-  if (order.payment_method && order.payment_method !== "card") {
-    return NextResponse.json({ error: "카드 결제만 지원합니다." }, { status: 400 })
+  const allowedMethods = ["card", "bank_transfer"]
+  if (order.payment_method && !allowedMethods.includes(order.payment_method)) {
+    return NextResponse.json({ error: "카드 또는 계좌이체만 지원합니다." }, { status: 400 })
   }
 
   const expectedAmount = Number(order.customer_adjusted_amount ?? order.order_amount ?? amount)
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
 
   let paymentId = existingPayment?.id
   if (!existingPayment?.id) {
+    const paymentMethod = order.payment_method === "bank_transfer" ? "bank_transfer" : "card"
     const { data: payment, error } = await supabase
       .from("payments")
       .insert({
@@ -59,7 +61,7 @@ export async function POST(request: Request) {
         delivery_id: order.delivery_id,
         customer_id: user.id,
         amount: expectedAmount,
-        payment_method: "card",
+        payment_method: paymentMethod,
         status: "READY",
         pg_provider: "TOSS",
         requested_at: new Date().toISOString(),
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
     amount: expectedAmount,
     orderName: "퀵서비스 주문",
     customerName: profile?.full_name || profile?.email || "고객",
+    customerEmail: profile?.email ?? undefined,
     successUrl: deliveryId
       ? `${origin}/payments/success?deliveryId=${encodeURIComponent(deliveryId)}`
       : `${origin}/payments/success`,

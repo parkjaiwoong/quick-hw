@@ -39,7 +39,9 @@ export default async function DeliveryPayPage({
 
   const { order, payment } = await getOrderPaymentSummaryByDelivery(deliveryId)
   const { billingKey: hasBillingKey } = await getCustomerBillingKey(user.id)
-  const isCard = (payment?.payment_method || order?.payment_method) === "card"
+  const paymentMethod = (payment?.payment_method || order?.payment_method) as string | undefined
+  const isCard = paymentMethod === "card"
+  const isBankTransfer = paymentMethod === "bank_transfer"
   const amount = Number(payment?.amount ?? order?.order_amount ?? 0)
   const canPay = amount > 0 && payment?.status !== "PAID"
 
@@ -47,7 +49,8 @@ export default async function DeliveryPayPage({
   if (!order?.id) {
     return <PayPageOrderLoading deliveryId={deliveryId} />
   }
-  if (!isCard || !canPay) {
+  // 카드/계좌이체가 아니거나 이미 결제 완료면 배송 상세로
+  if ((!isCard && !isBankTransfer) || !canPay) {
     redirect(`/customer/delivery/${deliveryId}`)
   }
 
@@ -69,7 +72,15 @@ export default async function DeliveryPayPage({
               <span className="text-muted-foreground">결제 금액</span>
               <span className="font-semibold">{amount.toLocaleString()}원</span>
             </div>
-            {hasBillingKey ? (
+            {isBankTransfer ? (
+              <TossPaymentButton
+                orderId={order.id}
+                amount={amount}
+                disabled={!canPay}
+                paymentMethod="bank_transfer"
+                autoPay
+              />
+            ) : hasBillingKey ? (
               <div className="space-y-2">
                 <PayWithBillingButton orderId={order.id} deliveryId={deliveryId} disabled={!canPay} />
                 <p className="text-xs text-center text-muted-foreground">또는</p>

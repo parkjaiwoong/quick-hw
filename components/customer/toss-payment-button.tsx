@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 declare global {
   interface Window {
     TossPayments?: (clientKey: string) => {
-      requestPayment: (method: "CARD", options: Record<string, any>) => Promise<void>
+      requestPayment: (method: "CARD" | "TRANSFER", options: Record<string, unknown>) => Promise<void>
     }
   }
 }
@@ -18,9 +18,11 @@ interface TossPaymentButtonProps {
   disabled?: boolean
   /** 기사 연결 요청 후 이동 시 토스 결제 창 자동 오픈 */
   autoPay?: boolean
+  /** 결제 수단: 카드(기본) 또는 계좌이체 */
+  paymentMethod?: "card" | "bank_transfer"
 }
 
-export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPaymentButtonProps) {
+export function TossPaymentButton({ orderId, amount, disabled, autoPay, paymentMethod = "card" }: TossPaymentButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [scriptReady, setScriptReady] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -90,14 +92,19 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
       }
 
       const toss = window.TossPayments(payload.clientKey)
-      const payPromise = toss.requestPayment("CARD", {
+      const method = paymentMethod === "bank_transfer" ? "TRANSFER" : "CARD"
+      const options: Record<string, unknown> = {
         amount: payload.amount,
         orderId: payload.orderId,
         orderName: payload.orderName,
         customerName: payload.customerName,
         successUrl: payload.successUrl,
         failUrl: payload.failUrl,
-      })
+      }
+      if (method === "TRANSFER" && payload.customerEmail) {
+        options.customerEmail = payload.customerEmail
+      }
+      const payPromise = toss.requestPayment(method, options)
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("결제 창이 열리지 않았습니다. 팝업 차단을 해제한 뒤 다시 시도해 주세요.")), 15000))
       await Promise.race([payPromise, timeout])
@@ -107,7 +114,7 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
     } finally {
       setIsLoading(false)
     }
-  }, [orderId, amount, disabled, isLoading, scriptReady, showError])
+  }, [orderId, amount, disabled, isLoading, scriptReady, showError, paymentMethod])
 
   useEffect(() => {
     if (!shouldAutoPay || disabled || autoPayTriggered.current || !scriptReady) return
@@ -116,7 +123,13 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
   }, [shouldAutoPay, disabled, scriptReady, handleClick])
 
   const buttonDisabled = disabled || isLoading || !scriptReady
-  const buttonLabel = !scriptReady ? "준비 중..." : isLoading ? "결제 처리중..." : "결제하기"
+  const buttonLabel = !scriptReady
+    ? "준비 중..."
+    : isLoading
+      ? "결제 처리중..."
+      : paymentMethod === "bank_transfer"
+        ? "계좌이체 결제하기"
+        : "결제하기"
 
   return (
     <div className="space-y-2 w-full">
