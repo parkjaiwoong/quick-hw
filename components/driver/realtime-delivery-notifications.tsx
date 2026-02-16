@@ -349,6 +349,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     detail: { payloadData, hasDelivery: !!delivery },
                   })
                 )
+                // 수락 가능한 배송 목록 자동 갱신 (서버 컴포넌트 재실행)
+                routerRef.current?.refresh()
               }
             }
           } catch (error) {
@@ -392,6 +394,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 })
                 triggerVibration()
                 playDingDongSound(audioContextRef)
+                routerRef.current?.refresh()
               }
             }
           } catch (_) {}

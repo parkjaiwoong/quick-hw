@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'app_config.dart';
+import 'app_version_service.dart';
 import 'fcm_service.dart';
 
 void main() async {
@@ -45,6 +46,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
   @override
   void initState() {
     super.initState();
+    _checkAppVersion();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -65,6 +67,45 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
         ),
       )
       ..loadRequest(Uri.parse(driverWebUrl));
+  }
+
+  /// 앱 실행 시 서버에서 최신 버전 확인 후 업데이트 안내
+  Future<void> _checkAppVersion() async {
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    final result = await AppVersionService.checkUpdate();
+    if (!mounted || result == null || !result.shouldUpdate) return;
+    final mustUpdate = result.mustUpdate;
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: !mustUpdate,
+        builder: (ctx) => AlertDialog(
+          title: Text(mustUpdate ? '업데이트 필요' : '새 버전이 있습니다'),
+          content: Text(
+            mustUpdate
+                ? '원활한 이용을 위해 앱을 업데이트해 주세요.\n(현재: ${result.currentVersion} → 최신: ${result.latestVersion ?? result.minVersion})'
+                : '새 버전 ${result.latestVersion}이 있습니다. 업데이트하시겠습니까?',
+          ),
+          actions: [
+            if (!mustUpdate)
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('나중에'),
+              ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                AppVersionService.openDownloadUrl(result.downloadUrl);
+              },
+              child: const Text('업데이트'),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   /// FCM 토큰을 웹에 전달해 서버에 등록 (탭 종료 후에도 푸시 수신)

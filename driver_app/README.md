@@ -70,6 +70,22 @@ Vercel 등 웹에서 APK 다운로드 링크를 쓰려면, 빌드한 APK를 Next
 
 앱 실행 후 기사로 로그인하면 FCM 토큰이 자동으로 서버에 등록됩니다.
 
+## 앱 자동 업데이트 안내 (버전 체크)
+
+앱을 실행할 때마다 서버(`/api/driver/app-version`)에서 최신 버전을 확인합니다.  
+서버에 새 버전이 등록되어 있으면 **「새 버전이 있습니다」** 다이얼로그가 뜨고, **업데이트** 버튼으로 APK 다운로드 URL(또는 스토어 링크)을 엽니다.
+
+**서버 쪽 설정 (Next.js 환경 변수)**  
+기사 웹과 같은 도메인에 다음을 설정하면 버전 체크가 동작합니다.
+
+| 변수 | 설명 |
+|------|------|
+| `NEXT_PUBLIC_DRIVER_APP_LATEST_VERSION` | 최신 앱 버전 (예: `1.0.1`). 이 버전보다 낮으면 업데이트 안내 |
+| `NEXT_PUBLIC_DRIVER_APP_MIN_VERSION` | (선택) 필수 최소 버전. 이보다 낮으면 **업데이트 필요**로만 안내 |
+| `NEXT_PUBLIC_DRIVER_APP_DOWNLOAD_URL` | 새 APK 다운로드 URL 또는 스토어 링크 (예: `https://your-domain.com/downloads/driver-app.apk`) |
+
+새 APK를 빌드한 뒤 `pubspec.yaml`의 `version`을 올리고, 서버 env에 `NEXT_PUBLIC_DRIVER_APP_LATEST_VERSION`과 `NEXT_PUBLIC_DRIVER_APP_DOWNLOAD_URL`을 설정한 후 배포하면, 사용자가 앱을 열 때 업데이트 안내가 표시됩니다.
+
 ## 동작 방식
 
 - 앱은 **WebView**로 `driverWebUrl`(기사 웹)만 전체 화면에 표시합니다.
