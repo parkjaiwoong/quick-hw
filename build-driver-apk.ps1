@@ -1,4 +1,5 @@
-# 기사 앱 APK 빌드 후 public/downloads 로 복사
+# 언넌(기사 앱) APK 빌드 후 public/downloads 로 복사
+# 빌드 오류 시: driver_app 에서 flutter clean 후 다시 실행
 # 사용: .\build-driver-apk.ps1
 # DRIVER_WEB_URL 을 바꾸려면 아래 $driverWebUrl 수정
 

@@ -22,6 +22,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Flutter / 기사 앱 (언넌)
+driver_app/build
+driver_app/android/app/google-services.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

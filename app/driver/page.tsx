@@ -86,7 +86,7 @@ export default async function DriverDashboard() {
               <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
                 <Link href="/driver/app-download" className="flex items-center gap-1.5">
                   <Smartphone className="h-4 w-4" />
-                  기사 앱 다운로드
+                  언넌 다운로드
                 </Link>
               </Button>
             </div>
@@ -149,13 +149,14 @@ export default async function DriverDashboard() {
         </div>
 
         <Tabs defaultValue="available" className="w-full">
-          <div className="w-full -mx-4 px-4 md:mx-0 md:px-0">
-            <TabsList className="tabs-scroll-mobile flex w-full max-w-full gap-1.5 rounded-xl border border-border/60 bg-muted/50 p-1.5 shadow-sm min-h-[2.75rem]">
-              <TabsTrigger value="available" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">대기 중 배송 ({available.length})</TabsTrigger>
-              <TabsTrigger value="assigned" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">진행 중 배송 ({assigned.length})</TabsTrigger>
-              <TabsTrigger value="history" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">운행 이력</TabsTrigger>
-              <TabsTrigger value="settlements" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">정산</TabsTrigger>
-              <TabsTrigger value="sales" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">📊 영업 성과</TabsTrigger>
+          <div className="w-full">
+            <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">탭 메뉴</p>
+            <TabsList className="tabs-scroll-mobile inline-flex w-full max-w-full h-auto min-h-[2.75rem] gap-1 rounded-xl border border-border bg-muted/50 p-1.5 shadow-sm overflow-x-auto overflow-y-hidden">
+              <TabsTrigger value="available" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">대기 중 배송 ({available.length})</TabsTrigger>
+              <TabsTrigger value="assigned" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">진행 중 배송 ({assigned.length})</TabsTrigger>
+              <TabsTrigger value="history" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">운행 이력</TabsTrigger>
+              <TabsTrigger value="settlements" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">정산</TabsTrigger>
+              <TabsTrigger value="sales" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">📊 영업 성과</TabsTrigger>
             </TabsList>
           </div>
 

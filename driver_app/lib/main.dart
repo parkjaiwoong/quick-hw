@@ -16,7 +16,7 @@ class DriverApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '기사 앱',
+      title: '언넌',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
@@ -118,7 +118,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('기사 페이지 불러오는 중...'),
+                    Text('언넌 불러오는 중...'),
                   ],
                 ),
               ),

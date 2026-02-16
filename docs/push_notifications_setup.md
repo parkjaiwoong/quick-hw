@@ -109,3 +109,37 @@ FCM으로도 보내려면 Next.js 서버에 Firebase Admin SDK 설정이 필요�
 |------|-------------|
 | 웹에서 탭만 닫은 경우 | VAPID 키 + `PUSH_WEBHOOK_SECRET` + Supabase Webhook → `/api/push/send` |
 | Flutter 앱 백그라운드/종료 | Firebase 프로젝트 + 기사 앱 FCM 토큰 등록 + (선택) Firebase Admin으로 전송 |
+
+---
+
+## 최종 배포 후 체크리스트
+
+아래가 모두 되어 있어야 **배송 요청 시 기사 앱/웹으로 푸시**가 갑니다.
+
+| # | 항목 | 확인 |
+|---|------|------|
+| 1 | `driver_app/android/app/google-services.json` 추가 | ✅ |
+| 2 | Vercel 환경 변수 `FIREBASE_SERVICE_ACCOUNT_JSON` 추가 후 재배포 | ✅ |
+| 3 | **Supabase Database Webhook** 설정 (한 번만 하면 됨) | 아래 참고 |
+| 4 | Vercel 환경 변수 `PUSH_WEBHOOK_SECRET` 추가 (웹훅 인증용, 임의의 비밀 문자열) | 웹훅 설정 시 사용 |
+
+### Supabase 웹훅 한 번만 설정하기
+
+배송 요청이 들어올 때 `notifications` 테이블에 INSERT되면, 그걸 알려주는 게 웹훅입니다. **이걸 설정해야** `/api/push/send`가 호출되고, 그제서야 FCM/Web Push가 전송됩니다.
+
+1. **Supabase Dashboard** → **Database** → **Webhooks** → **Create a new webhook**
+2. **Name**: 예) `push-on-notification`
+3. **Table**: `notifications`
+4. **Events**: **Insert** 만 체크
+5. **Type**: **HTTP Request**
+6. **URL**: `https://quick-hw.vercel.app/api/push/send` (또는 사용 중인 Vercel 도메인)
+7. **HTTP Headers**:
+   - Key: `Content-Type` → Value: `application/json`
+   - Key: `x-webhook-secret` → Value: **(Vercel에 넣은 `PUSH_WEBHOOK_SECRET` 값과 동일하게)**
+8. 저장 후, **배송 요청 → 가까운 기사에게 알림 INSERT** 되는 플로우를 한 번 테스트해 보면 됩니다.
+
+### 동작 확인 방법
+
+1. 기사 계정으로 **기사 앱(Flutter)** 또는 **기사 웹**에서 한 번 로그인 (FCM 토큰/Web Push 구독이 등록됨).
+2. 고객이 **배송 요청**을 넣어서, 해당 기사에게 `new_delivery_request` 알림이 INSERT되게 함.
+3. 기사 앱을 **백그라운드로 두거나 종료**한 뒤, 위 배송 요청이 들어오면 기기에서 **푸시 알림**이 오는지 확인.

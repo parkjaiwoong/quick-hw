@@ -55,20 +55,23 @@ export default function AdminDashboardTabs({
   }
 
   return (
-    <Tabs defaultValue="logs" className="w-full">
-      <div className="w-full -mx-4 px-4 md:mx-0 md:px-0">
-        <TabsList className="tabs-scroll-mobile flex w-full max-w-full gap-1.5 rounded-xl border border-border/60 bg-muted/50 p-1.5 shadow-sm min-h-[2.75rem]">
-          <TabsTrigger value="logs" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">주문 & 연결 로그</TabsTrigger>
-          <TabsTrigger value="accidents" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">사고 처리 관리</TabsTrigger>
-          <TabsTrigger value="cs" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">CS 응대</TabsTrigger>
-          <TabsTrigger value="rider-change" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">기사 변경 요청</TabsTrigger>
-          <TabsTrigger value="rewards" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">리워드 관리</TabsTrigger>
-          <TabsTrigger value="pricing" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">가격 정책</TabsTrigger>
-        </TabsList>
-      </div>
+    <Card className="w-full overflow-hidden">
+      <Tabs defaultValue="logs" className="w-full">
+        <div className="border-b bg-muted/30 px-4 pt-4 pb-0 md:px-6">
+          <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">탭 메뉴</p>
+          <TabsList className="tabs-scroll-mobile inline-flex w-full max-w-full h-auto min-h-[2.75rem] gap-1 rounded-xl border border-border bg-background p-1.5 shadow-sm overflow-x-auto overflow-y-hidden">
+            <TabsTrigger value="logs" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">주문 & 연결 로그</TabsTrigger>
+            <TabsTrigger value="accidents" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">사고 처리 관리</TabsTrigger>
+            <TabsTrigger value="cs" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">CS 응대</TabsTrigger>
+            <TabsTrigger value="rider-change" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">기사 변경 요청</TabsTrigger>
+            <TabsTrigger value="rewards" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">리워드 관리</TabsTrigger>
+            <TabsTrigger value="pricing" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">가격 정책</TabsTrigger>
+          </TabsList>
+        </div>
 
-      <TabsContent value="logs" className="mt-4">
-        <Card>
+        <div className="p-4 md:p-6">
+      <TabsContent value="logs" className="mt-0">
+        <div className="rounded-lg border bg-card p-4">
           <CardHeader>
             <CardTitle>주문 & 연결 로그</CardTitle>
             <CardDescription>
@@ -118,11 +121,11 @@ export default function AdminDashboardTabs({
               <Button className="w-full">연결 로그 상세 보기</Button>
             </Link>
           </CardContent>
-        </Card>
+        </div>
       </TabsContent>
 
-      <TabsContent value="accidents" className="mt-4">
-        <Card>
+      <TabsContent value="accidents" className="mt-0">
+        <div className="rounded-lg border bg-card p-4">
           <CardHeader>
             <CardTitle>사고 처리 관리</CardTitle>
             <CardDescription>
@@ -167,11 +170,11 @@ export default function AdminDashboardTabs({
               <Button className="w-full">사고 처리 상세 보기</Button>
             </Link>
           </CardContent>
-        </Card>
+        </div>
       </TabsContent>
 
-      <TabsContent value="cs" className="mt-4">
-        <Card>
+      <TabsContent value="cs" className="mt-0">
+        <div className="rounded-lg border bg-card p-4">
           <CardHeader>
             <CardTitle>CS 응대</CardTitle>
             <CardDescription>문의 목록, AI 1차 답변 기록, 필요 시 수동 응답</CardDescription>
@@ -202,11 +205,11 @@ export default function AdminDashboardTabs({
               </Link>
             </div>
           </CardContent>
-        </Card>
+        </div>
       </TabsContent>
 
-      <TabsContent value="rider-change" className="mt-4">
-        <Card>
+      <TabsContent value="rider-change" className="mt-0">
+        <div className="rounded-lg border bg-card p-4">
           <CardHeader>
             <CardTitle>기사 변경 요청</CardTitle>
             <CardDescription>고객이 신청한 기사 변경 요청을 확인합니다.</CardDescription>
@@ -216,11 +219,11 @@ export default function AdminDashboardTabs({
               <Button className="w-full">기사 변경 요청 목록 보기</Button>
             </Link>
           </CardContent>
-        </Card>
+        </div>
       </TabsContent>
 
-      <TabsContent value="rewards" className="mt-4">
-        <Card>
+      <TabsContent value="rewards" className="mt-0">
+        <div className="rounded-lg border bg-card p-4">
           <CardHeader>
             <CardTitle>리워드 관리</CardTitle>
             <CardDescription>정책/이력/포인트 관리 화면으로 이동합니다</CardDescription>
@@ -248,11 +251,11 @@ export default function AdminDashboardTabs({
               <Link href="/admin/referrals">고객 소개 현황</Link>
             </Button>
           </CardContent>
-        </Card>
+        </div>
       </TabsContent>
 
-      <TabsContent value="pricing" className="mt-4">
-        <Card>
+      <TabsContent value="pricing" className="mt-0">
+        <div className="rounded-lg border bg-card p-4">
           <CardHeader>
             <CardTitle>가격 정책</CardTitle>
             <CardDescription>카카오픽 기준 자동 산정 정책을 관리합니다.</CardDescription>
@@ -262,8 +265,10 @@ export default function AdminDashboardTabs({
               <Button className="w-full">가격 정책 설정</Button>
             </Link>
           </CardContent>
-        </Card>
+        </div>
       </TabsContent>
-    </Tabs>
+        </div>
+      </Tabs>
+    </Card>
   )
 }

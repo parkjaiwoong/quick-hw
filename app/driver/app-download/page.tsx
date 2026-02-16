@@ -41,10 +41,10 @@ export default async function DriverAppDownloadPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Smartphone className="h-7 w-7 text-blue-600" />
-              기사 전용 앱 다운로드
+              언넌 다운로드
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              배송원 앱을 설치하면 모바일에서 편하게 접수·배송할 수 있습니다.
+              언넌(기사 앱)을 설치하면 모바일에서 편하게 접수·배송할 수 있습니다.
             </p>
           </div>
         </div>
@@ -75,7 +75,7 @@ export default async function DriverAppDownloadPage() {
               ) : null}
               </div>
               <p className="text-xs text-muted-foreground">
-                다운로드 후 <strong>알림</strong> 또는 <strong>다운로드 앱</strong>에서 &quot;driver-app.apk&quot;를 눌러 설치하세요. 처음 설치 시 <strong>알 수 없는 앱 설치</strong> 허용이 필요할 수 있습니다.
+                다운로드 후 <strong>알림</strong> 또는 <strong>다운로드 앱</strong>에서 &quot;언넌&quot;(또는 driver-app.apk)을 눌러 설치하세요. 처음 설치 시 <strong>알 수 없는 앱 설치</strong> 허용이 필요할 수 있습니다.
               </p>
             </CardContent>
           </Card>

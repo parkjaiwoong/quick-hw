@@ -95,7 +95,9 @@ export async function POST(request: Request) {
       const { getMessaging } = await import("firebase-admin/messaging")
       const { getApps, initializeApp, cert } = await import("firebase-admin/app")
       if (getApps().length === 0) {
-        initializeApp({ credential: cert(JSON.parse(serviceAccountJson)) })
+        const jsonStr = serviceAccountJson.replace(/\\n/g, "\n")
+        const cred = JSON.parse(jsonStr)
+        initializeApp({ credential: cert(cred) })
       }
       const { data: tokens } = await supabase
         .from("driver_fcm_tokens")
