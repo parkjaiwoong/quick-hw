@@ -40,13 +40,23 @@ cd driver_app
 # 실행 (URL은 필요 시 --dart-define 추가)
 flutter run
 
-# APK 빌드
+# APK 빌드 (기본: 모든 CPU 포함, 약 50~70MB)
 flutter build apk --dart-define=DRIVER_WEB_URL=https://your-domain.com/driver
+
+# APK 용량 줄이기 (권장): CPU별로 나누면 개별 APK는 약 30~35MB
+flutter build apk --dart-define=DRIVER_WEB_URL=https://your-domain.com/driver --split-per-abi
 ```
 
-APK 출력: `build/app/outputs/flutter-apk/app-release.apk`
+APK 출력:
+- 기본: `build/app/outputs/flutter-apk/app-release.apk` (약 50~70MB)
+- `--split-per-abi` 사용 시: `app-release-arm64-v8a.apk`(대부분 폰), `app-release-armeabi-v7a.apk`(구형) 등. 배포 시 **arm64-v8a** 하나만 써도 대부분 기기에서 동작하며 다운로드가 더 빠릅니다.
 
-Vercel 등 웹에서 APK 다운로드 링크를 쓰려면, 빌드한 APK를 Next.js `public/downloads/driver-app.apk`로 복사한 뒤 배포하면 `https://(도메인)/downloads/driver-app.apk`로 받을 수 있다. 자세한 내용은 `public/downloads/README.md` 참고.
+```powershell
+# 용량 줄인 APK 하나만 배포할 때 (arm64-v8a 권장)
+copy driver_app\build\app\outputs\flutter-apk\app-release-arm64-v8a.apk public\downloads\driver-app.apk
+```
+
+Vercel 등 웹에서 APK 다운로드 링크를 쓰려면, 빌드한 APK를 Next.js `public/downloads/driver-app.apk`로 복사한 뒤 배포하면 된다. 자세한 내용은 `public/downloads/README.md` 참고.
 
 ## 동작 방식
 
