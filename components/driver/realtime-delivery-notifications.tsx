@@ -92,11 +92,18 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   const [retryKey, setRetryKey] = useState(0)
   const [lastEventAt, setLastEventAt] = useState<number | null>(null)
   const [eventReceiveCount, setEventReceiveCount] = useState(0)
+  const [testNotifyLoading, setTestNotifyLoading] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const routerRef = useRef(router)
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundPlayedForCurrentRef = useRef(false)
   const audioUnlockedRef = useRef(false)
+  const setLatestNewDeliveryRef = useRef(setLatestNewDelivery)
+  const setEventReceiveCountRef = useRef(setEventReceiveCount)
+  const setLastEventAtRef = useRef(setLastEventAt)
+  setLatestNewDeliveryRef.current = setLatestNewDelivery
+  setEventReceiveCountRef.current = setEventReceiveCount
+  setLastEventAtRef.current = setLastEventAt
 
   // 사용자 제스처 시 AudioContext 언락 (자동재생 정책 통과 — 그래야 나중에 띵동 소리 재생 가능)
   useEffect(() => {
@@ -224,25 +231,14 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => clearTimeout(t)
   }, [lastEventAt])
 
-  // Realtime 콜백 → 컴포넌트 컨텍스트 브릿지 (WebView에서 setState가 안 먹힐 수 있어 커스텀 이벤트로 전달)
+  // Realtime 콜백에서 이미 UI/진동/소리 직접 실행. 이벤트는 다른 탭/iframe 대비용으로만 유지(중복 진동/소리 방지로 리스너에서는 state만)
   useEffect(() => {
     const handler = (e: Event) => {
-      const { payloadData, hasDelivery } = (e as CustomEvent<{ payloadData: LatestNewDelivery; hasDelivery: boolean }>).detail
+      const { payloadData } = (e as CustomEvent<{ payloadData: LatestNewDelivery; hasDelivery: boolean }>).detail
       if (!payloadData) return
       setEventReceiveCount((c) => c + 1)
       setLastEventAt(Date.now())
       setLatestNewDelivery(payloadData)
-      triggerVibration()
-      playDingDongSound(audioContextRef)
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-        showBrowserNotificationRef.current(payloadData)
-      }
-      toastRef.current({
-        title: "📦 새 배송 요청 도착",
-        description: hasDelivery ? "아래에서 수락하거나 거절하세요." : "아래에서 수락하거나 목록에서 확인하세요.",
-        duration: 5000,
-        className: "border-blue-200 bg-blue-50",
-      })
     }
     window.addEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
     return () => window.removeEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
@@ -332,7 +328,22 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     notificationId: notification.id,
                   }
 
+              // 콜백에서 직접 UI/진동/소리 실행 (WebView·모바일에서 커스텀 이벤트가 지연/누락될 수 있어)
               if (typeof window !== "undefined") {
+                setEventReceiveCountRef.current((c) => c + 1)
+                setLastEventAtRef.current(Date.now())
+                setLatestNewDeliveryRef.current(payloadData)
+                triggerVibration()
+                playDingDongSound(audioContextRef)
+                if (document.visibilityState === "hidden") {
+                  showBrowserNotificationRef.current(payloadData)
+                }
+                toastRef.current({
+                  title: "📦 새 배송 요청 도착",
+                  description: delivery ? "아래에서 수락하거나 거절하세요." : "아래에서 수락하거나 목록에서 확인하세요.",
+                  duration: 5000,
+                  className: "border-blue-200 bg-blue-50",
+                })
                 window.dispatchEvent(
                   new CustomEvent(DRIVER_NEW_DELIVERY_EVENT, {
                     detail: { payloadData, hasDelivery: !!delivery },
@@ -471,6 +482,28 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
           <span className="text-[10px] text-green-700 bg-green-50/90 px-2 py-0.5 rounded">
             알림 {eventReceiveCount}건 수신 {lastEventAt != null ? "(방금)" : ""}
           </span>
+        )}
+        {typeof window !== "undefined" && process.env.NODE_ENV === "development" && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="pointer-events-auto mt-1 text-xs"
+            disabled={testNotifyLoading || realtimeStatus !== "subscribed"}
+            onClick={async () => {
+              setTestNotifyLoading(true)
+              try {
+                const res = await fetch("/api/driver/test-notification", { method: "POST", credentials: "same-origin" })
+                const json = await res.json().catch(() => ({}))
+                if (!res.ok) toast({ title: "테스트 알림 실패", description: json?.error ?? String(res.status), variant: "destructive" })
+                else toast({ title: "테스트 알림 발송됨", description: "곧 UI/진동/소리가 나와야 합니다." })
+              } finally {
+                setTestNotifyLoading(false)
+              }
+            }}
+          >
+            {testNotifyLoading ? "발송 중…" : "테스트 알림 (개발)"}
+          </Button>
         )}
       </div>
       {realtimeStatus === "error" && (

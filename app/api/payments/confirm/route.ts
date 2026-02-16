@@ -92,6 +92,19 @@ async function getDeliveryId(orderId: string) {
   return order?.delivery_id || null
 }
 
+async function notifyDriversAfterPayment(deliveryId: string) {
+  const supabase = getServiceClient()
+  if (!supabase) return
+  const { data: delivery } = await supabase
+    .from("deliveries")
+    .select("id, pickup_lat, pickup_lng")
+    .eq("id", deliveryId)
+    .maybeSingle()
+  if (!delivery?.pickup_lat || !delivery?.pickup_lng) return
+  const { notifyDriversForDelivery } = await import("@/lib/actions/deliveries")
+  await notifyDriversForDelivery(delivery.id, delivery.pickup_lat, delivery.pickup_lng)
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const paymentKey = searchParams.get("paymentKey")
@@ -120,6 +133,9 @@ export async function GET(request: Request) {
 
   await updatePaymentStatus({ orderId, status: "PAID", paymentKey })
   const deliveryId = await getDeliveryId(orderId)
+  if (deliveryId) {
+    notifyDriversAfterPayment(deliveryId).catch((e) => console.error("[confirm] 기사 알림 실패:", e))
+  }
   const redirectUrl = deliveryId ? `/customer/delivery/${deliveryId}` : "/customer"
   return NextResponse.redirect(new URL(redirectUrl, request.url))
 }
@@ -141,5 +157,9 @@ export async function POST(request: Request) {
   }
 
   await updatePaymentStatus({ orderId, status: "PAID", paymentKey })
+  const deliveryId = await getDeliveryId(orderId)
+  if (deliveryId) {
+    notifyDriversAfterPayment(deliveryId).catch((e) => console.error("[confirm] 기사 알림 실패:", e))
+  }
   return NextResponse.json({ success: true })
 }

@@ -13,6 +13,8 @@ import { createClient } from "@/lib/supabase/client"
 export function Header() {
   const pathname = usePathname()
   const router = useRouter()
+  const pathnameRef = useRef(pathname)
+  pathnameRef.current = pathname
   const isAuthPage = pathname?.startsWith("/auth")
   const isDriverDetailPage = pathname?.startsWith("/driver/delivery/")
   const supabase = useMemo(() => createClient(), [])
@@ -49,17 +51,20 @@ export function Header() {
         const authenticated = !!sessionUser
         console.log("Header session check:", authenticated, sessionUser?.id)
         if (authenticated && sessionUser?.id) {
+          // 로딩 먼저 해제하고 역할은 비동기로 채움 (프로필 지연 시 로딩에 갇히지 않도록)
+          startTransition(() => {
+            loadingClearedRef.current = true
+            setIsAuthenticated(true)
+            setIsLoading(false)
+          })
           const { data: profile } = await supabase
             .from("profiles")
             .select("role")
             .eq("id", sessionUser.id)
             .maybeSingle()
-          startTransition(() => {
-            loadingClearedRef.current = true
-            setIsAuthenticated(true)
-            setUserRole(profile?.role ?? null)
-            setIsLoading(false)
-          })
+          if (mountedRef.current) {
+            startTransition(() => setUserRole(profile?.role ?? null))
+          }
         } else {
           startTransition(() => {
             loadingClearedRef.current = true
@@ -89,7 +94,8 @@ export function Header() {
     const timeoutId = setTimeout(async () => {
       if (!mountedRef.current || loadingClearedRef.current) return
       const { data: { session } } = await supabase.auth.getSession()
-      const roleFromPath = pathname?.startsWith("/driver") ? "driver" : pathname?.startsWith("/customer") ? "customer" : pathname?.startsWith("/admin") ? "admin" : null
+      const p = pathnameRef.current
+      const roleFromPath = p?.startsWith("/driver") ? "driver" : p?.startsWith("/customer") ? "customer" : p?.startsWith("/admin") ? "admin" : null
       startTransition(() => {
         loadingClearedRef.current = true
         setIsAuthenticated(!!session?.user)
@@ -105,25 +111,22 @@ export function Header() {
 
       console.log("Header auth state changed:", _event, !!session)
       const authenticated = !!session
+      startTransition(() => {
+        loadingClearedRef.current = true
+        setIsAuthenticated(authenticated)
+        setIsLoading(false)
+      })
       if (authenticated && session?.user?.id) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", session.user.id)
           .maybeSingle()
-        startTransition(() => {
-          loadingClearedRef.current = true
-          setIsAuthenticated(true)
-          setUserRole(profile?.role ?? null)
-          setIsLoading(false)
-        })
+        if (mountedRef.current) {
+          startTransition(() => setUserRole(profile?.role ?? null))
+        }
       } else {
-        startTransition(() => {
-          loadingClearedRef.current = true
-          setIsAuthenticated(authenticated)
-          setUserRole(null)
-          setIsLoading(false)
-        })
+        startTransition(() => setUserRole(null))
       }
     })
 
@@ -132,7 +135,7 @@ export function Header() {
       clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [refreshSession, supabase, pathname])
+  }, [refreshSession, supabase])
 
   // pathname마다 세션 재조회 제거 → INP 개선 (클릭 시 메인 스레드 블로킹 방지)
   // 마운트·auth 변경 시에만 refreshSession 호출됨

@@ -33,6 +33,59 @@ interface CreateDeliveryData {
   scheduledPickupAt?: string
 }
 
+/** 결제 완료 후 기사에게 Realtime 알림(INSERT notifications). createDelivery(현금) 또는 payment confirm(카드/계좌이체)에서 호출 */
+export async function notifyDriversForDelivery(
+  deliveryId: string,
+  pickupLat: number,
+  pickupLng: number
+): Promise<{ error?: string }> {
+  const supabase = await getSupabaseServerClient()
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) return { error: "서비스 키 없음" }
+
+  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+  const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+
+  const { data: nearbyDrivers } = await supabase.rpc("find_nearby_drivers", {
+    pickup_lat: pickupLat,
+    pickup_lng: pickupLng,
+    max_distance_km: 10.0,
+    limit_count: 5,
+  })
+
+  let driverIdsToNotify: string[] =
+    nearbyDrivers?.length > 0
+      ? nearbyDrivers.map((d: { driver_id?: string; id?: string }) => d.driver_id ?? d.id).filter(Boolean)
+      : []
+
+  if (driverIdsToNotify.length === 0) {
+    const { data: availableDrivers } = await service
+      .from("driver_info")
+      .select("id")
+      .eq("is_available", true)
+    if (availableDrivers?.length) {
+      driverIdsToNotify = availableDrivers.map((d) => d.id)
+    }
+  }
+
+  if (driverIdsToNotify.length === 0) return {}
+
+  const { error: notifError } = await service.from("notifications").insert(
+    driverIdsToNotify.map((driverId) => ({
+      user_id: driverId,
+      delivery_id: deliveryId,
+      title: "새로운 배송 요청",
+      message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
+      type: "new_delivery_request",
+    }))
+  )
+  if (notifError) {
+    console.error("[notifyDriversForDelivery] INSERT 실패:", notifError.message, { deliveryId, driverIds: driverIdsToNotify })
+    return { error: notifError.message }
+  }
+  return {}
+}
+
 export async function createDelivery(data: CreateDeliveryData) {
   const supabase = await getSupabaseServerClient()
 
@@ -221,44 +274,12 @@ export async function createDelivery(data: CreateDeliveryData) {
     limit_count: 5,
   })
 
-  // 신규 배송 알림: 근처 기사에게 또는 (0명이면) 배송 가능 전체 기사에게. Realtime 모달/띵동/진동용.
-  const driverIdsToNotify: string[] =
-    nearbyDrivers?.length > 0
-      ? nearbyDrivers.map((d: { driver_id?: string; id?: string }) => d.driver_id ?? d.id).filter(Boolean)
-      : []
-
-  if (driverIdsToNotify.length === 0) {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (serviceRoleKey) {
-      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-      const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-      const { data: availableDrivers } = await service
-        .from("driver_info")
-        .select("id")
-        .eq("is_available", true)
-      if (availableDrivers?.length) {
-        driverIdsToNotify.push(...availableDrivers.map((d) => d.id))
-      }
-    }
-  }
-
-  if (driverIdsToNotify.length > 0) {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (serviceRoleKey) {
-      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-      const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-      const { error: notifError } = await service.from("notifications").insert(
-        driverIdsToNotify.map((driverId) => ({
-          user_id: driverId,
-          delivery_id: delivery.id,
-          title: "새로운 배송 요청",
-          message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
-          type: "new_delivery_request",
-        })),
-      )
-      if (notifError) {
-        console.error("[createDelivery] 기사 알림 INSERT 실패:", notifError.message, { deliveryId: delivery.id, driverIds: driverIdsToNotify })
-      }
+  // 현금 결제만 즉시 기사 알림. 카드/계좌이체는 결제 완료 후 confirm 쪽에서 notifyDriversForDelivery 호출
+  const shouldNotifyNow = paymentMethodNormalized === "cash"
+  if (shouldNotifyNow) {
+    const notifyResult = await notifyDriversForDelivery(delivery.id, data.pickupLat, data.pickupLng)
+    if (notifyResult.error) {
+      console.error("[createDelivery] 기사 알림 실패:", notifyResult.error)
     }
   }
 
