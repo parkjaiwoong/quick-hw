@@ -81,6 +81,9 @@ interface RealtimeDeliveryNotificationsProps {
   isAvailable?: boolean
 }
 
+/** refresh() 후 리마운트되어도 모달 복원용 (모듈 변수) */
+let pendingNewDelivery: LatestNewDelivery | null = null
+
 export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: RealtimeDeliveryNotificationsProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -215,6 +218,16 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => { cancelled = true }
   }, [notificationPermission])
 
+  // refresh() 후 리마운트되면 보류 중인 알림 복원 → 목록 갱신 + 모달/진동/소리 유지
+  useEffect(() => {
+    if (pendingNewDelivery == null) return
+    const payload = pendingNewDelivery
+    pendingNewDelivery = null
+    setLatestNewDelivery(payload)
+    triggerVibration()
+    playDingDongSound(audioContextRef)
+  }, [])
+
   // 이벤트 수신 표시 30초 후 제거
   useEffect(() => {
     if (lastEventAt == null) return
@@ -308,6 +321,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     notificationId: notification.id,
                   }
 
+              pendingNewDelivery = payloadData
+              routerRef.current.refresh()
               triggerVibration()
               playDingDongSound(audioContextRef)
               flushSync(function () {
@@ -326,8 +341,6 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 duration: 5000,
                 className: "border-blue-200 bg-blue-50",
               })
-
-              setTimeout(() => routerRef.current.refresh(), 2500)
             }
           } catch (error) {
             console.error("실시간 알림 처리 오류:", error)
