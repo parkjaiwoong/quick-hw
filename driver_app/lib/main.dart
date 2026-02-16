@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'app_config.dart';
+import 'fcm_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FcmService.initialize();
   runApp(const DriverApp());
 }
 
@@ -47,8 +49,9 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
           onPageStarted: (_) {
             if (mounted) setState(() { _isLoading = true; _error = null; });
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) {
             if (mounted) setState(() => _isLoading = false);
+            _injectFcmTokenToWeb();
           },
           onWebResourceError: (e) {
             if (mounted) setState(() {
@@ -59,6 +62,18 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
         ),
       )
       ..loadRequest(Uri.parse(driverWebUrl));
+  }
+
+  /// FCM 토큰을 웹에 전달해 서버에 등록 (탭 종료 후에도 푸시 수신)
+  Future<void> _injectFcmTokenToWeb() async {
+    final t = await FcmService.getToken();
+    if (t == null || !mounted) return;
+    final escaped = t.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
+    try {
+      await _controller.runJavaScript(
+        "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));",
+      );
+    } catch (_) {}
   }
 
   @override

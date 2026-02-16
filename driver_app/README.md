@@ -58,6 +58,16 @@ copy driver_app\build\app\outputs\flutter-apk\app-release-arm64-v8a.apk public\d
 
 Vercel 등 웹에서 APK 다운로드 링크를 쓰려면, 빌드한 APK를 Next.js `public/downloads/driver-app.apk`로 복사한 뒤 배포하면 된다. 자세한 내용은 `public/downloads/README.md` 참고.
 
+## FCM (앱 백그라운드/종료 시 배송 요청 푸시)
+
+앱을 닫거나 다른 앱을 쓰는 중에도 배송 요청 알림을 받으려면 Firebase를 설정하세요.
+
+1. [Firebase Console](https://console.firebase.google.com/)에서 프로젝트 생성 후 **Android** 앱 추가 (패키지명 `com.quickhw.driver_app`).
+2. **google-services.json** 다운로드 후 `driver_app/android/app/google-services.json`에 넣기.
+3. 서버 쪽 FCM 전송 설정은 프로젝트 루트의 `docs/push_notifications_setup.md` 참고.
+
+앱 실행 후 기사로 로그인하면 FCM 토큰이 자동으로 서버에 등록됩니다.
+
 ## 동작 방식
 
 - 앱은 **WebView**로 `driverWebUrl`(기사 웹)만 전체 화면에 표시합니다.
