@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, startTransition } from "react"
+import { flushSync } from "react-dom"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -287,31 +288,32 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 if (json?.delivery) delivery = json.delivery
               }
 
-              if (!delivery) {
-                toastRef.current({
-                  title: "📦 새 배송 요청 도착",
-                  description: "목록을 새로고침해 확인하세요.",
-                  duration: 6000,
-                  variant: "destructive",
-                })
-                return
-              }
-
-              const payloadData: LatestNewDelivery = {
-                delivery: {
-                  id: delivery.id,
-                  pickup_address: delivery.pickup_address ?? "",
-                  delivery_address: delivery.delivery_address ?? "",
-                  distance_km: delivery.distance_km,
-                  total_fee: delivery.total_fee,
-                  driver_fee: delivery.driver_fee,
-                },
-                notificationId: notification.id,
-              }
+              const payloadData: LatestNewDelivery = delivery
+                ? {
+                    delivery: {
+                      id: delivery.id,
+                      pickup_address: delivery.pickup_address ?? "",
+                      delivery_address: delivery.delivery_address ?? "",
+                      distance_km: delivery.distance_km,
+                      total_fee: delivery.total_fee,
+                      driver_fee: delivery.driver_fee,
+                    },
+                    notificationId: notification.id,
+                  }
+                : {
+                    delivery: {
+                      id: notification.delivery_id,
+                      pickup_address: "상세 불러오기 실패",
+                      delivery_address: "목록에서 확인해 주세요",
+                    },
+                    notificationId: notification.id,
+                  }
 
               triggerVibration()
-              setLatestNewDelivery(payloadData)
               playDingDongSound(audioContextRef)
+              flushSync(function () {
+                setLatestNewDelivery(payloadData)
+              })
 
               if (document.visibilityState === "hidden") {
                 showBrowserNotificationRef.current(payloadData)
@@ -319,7 +321,9 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
 
               toastRef.current({
                 title: "📦 새 배송 요청 도착",
-                description: "아래에서 수락하거나 거절하세요.",
+                description: delivery
+                  ? "아래에서 수락하거나 거절하세요."
+                  : "아래에서 수락하거나 목록에서 확인하세요.",
                 duration: 5000,
                 className: "border-blue-200 bg-blue-50",
               })
