@@ -5,18 +5,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 Write-Host "🚀 퀵HW 개발 서버 시작 중..." -ForegroundColor Green
 Write-Host ""
 
-# .env.local 파일 확인
+# .env.local 없으면 .env.example 복사 후 그대로 실행 (한 번에 서버까지 뜸)
 if (-not (Test-Path ".env.local")) {
-    Write-Host "⚠️  경고: .env.local 파일이 없습니다!" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "다음 단계를 따라주세요:" -ForegroundColor Yellow
-    Write-Host "1. .env.local.example 파일을 .env.local로 복사하세요" -ForegroundColor Yellow
-    Write-Host "2. 또는 LOCAL_SETUP.md 파일을 참고하여 .env.local 파일을 생성하세요" -ForegroundColor Yellow
-    Write-Host ""
-    $continue = Read-Host "계속하시겠습니까? (y/n)"
-    if ($continue -ne "y" -and $continue -ne "Y") {
-        Write-Host "취소되었습니다." -ForegroundColor Red
-        exit
+    if (Test-Path ".env.example") {
+        Copy-Item ".env.example" ".env.local"
+        Write-Host "📄 .env.local 생성함 (필요하면 Supabase 등 값만 채우면 됨)" -ForegroundColor Cyan
     }
 }
 

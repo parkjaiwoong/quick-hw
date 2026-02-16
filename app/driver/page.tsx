@@ -2,7 +2,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Package, Star, TrendingUp, History } from "lucide-react"
+import { Package, Star, TrendingUp, History, Smartphone } from "lucide-react"
 import { AvailableDeliveries } from "@/components/driver/available-deliveries"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
@@ -76,12 +76,18 @@ export default async function DriverDashboard() {
             <p className="text-muted-foreground mt-1">{profile?.full_name}님, 안전 운행하세요</p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button asChild variant="outline" size="sm">
                 <Link href="/driver/wallet">적립금 지갑 · 출금</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
                 <Link href="/driver/settlements">정산 내역</Link>
+              </Button>
+              <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
+                <Link href="/driver/app-download" className="flex items-center gap-1.5">
+                  <Smartphone className="h-4 w-4" />
+                  기사 앱 다운로드
+                </Link>
               </Button>
             </div>
             <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
@@ -143,15 +149,17 @@ export default async function DriverDashboard() {
         </div>
 
         <Tabs defaultValue="available" className="w-full">
-          <TabsList className="flex w-full max-w-full overflow-x-auto overflow-y-hidden gap-1 rounded-lg p-1.5 pl-2 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-muted/50 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
-            <TabsTrigger value="available" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">대기 중 배송 ({available.length})</TabsTrigger>
-            <TabsTrigger value="assigned" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">진행 중 배송 ({assigned.length})</TabsTrigger>
-            <TabsTrigger value="history" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">운행 이력</TabsTrigger>
-            <TabsTrigger value="settlements" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">정산</TabsTrigger>
-            <TabsTrigger value="sales" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">📊 영업 성과</TabsTrigger>
-          </TabsList>
+          <div className="w-full -mx-4 px-4 md:mx-0 md:px-0">
+            <TabsList className="tabs-scroll-mobile flex w-full max-w-full gap-1.5 rounded-xl border border-border/60 bg-muted/50 p-1.5 shadow-sm min-h-[2.75rem]">
+              <TabsTrigger value="available" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">대기 중 배송 ({available.length})</TabsTrigger>
+              <TabsTrigger value="assigned" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">진행 중 배송 ({assigned.length})</TabsTrigger>
+              <TabsTrigger value="history" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">운행 이력</TabsTrigger>
+              <TabsTrigger value="settlements" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">정산</TabsTrigger>
+              <TabsTrigger value="sales" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">📊 영업 성과</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="available" className="mt-6">
+          <TabsContent value="available" className="mt-4">
             <Card>
               <CardHeader> 
                 <CardTitle>수락 가능한 배송</CardTitle>
@@ -169,7 +177,7 @@ export default async function DriverDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="assigned" className="mt-6">
+          <TabsContent value="assigned" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle>진행 중인 배송</CardTitle>
@@ -181,7 +189,7 @@ export default async function DriverDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="history" className="mt-6">
+          <TabsContent value="history" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -227,7 +235,7 @@ export default async function DriverDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="settlements" className="mt-6">
+          <TabsContent value="settlements" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle>정산</CardTitle>
@@ -241,7 +249,7 @@ export default async function DriverDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="sales" className="mt-6">
+          <TabsContent value="sales" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle>📊 영업 성과</CardTitle>

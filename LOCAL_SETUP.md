@@ -1,5 +1,16 @@
 # 로컬 실행 가이드
 
+## ⚡ 로컬 테스트 한 번에
+
+1. **환경 파일**: 프로젝트 루트에서  
+   `Copy-Item .env.example .env.local`  
+   또는 `.\start-dev.ps1` 실행(처음 한 번은 .env.local 자동 생성 후 종료됨).
+2. **`.env.local` 편집**: Supabase URL·ANON_KEY·SERVICE_ROLE_KEY 등 입력 후 저장.
+3. **실행**: `npm run dev` 또는 `.\start-dev.ps1`
+4. **접속**: 브라우저에서 http://localhost:3000
+
+---
+
 ## 🚀 빠른 시작
 
 ### 1단계: 환경 변수 설정
@@ -7,12 +18,11 @@
 프로젝트 루트에 `.env.local` 파일을 생성하세요.
 
 **방법 1: 예제 파일 복사 (권장)**
-```bash
+```powershell
 # Windows PowerShell
-Copy-Item .env.local.example .env.local
-
-# 또는 수동으로 .env.local.example 파일을 .env.local로 복사
+Copy-Item .env.example .env.local
 ```
+또는 **첫 로컬 실행 시** `.\start-dev.ps1` 을 실행하면 `.env.local`이 없을 때 `.env.example`을 복사해 줍니다.
 
 **방법 2: 직접 생성**
 프로젝트 루트에 `.env.local` 파일을 생성하고 다음 내용을 추가:
@@ -139,7 +149,10 @@ npm run dev
 | `NEXT_PUBLIC_QUICKSUPABASE_URL` | Supabase 프로젝트 URL | ✅ |
 | `NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY` | Supabase 공개 API 키 | ✅ |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase 서비스 역할 키 (서버 전용) | ✅ |
-| `NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL` | 로컬 개발용 리다이렉트 URL | ✅ |
+| `NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL` | 로컬 개발용 리다이렉트 URL (예: http://localhost:3000/auth/verify-email) | 권장 |
+| `NEXT_PUBLIC_TOSS_CLIENT_KEY` | 토스페이먼츠 클라이언트 키 (결제·계좌연동 테스트 시) | 선택 |
+| `TOSS_SECRET_KEY` | 토스페이먼츠 시크릿 키 (결제·계좌연동 테스트 시) | 선택 |
+| `NEXT_PUBLIC_KAKAO_MAP_KEY` | 카카오맵 JavaScript 키 (배송 요청 지도) | 선택 |
 
 ### 개발 서버 명령어
 

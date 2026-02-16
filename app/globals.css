@@ -136,3 +136,27 @@
     transform: translateX(400%);
   }
 }
+
+/* 모바일 최적화: 탭 가로 스크롤 + 콘텐츠와 같은 라인 정렬, 스크롤바 디자인 */
+.tabs-scroll-mobile {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.556 0 0 / 0.35) transparent;
+}
+.tabs-scroll-mobile::-webkit-scrollbar {
+  height: 6px;
+}
+.tabs-scroll-mobile::-webkit-scrollbar-track {
+  background: oklch(0.97 0 0 / 0.5);
+  border-radius: 999px;
+  margin: 0 8px;
+}
+.tabs-scroll-mobile::-webkit-scrollbar-thumb {
+  background: oklch(0.556 0 0 / 0.35);
+  border-radius: 999px;
+}
+.tabs-scroll-mobile::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.556 0 0 / 0.5);
+}

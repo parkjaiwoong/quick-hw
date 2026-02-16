@@ -87,11 +87,10 @@
 
 프로젝트 루트에 `.env.local` 파일을 생성하세요:
 
-```bash
-# Windows PowerShell
-Copy-Item .env.local.example .env.local
-
-# 또는 직접 생성
+```powershell
+# Windows PowerShell (로컬 테스트용)
+Copy-Item .env.example .env.local
+# .env.local에 Supabase URL·키 등 입력 후 저장
 ```
 
 `.env.local` 파일 내용:

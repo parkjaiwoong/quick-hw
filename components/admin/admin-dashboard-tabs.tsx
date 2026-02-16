@@ -56,16 +56,18 @@ export default function AdminDashboardTabs({
 
   return (
     <Tabs defaultValue="logs" className="w-full">
-      <TabsList className="flex w-full max-w-full overflow-x-auto overflow-y-hidden gap-1 rounded-lg p-1.5 pl-2 shrink-0 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-muted/50 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
-        <TabsTrigger value="logs" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">주문 & 연결 로그</TabsTrigger>
-        <TabsTrigger value="accidents" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">사고 처리 관리</TabsTrigger>
-        <TabsTrigger value="cs" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">CS 응대</TabsTrigger>
-        <TabsTrigger value="rider-change" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">기사 변경 요청</TabsTrigger>
-        <TabsTrigger value="rewards" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">리워드 관리</TabsTrigger>
-        <TabsTrigger value="pricing" className="flex-none shrink-0 whitespace-nowrap px-3 py-1.5">가격 정책</TabsTrigger>
-      </TabsList>
+      <div className="w-full -mx-4 px-4 md:mx-0 md:px-0">
+        <TabsList className="tabs-scroll-mobile flex w-full max-w-full gap-1.5 rounded-xl border border-border/60 bg-muted/50 p-1.5 shadow-sm min-h-[2.75rem]">
+          <TabsTrigger value="logs" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">주문 & 연결 로그</TabsTrigger>
+          <TabsTrigger value="accidents" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">사고 처리 관리</TabsTrigger>
+          <TabsTrigger value="cs" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">CS 응대</TabsTrigger>
+          <TabsTrigger value="rider-change" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">기사 변경 요청</TabsTrigger>
+          <TabsTrigger value="rewards" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">리워드 관리</TabsTrigger>
+          <TabsTrigger value="pricing" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium">가격 정책</TabsTrigger>
+        </TabsList>
+      </div>
 
-      <TabsContent value="logs" className="mt-6">
+      <TabsContent value="logs" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>주문 & 연결 로그</CardTitle>
@@ -119,7 +121,7 @@ export default function AdminDashboardTabs({
         </Card>
       </TabsContent>
 
-      <TabsContent value="accidents" className="mt-6">
+      <TabsContent value="accidents" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>사고 처리 관리</CardTitle>
@@ -168,7 +170,7 @@ export default function AdminDashboardTabs({
         </Card>
       </TabsContent>
 
-      <TabsContent value="cs" className="mt-6">
+      <TabsContent value="cs" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>CS 응대</CardTitle>
@@ -203,7 +205,7 @@ export default function AdminDashboardTabs({
         </Card>
       </TabsContent>
 
-      <TabsContent value="rider-change" className="mt-6">
+      <TabsContent value="rider-change" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>기사 변경 요청</CardTitle>
@@ -217,7 +219,7 @@ export default function AdminDashboardTabs({
         </Card>
       </TabsContent>
 
-      <TabsContent value="rewards" className="mt-6">
+      <TabsContent value="rewards" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>리워드 관리</CardTitle>
@@ -249,7 +251,7 @@ export default function AdminDashboardTabs({
         </Card>
       </TabsContent>
 
-      <TabsContent value="pricing" className="mt-6">
+      <TabsContent value="pricing" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>가격 정책</CardTitle>

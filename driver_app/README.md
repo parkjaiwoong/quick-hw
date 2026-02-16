@@ -46,6 +46,8 @@ flutter build apk --dart-define=DRIVER_WEB_URL=https://your-domain.com/driver
 
 APK 출력: `build/app/outputs/flutter-apk/app-release.apk`
 
+Vercel 등 웹에서 APK 다운로드 링크를 쓰려면, 빌드한 APK를 Next.js `public/downloads/driver-app.apk`로 복사한 뒤 배포하면 `https://(도메인)/downloads/driver-app.apk`로 받을 수 있다. 자세한 내용은 `public/downloads/README.md` 참고.
+
 ## 동작 방식
 
 - 앱은 **WebView**로 `driverWebUrl`(기사 웹)만 전체 화면에 표시합니다.
