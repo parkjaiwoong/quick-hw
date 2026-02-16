@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Map from "ol/Map"
 import View from "ol/View"
 import TileLayer from "ol/layer/Tile"
@@ -57,28 +57,37 @@ export function OpenLayersMap({
     lng: number
   } | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
+  const [locationLoading, setLocationLoading] = useState(false)
 
-  useEffect(() => {
+  const fetchMyLocation = useCallback(() => {
     if (!showMyLocation || typeof navigator === "undefined" || !navigator.geolocation) return
-    let cancelled = false
+    setLocationError(null)
+    setLocationLoading(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (cancelled) return
         setMyLocation({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         })
         setLocationError(null)
+        setLocationLoading(false)
       },
-      () => {
-        if (!cancelled) setLocationError("위치를 불러올 수 없습니다.")
+      (err: GeolocationPositionError) => {
+        setLocationLoading(false)
+        const code = err?.code
+        if (code === 1) setLocationError("위치 권한이 거부되었습니다. 브라우저 설정에서 위치를 허용해 주세요.")
+        else if (code === 2) setLocationError("위치를 사용할 수 없습니다. 네트워크/GPS를 확인해 주세요.")
+        else if (code === 3) setLocationError("위치 조회 시간이 초과되었습니다. 아래 버튼으로 다시 시도해 주세요.")
+        else setLocationError("위치를 불러올 수 없습니다.")
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     )
-    return () => {
-      cancelled = true
-    }
   }, [showMyLocation])
+
+  useEffect(() => {
+    if (!showMyLocation) return
+    fetchMyLocation()
+  }, [showMyLocation, fetchMyLocation])
 
   const distanceToPickupKm =
     myLocation && pickup
@@ -251,9 +260,19 @@ export function OpenLayersMap({
         </div>
       )}
       {showMyLocation && locationError && (
-        <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
-          {locationError}
-        </p>
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+            {locationError}
+          </p>
+          <button
+            type="button"
+            onClick={() => fetchMyLocation()}
+            disabled={locationLoading}
+            className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 hover:bg-emerald-100 disabled:opacity-50"
+          >
+            {locationLoading ? "위치 가져오는 중…" : "위치 다시 가져오기"}
+          </button>
+        </div>
       )}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
         <div className="flex items-center gap-4 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">

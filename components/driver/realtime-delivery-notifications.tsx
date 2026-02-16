@@ -88,6 +88,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default")
   const [realtimeStatus, setRealtimeStatus] = useState<"idle" | "subscribed" | "error">("idle")
   const [retryKey, setRetryKey] = useState(0)
+  const [lastEventAt, setLastEventAt] = useState<number | null>(null)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const routerRef = useRef(router)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -213,6 +214,13 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => { cancelled = true }
   }, [notificationPermission])
 
+  // 이벤트 수신 표시 30초 후 제거
+  useEffect(() => {
+    if (lastEventAt == null) return
+    const t = setTimeout(() => setLastEventAt(null), 30000)
+    return () => clearTimeout(t)
+  }, [lastEventAt])
+
   // 팝업 표시 시 진동
   useEffect(() => {
     if (!latestNewDelivery) {
@@ -259,21 +267,41 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
               (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
               notification.delivery_id
             ) {
+              setLastEventAt(Date.now())
               routerRef.current.refresh()
 
-              const { data: delivery, error: deliveryError } = await supabase
+              let delivery: { id: string; pickup_address: string; delivery_address: string; distance_km?: number; total_fee?: number; driver_fee?: number } | null = null
+              const { data: deliveryRow, error: deliveryError } = await supabase
                 .from("deliveries")
                 .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee")
                 .eq("id", notification.delivery_id)
                 .single()
+              if (!deliveryError && deliveryRow) delivery = deliveryRow
 
-              if (deliveryError || !delivery) return
+              if (!delivery) {
+                const res = await fetch(
+                  `/api/driver/delivery-for-notification?deliveryId=${encodeURIComponent(notification.delivery_id)}`,
+                  { credentials: "same-origin" }
+                )
+                const json = await res.json().catch(() => null)
+                if (json?.delivery) delivery = json.delivery
+              }
+
+              if (!delivery) {
+                toastRef.current({
+                  title: "📦 새 배송 요청 도착",
+                  description: "목록을 새로고침해 확인하세요.",
+                  duration: 6000,
+                  variant: "destructive",
+                })
+                return
+              }
 
               const payloadData: LatestNewDelivery = {
                 delivery: {
                   id: delivery.id,
-                  pickup_address: delivery.pickup_address,
-                  delivery_address: delivery.delivery_address,
+                  pickup_address: delivery.pickup_address ?? "",
+                  delivery_address: delivery.delivery_address ?? "",
                   distance_km: delivery.distance_km,
                   total_fee: delivery.total_fee,
                   driver_fee: delivery.driver_fee,
@@ -397,28 +425,35 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     <>
       {/* 실시간 알림 상태 (모바일에서 그냥 화면만 보면 됨, F12 불필요) */}
       <div
-        className="fixed top-14 left-2 right-2 z-[89] flex justify-center pointer-events-none"
+        className="fixed top-14 left-2 right-2 z-[89] flex flex-col items-center gap-1 pointer-events-none"
         aria-live="polite"
       >
-        {realtimeStatus === "subscribed" && (
-          <span
-            className={
-              isAvailable
-                ? "inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1.5 text-xs font-medium shadow-sm"
-                : "inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs shadow-sm"
-            }
-          >
+        <div className="flex justify-center">
+          {realtimeStatus === "subscribed" && (
             <span
-              className={`h-2 w-2 rounded-full ${isAvailable ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
-              aria-hidden
-            />
-            {isAvailable ? "실시간 알림 연결됨" : "실시간 알림 연결됨 (배송 불가 — 새 요청 알림 없음)"}
-          </span>
-        )}
-        {realtimeStatus === "idle" && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs">
-            <span className="h-2 w-2 rounded-full bg-gray-400" aria-hidden />
-            실시간 알림 연결 중…
+              className={
+                isAvailable
+                  ? "inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1.5 text-xs font-medium shadow-sm"
+                  : "inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs shadow-sm"
+              }
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${isAvailable ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
+                aria-hidden
+              />
+              {isAvailable ? "실시간 알림 연결됨" : "실시간 알림 연결됨 (배송 불가 — 새 요청 알림 없음)"}
+            </span>
+          )}
+          {realtimeStatus === "idle" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs">
+              <span className="h-2 w-2 rounded-full bg-gray-400" aria-hidden />
+              실시간 알림 연결 중…
+            </span>
+          )}
+        </div>
+        {lastEventAt != null && (
+          <span className="text-[10px] text-green-700 bg-green-50/90 px-2 py-0.5 rounded">
+            이벤트 수신됨 (방금)
           </span>
         )}
       </div>
