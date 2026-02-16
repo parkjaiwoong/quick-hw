@@ -86,7 +86,7 @@ export default async function DriverDashboard() {
               <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
                 <Link href="/driver/app-download" className="flex items-center gap-1.5">
                   <Smartphone className="h-4 w-4" />
-                  언넌 다운로드
+                  기사 앱 다운로드
                 </Link>
               </Button>
             </div>

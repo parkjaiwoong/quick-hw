@@ -95,9 +95,11 @@ export function DeliveryRequestForm({
         const res = await getAddressFromCoords(lat, lng)
         setPickupDefaultLoading(false)
         if (res.address) {
-          setPickupAddress(res.address)
-          setPickupLat(String(lat))
-          setPickupLng(String(lng))
+          startTransition(() => {
+            setPickupAddress(res.address)
+            setPickupLat(String(lat))
+            setPickupLng(String(lng))
+          })
         }
       },
       () => setPickupDefaultLoading(false),
@@ -123,7 +125,7 @@ export function DeliveryRequestForm({
     return Math.round(R * c * 10) / 10
   }
 
-  // 거리·물품종류·무게·크기 변경 시 즉시 요금 계산 (플랫폼 방식)
+  // 거리·물품종류 변경 시 요금 계산 (startTransition으로 INP 개선: 입력 필드 반응성 우선)
   useEffect(() => {
     const pLat = parseFloat(pickupLat)
     const pLng = parseFloat(pickupLng)
@@ -132,7 +134,6 @@ export function DeliveryRequestForm({
     if (Number.isFinite(pLat) && Number.isFinite(pLng) && Number.isFinite(dLat) && Number.isFinite(dLng)) {
       const distance = calculateDistance(pLat, pLng, dLat, dLng)
       if (distance !== null) {
-        setCalculatedDistance(distance)
         const fee = calculateDeliveryFee({
           baseFee,
           perKmFee,
@@ -140,28 +141,37 @@ export function DeliveryRequestForm({
           distanceKm: distance,
           itemType: itemType || undefined,
         })
-        setEstimatedFee(fee)
-        setCustomerAmount(fee)
+        startTransition(() => {
+          setCalculatedDistance(distance)
+          setEstimatedFee(fee)
+          setCustomerAmount(fee)
+        })
       } else {
+        startTransition(() => {
+          setCalculatedDistance(null)
+          setEstimatedFee(null)
+          setCustomerAmount(null)
+        })
+      }
+    } else {
+      startTransition(() => {
         setCalculatedDistance(null)
         setEstimatedFee(null)
         setCustomerAmount(null)
-      }
-    } else {
-      setCalculatedDistance(null)
-      setEstimatedFee(null)
-      setCustomerAmount(null)
+      })
     }
   }, [pickupLat, pickupLng, deliveryLat, deliveryLng, itemType, baseFee, perKmFee, includedDistanceKm])
 
-  // 주소 조회 화면에서 돌아왔을 때 URL로 전달된 주소 반영
+  // 주소 조회 화면에서 돌아왔을 때 URL로 전달된 주소 반영 (비긴급 업데이트로 INP 개선)
   useEffect(() => {
-    if (initialPickupAddress != null) setPickupAddress(initialPickupAddress)
-    if (initialPickupLat != null) setPickupLat(initialPickupLat)
-    if (initialPickupLng != null) setPickupLng(initialPickupLng)
-    if (initialDeliveryAddress != null) setDeliveryAddress(initialDeliveryAddress)
-    if (initialDeliveryLat != null) setDeliveryLat(initialDeliveryLat)
-    if (initialDeliveryLng != null) setDeliveryLng(initialDeliveryLng)
+    startTransition(() => {
+      if (initialPickupAddress != null) setPickupAddress(initialPickupAddress)
+      if (initialPickupLat != null) setPickupLat(initialPickupLat)
+      if (initialPickupLng != null) setPickupLng(initialPickupLng)
+      if (initialDeliveryAddress != null) setDeliveryAddress(initialDeliveryAddress)
+      if (initialDeliveryLat != null) setDeliveryLat(initialDeliveryLat)
+      if (initialDeliveryLng != null) setDeliveryLng(initialDeliveryLng)
+    })
   }, [initialPickupAddress, initialPickupLat, initialPickupLng, initialDeliveryAddress, initialDeliveryLat, initialDeliveryLng])
 
 
