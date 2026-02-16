@@ -11,8 +11,6 @@
   copy driver_app\build\app\outputs\flutter-apk\app-release.apk public\downloads\driver-app.apk
   ```
 
-- 배포 후 다운로드 URL:  
-  `https://(당신의 Vercel 도메인)/downloads/driver-app.apk`  
-  예: `https://delivery-app.vercel.app/downloads/driver-app.apk`
+- 배포 후 다운로드: 기사 앱 다운로드 페이지의 버튼은 기본적으로 ` /api/download/driver-app` 으로 연결됩니다. (APK를 올바른 헤더로 전달해 삼성 인터넷 등에서도 정상 다운로드되도록 함.) 직접 URL은 `https://(도메인)/api/download/driver-app` 또는 정적 파일 `https://(도메인)/downloads/driver-app.apk`
 
 - 환경 변수는 **필요 없습니다.** 같은 사이트의 `/downloads/driver-app.apk` 로 자동 링크됩니다. APK를 다른 URL(CDN 등)에서 받게 하려면 `NEXT_PUBLIC_DRIVER_APP_APK_URL` 만 설정하면 됩니다.

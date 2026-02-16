@@ -24,8 +24,8 @@ export default async function DriverAppDownloadPage() {
   }
 
   const androidStoreUrl = process.env.NEXT_PUBLIC_DRIVER_APP_ANDROID_URL ?? ""
-  // 기본: 같은 웹 서버의 /downloads/driver-app.apk (public 폴더에 넣으면 됨). 다른 URL 쓰려면 env로 덮어쓰기
-  const apkUrl = process.env.NEXT_PUBLIC_DRIVER_APP_APK_URL ?? "/downloads/driver-app.apk"
+  // 기본: API 경로로 APK 전달 (다운로드 헤더로 삼성 인터넷 등에서 정상 동작). 다른 URL 쓰려면 env로 덮어쓰기
+  const apkUrl = process.env.NEXT_PUBLIC_DRIVER_APP_APK_URL ?? "/api/download/driver-app"
   const iosUrl = process.env.NEXT_PUBLIC_DRIVER_APP_IOS_URL ?? ""
   const hasIos = Boolean(iosUrl)
 
@@ -58,13 +58,14 @@ export default async function DriverAppDownloadPage() {
                 APK로 설치 (나중에 Play Store 등록 시 스토어 링크 추가 가능)
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row gap-2">
-              <Button asChild>
-                <a href={apkUrl} download className="inline-flex items-center gap-2">
-                  APK 다운로드
-                </a>
-              </Button>
-              {androidStoreUrl ? (
+            <CardContent className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button asChild>
+                  <a href={apkUrl} download="driver-app.apk" className="inline-flex items-center gap-2">
+                    APK 다운로드
+                  </a>
+                </Button>
+                {androidStoreUrl ? (
                 <Button asChild variant="outline" className="bg-[#3ddc84] hover:bg-[#2fc76a] text-black border-0">
                   <a href={androidStoreUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2">
                     <ExternalLink className="h-4 w-4" />
@@ -72,6 +73,10 @@ export default async function DriverAppDownloadPage() {
                   </a>
                 </Button>
               ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                다운로드 후 <strong>알림</strong> 또는 <strong>다운로드 앱</strong>에서 &quot;driver-app.apk&quot;를 눌러 설치하세요. 처음 설치 시 <strong>알 수 없는 앱 설치</strong> 허용이 필요할 수 있습니다.
+              </p>
             </CardContent>
           </Card>
 
