@@ -24,12 +24,20 @@ class FcmService {
         badge: true,
         sound: true,
       );
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      // onBackgroundMessage는 main() 최상위에서만 등록 (main.dart에서 호출)
       _token = await FirebaseMessaging.instance.getToken();
+      if (_token == null) {
+        // iOS: 권한 거부 또는 APNs 미설정 시 null. Android: 설정/네트워크 이슈 시 null 가능.
+        print('[FCM] getToken() returned null. Check: iOS=APNs key, Android=google-services.json & internet.');
+      }
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
         _token = newToken;
       });
-    } catch (_) {}
+    } catch (e, st) {
+      // getToken() 실패 시: Google Play Services(Android), google-services.json, Firebase 프로젝트 설정 등 확인
+      print('[FCM] initialize or getToken error: $e');
+      print(st);
+    }
   }
 
   static Future<String?> getToken() async {
