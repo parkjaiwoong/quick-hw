@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 
@@ -22,6 +22,8 @@ interface TossPaymentButtonProps {
 
 export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPaymentButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [scriptReady, setScriptReady] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [payFromUrl, setPayFromUrl] = useState(false)
   const autoPayTriggered = useRef(false)
 
@@ -34,18 +36,41 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
   }, [])
 
   useEffect(() => {
-    if (document.querySelector("script[data-toss-payments]")) {
-      return
+    const existing = document.querySelector("script[data-toss-payments]")
+    if (existing) {
+      if (window.TossPayments) {
+        setScriptReady(true)
+        return
+      }
+      const check = setInterval(() => {
+        if (window.TossPayments) {
+          setScriptReady(true)
+          clearInterval(check)
+        }
+      }, 200)
+      return () => clearInterval(check)
     }
     const script = document.createElement("script")
     script.src = "https://js.tosspayments.com/v1/payment"
     script.async = true
     script.dataset.tossPayments = "true"
+    script.onload = () => setScriptReady(true)
+    script.onerror = () => setErrorMsg("결제 스크립트를 불러오지 못했습니다.")
     document.body.appendChild(script)
   }, [])
 
-  const handleClick = async () => {
+  const showError = useCallback((message: string) => {
+    setErrorMsg(message)
+    toast.error(message)
+  }, [])
+
+  const handleClick = useCallback(async () => {
     if (disabled || isLoading) return
+    if (!scriptReady || !window.TossPayments) {
+      showError("결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.")
+      return
+    }
+    setErrorMsg(null)
     setIsLoading(true)
     try {
       const response = await fetch("/api/payments/create", {
@@ -55,16 +80,17 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
       })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
-        toast.error(payload?.error || "결제 요청에 실패했습니다.")
+        const msg = payload?.error || "결제 요청에 실패했습니다."
+        showError(msg)
         return
       }
       if (!window.TossPayments) {
-        toast.error("결제 모듈을 불러오지 못했습니다.")
+        showError("결제 모듈을 불러오지 못했습니다.")
         return
       }
 
       const toss = window.TossPayments(payload.clientKey)
-      await toss.requestPayment("CARD", {
+      const payPromise = toss.requestPayment("CARD", {
         amount: payload.amount,
         orderId: payload.orderId,
         orderName: payload.orderName,
@@ -72,38 +98,42 @@ export function TossPaymentButton({ orderId, amount, disabled, autoPay }: TossPa
         successUrl: payload.successUrl,
         failUrl: payload.failUrl,
       })
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("결제 창이 열리지 않았습니다. 팝업 차단을 해제한 뒤 다시 시도해 주세요.")), 15000)
+      await Promise.race([payPromise, timeout])
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "결제 요청에 실패했습니다.")
+      const msg = error instanceof Error ? error.message : "결제 요청에 실패했습니다."
+      showError(msg)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [orderId, amount, disabled, isLoading, scriptReady, showError])
 
   useEffect(() => {
-    if (!shouldAutoPay || disabled || autoPayTriggered.current) return
+    if (!shouldAutoPay || disabled || autoPayTriggered.current || !scriptReady) return
     autoPayTriggered.current = true
+    handleClick()
+  }, [shouldAutoPay, disabled, scriptReady, handleClick])
 
-    const runPayment = () => {
-      if (window.TossPayments) {
-        handleClick()
-        return true
-      }
-      return false
-    }
-
-    const waitForScript = (attempts: number) => {
-      if (runPayment()) return
-      if (attempts >= 50) return
-      setTimeout(() => waitForScript(attempts + 1), 200)
-    }
-
-    const t = setTimeout(() => waitForScript(0), 1200)
-    return () => clearTimeout(t)
-  }, [shouldAutoPay, disabled])
+  const buttonDisabled = disabled || isLoading || !scriptReady
+  const buttonLabel = !scriptReady ? "준비 중..." : isLoading ? "결제 처리중..." : "결제하기"
 
   return (
-    <Button type="button" onClick={handleClick} disabled={disabled || isLoading} className="w-full">
-      {isLoading ? "결제 처리중..." : "결제하기"}
-    </Button>
+    <div className="space-y-2 w-full">
+      <Button
+        type="button"
+        onClick={handleClick}
+        disabled={buttonDisabled}
+        className="w-full"
+        aria-busy={isLoading}
+      >
+        {buttonLabel}
+      </Button>
+      {errorMsg && (
+        <p className="text-sm text-destructive text-center" role="alert">
+          {errorMsg}
+        </p>
+      )}
+    </div>
   )
 }
