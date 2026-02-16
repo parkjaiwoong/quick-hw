@@ -231,7 +231,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => clearTimeout(t)
   }, [lastEventAt])
 
-  // Realtime 콜백에서 이미 UI/진동/소리 직접 실행. 이벤트는 다른 탭/iframe 대비용으로만 유지(중복 진동/소리 방지로 리스너에서는 state만)
+  // Realtime 콜백에서 이미 UI/진동/소리 직접 실행. 이벤트 리스너에서는 state 갱신 + 목록 refresh(이중으로 호출해 갱신 보장)
   useEffect(() => {
     const handler = (e: Event) => {
       const { payloadData } = (e as CustomEvent<{ payloadData: LatestNewDelivery; hasDelivery: boolean }>).detail
@@ -239,6 +239,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
       setEventReceiveCount((c) => c + 1)
       setLastEventAt(Date.now())
       setLatestNewDelivery(payloadData)
+      // 수락 가능한 배송 목록 갱신 (컴포넌트 컨텍스트에서 호출해 확실히 반영)
+      startTransition(() => routerRef.current?.refresh())
     }
     window.addEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
     return () => window.removeEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
@@ -349,8 +351,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     detail: { payloadData, hasDelivery: !!delivery },
                   })
                 )
-                // 수락 가능한 배송 목록 자동 갱신 (서버 컴포넌트 재실행)
-                routerRef.current?.refresh()
+                // 수락 가능한 배송 목록 자동 갱신 (startTransition으로 스케줄해 확실히 반영)
+                startTransition(() => routerRef.current?.refresh())
               }
             }
           } catch (error) {
@@ -394,7 +396,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 })
                 triggerVibration()
                 playDingDongSound(audioContextRef)
-                routerRef.current?.refresh()
+                startTransition(() => routerRef.current?.refresh())
               }
             }
           } catch (_) {}
