@@ -45,8 +45,8 @@ export default async function SettlementsPage() {
             <h1 className="text-3xl font-bold text-balance">정산 관리</h1>
             <p className="text-muted-foreground mt-1">배송원 정산을 관리하세요</p>
           </div>
-          <Button asChild>
-            <Link href="/admin/settlements/new">새 정산 생성</Link>
+          <Button asChild variant="outline">
+            <Link href="/admin/settlements/new">정산 안내</Link>
           </Button>
         </div>
 

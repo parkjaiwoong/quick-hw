@@ -53,3 +53,61 @@
 | 결제 페이지 | `/customer/delivery/[id]/pay` | 일회성 결제 + 등록된 카드로 결제 옵션 |
 
 위 경로로 이동하는지 한 번씩 클릭해서 확인하면 됩니다.
+
+---
+
+## 로컬에서 테스트하기
+
+### 1. 환경 변수
+
+`.env.local`에 아래를 설정한 뒤 서버를 재시작하세요.
+
+```bash
+# Supabase (기존)
+NEXT_PUBLIC_QUICKSUPABASE_URL=...
+NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# 토스페이먼츠 (테스트 키 사용)
+NEXT_PUBLIC_TOSS_CLIENT_KEY=test_ck_...
+TOSS_SECRET_KEY=test_sk_...
+# 로컬은 생략해도 됨. 지정하면: NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+- 토스 **테스트 키**는 [개발자센터 API 키](https://developers.tosspayments.com/my/api-keys)에서 발급합니다.
+- 로컬에서는 `NEXT_PUBLIC_APP_URL`을 넣지 않아도 코드에서 `http://localhost:3000`으로 사용합니다. 다른 포트(예: 3001)를 쓰면 `NEXT_PUBLIC_APP_URL=http://localhost:3001` 로 지정하세요.
+
+### 2. DB 마이그레이션 (최초 1회)
+
+계좌/카드 연동을 쓰려면 `customer_billing_keys` 테이블이 있어야 합니다. Supabase SQL Editor에서 아래 스크립트를 실행하세요.
+
+```bash
+# 프로젝트 루트의 스크립트 내용을 복사해 실행
+# scripts/053_customer_billing_keys.sql
+```
+
+또는 Supabase CLI 사용 시:
+
+```bash
+supabase db execute -f scripts/053_customer_billing_keys.sql
+```
+
+### 3. 개발 서버 실행
+
+```bash
+npm run dev
+```
+
+브라우저에서 `http://localhost:3000` 으로 접속합니다.
+
+### 4. 테스트 시나리오
+
+| 순서 | 화면 | 확인 내용 |
+|------|------|-----------|
+| 1 | 로그인 | 고객 계정으로 `/auth/login` 로그인 |
+| 2 | 계좌 연동 | `/customer/account-link` 이동 → "카드 등록 (토스 결제창)" 노출 여부 |
+| 3 | 카드 등록 | 버튼 클릭 → 토스 테스트 결제창 → 테스트 카드로 인증 → `billing-success` 리다이렉트 후 "카드가 등록되었습니다" 메시지 |
+| 4 | 등록 카드 표시 | 계좌 연동 페이지에 카드사·마스킹 번호 표시, "카드 연동 해제" 동작 |
+| 5 | 등록 카드로 결제 | 새 배송 요청 → 카드 결제 선택 → 결제 페이지에서 "등록된 카드로 결제" 버튼 노출 및 결제 시도 |
+
+토스 테스트 환경에서는 실제 카드 없이 [테스트 카드 정보](https://docs.tosspayments.com/reference/using-api/test-card)로 결제·빌링 인증을 시뮬레이션할 수 있습니다.

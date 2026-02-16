@@ -55,6 +55,7 @@ export default async function AdminPayoutsPage() {
     redirect("/admin/payouts")
   }
 
+  const requestedCount = payouts.filter((p: any) => p.status === "requested").length
   const pendingTotal = payouts
     .filter((p: any) => p.status === "requested" || p.status === "on_hold")
     .reduce((sum: number, p: any) => sum + Number(p.requested_amount || 0), 0)
@@ -104,7 +105,13 @@ export default async function AdminPayoutsPage() {
           </Button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className={requestedCount > 0 ? "ring-2 ring-amber-400" : ""}>
+            <CardHeader className="pb-2">
+              <CardDescription>승인 대기 건수</CardDescription>
+              <CardTitle className="text-2xl text-amber-600">{requestedCount}건</CardTitle>
+            </CardHeader>
+          </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>오늘 요청 건수</CardDescription>
@@ -119,7 +126,7 @@ export default async function AdminPayoutsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>출금 요청 합계 (대기)</CardDescription>
+              <CardDescription>출금 대기 합계</CardDescription>
               <CardTitle className="text-2xl">{pendingTotal.toLocaleString()}원</CardTitle>
             </CardHeader>
           </Card>

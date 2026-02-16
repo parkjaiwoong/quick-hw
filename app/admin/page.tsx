@@ -2,11 +2,13 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Package, Users, FileText, Shield, MessageSquare } from "lucide-react"
+import { Package, Users, Shield, MessageSquare, Calculator, Banknote } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { getRoleOverride } from "@/lib/role"
+import { getAdminAlertCounts } from "@/lib/actions/finance"
 import AdminDashboardTabs from "@/components/admin/admin-dashboard-tabs"
+import { AdminAlertBanner } from "@/components/admin/admin-alert-banner"
 
 export default async function AdminDashboard() {
   const supabase = await getSupabaseServerClient()
@@ -83,6 +85,16 @@ export default async function AdminDashboard() {
     .order("created_at", { ascending: false })
     .limit(5)
 
+  const alertCounts = await getAdminAlertCounts()
+  const countsForBanner =
+    "error" in alertCounts
+      ? { pendingSettlementCount: 0, pendingPayoutCount: 0, pendingPayoutAmount: 0, unreadInquiries: inquiries ?? 0, openAccidents: accidents ?? 0 }
+      : {
+          ...alertCounts,
+          unreadInquiries: inquiries ?? 0,
+          openAccidents: accidents ?? 0,
+        }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -93,7 +105,9 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <AdminAlertBanner counts={countsForBanner} />
+
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>전체 배송</CardDescription>
@@ -133,6 +147,30 @@ export default async function AdminDashboard() {
               <Users className="h-4 w-4 text-orange-600" />
             </CardContent>
           </Card>
+
+          <Link href="/admin/settlements" className="block transition hover:opacity-90">
+            <Card className={countsForBanner.pendingSettlementCount > 0 ? "ring-2 ring-amber-400" : ""}>
+              <CardHeader className="pb-2">
+                <CardDescription>정산 대기</CardDescription>
+                <CardTitle className="text-2xl text-amber-600">{countsForBanner.pendingSettlementCount}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Calculator className="h-4 w-4 text-amber-600" />
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/payouts" className="block transition hover:opacity-90">
+            <Card className={countsForBanner.pendingPayoutCount > 0 ? "ring-2 ring-amber-400" : ""}>
+              <CardHeader className="pb-2">
+                <CardDescription>출금 대기</CardDescription>
+                <CardTitle className="text-2xl text-amber-600">{countsForBanner.pendingPayoutCount}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Banknote className="h-4 w-4 text-amber-600" />
+              </CardContent>
+            </Card>
+          </Link>
 
           <Card>
             <CardHeader className="pb-2">

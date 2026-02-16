@@ -592,6 +592,34 @@ export async function getAdminPayoutRequests() {
   return { payouts: data }
 }
 
+/** 관리자 대시보드용 알림/주요 지표 (정산 대기, 출금 대기 건수·금액) */
+export async function getAdminAlertCounts() {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "인증이 필요합니다." }
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+  if (profile?.role !== "admin") return { error: "관리자 권한이 필요합니다." }
+
+  const [{ count: pendingSettlementCount }, { data: pendingPayouts }] = await Promise.all([
+    supabase.from("settlements").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase
+      .from("payout_requests")
+      .select("id, requested_amount")
+      .in("status", ["requested", "on_hold"]),
+  ])
+
+  const pendingPayoutCount = pendingPayouts?.length ?? 0
+  const pendingPayoutAmount = pendingPayouts?.reduce((sum, p) => sum + Number(p.requested_amount || 0), 0) ?? 0
+
+  return {
+    pendingSettlementCount: pendingSettlementCount ?? 0,
+    pendingPayoutCount,
+    pendingPayoutAmount,
+  }
+}
+
 async function requireAdminClient() {
   const supabase = await getSupabaseServerClient()
   const {

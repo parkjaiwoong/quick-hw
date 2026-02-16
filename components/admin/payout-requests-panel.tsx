@@ -81,6 +81,16 @@ const statusLabelMap: Record<string, string> = {
   CANCELED: "CANCELED",
 }
 
+const statusLabelKo: Record<string, string> = {
+  REQUESTED: "요청",
+  APPROVED: "승인",
+  TRANSFERRED: "이체완료",
+  REJECTED: "반려",
+  ON_HOLD: "보류",
+  FAILED: "실패",
+  CANCELED: "취소",
+}
+
 const normalizeStatus = (status?: string | null) => {
   if (status === "approved") return "APPROVED"
   if (status === "transferred" || status === "paid") return "TRANSFERRED"
@@ -289,7 +299,7 @@ export function PayoutRequestsPanel({
                 </div>
                 <div className="flex flex-col items-start md:items-end gap-2">
                   <Badge className={statusBadgeMap[normalizedStatus] || "bg-muted text-muted-foreground"}>
-                    {statusLabelMap[normalizedStatus] || normalizedStatus}
+                    {statusLabelKo[normalizedStatus] || statusLabelMap[normalizedStatus] || normalizedStatus}
                   </Badge>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>정산 상태: {summary}</span>

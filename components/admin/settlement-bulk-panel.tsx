@@ -51,23 +51,29 @@ export function SettlementBulkPanel({ settlements }: SettlementBulkPanelProps) {
   const [isPending, startTransition] = useTransition()
   const [isDownloading, setIsDownloading] = useState(false)
 
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "processing" | "completed">("all")
+  const filteredSettlements = useMemo(() => {
+    if (statusFilter === "all") return settlements
+    return settlements.filter((s) => s.status === statusFilter)
+  }, [settlements, statusFilter])
+
   const selectedCount = selectedIds.length
   const allowManualConfirm = false
   const selectableIds = useMemo(() => {
     if (!allowManualConfirm) return []
-    return settlements
+    return filteredSettlements
       .filter((s) => {
         const paymentStatus = s.payment_status || s.payment?.status
         return s.settlement_status === "PENDING" && paymentStatus === "PAID"
       })
       .map((s) => s.id)
-  }, [allowManualConfirm, settlements])
+  }, [allowManualConfirm, filteredSettlements])
   const downloadableSettlements = useMemo(
     () =>
-      settlements.filter((s) =>
+      filteredSettlements.filter((s) =>
         ["PENDING", "CONFIRMED", "PAID_OUT"].includes(String(s.settlement_status || "")),
       ),
-    [settlements],
+    [filteredSettlements],
   )
 
   const toggleSelect = (id: string, isSelectable: boolean) => {
@@ -217,6 +223,25 @@ export function SettlementBulkPanel({ settlements }: SettlementBulkPanelProps) {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {(["all", "pending", "processing", "completed"] as const).map((value) => (
+          <Button
+            key={value}
+            type="button"
+            variant={statusFilter === value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter(value)}
+          >
+            {value === "all"
+              ? "전체"
+              : value === "pending"
+                ? "대기 중"
+                : value === "processing"
+                  ? "처리 중"
+                  : "완료"}
+          </Button>
+        ))}
+      </div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           결제 완료 시 자동 정산됩니다.
@@ -258,10 +283,12 @@ export function SettlementBulkPanel({ settlements }: SettlementBulkPanelProps) {
         </div>
       </div>
 
-      {settlements.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">정산 내역이 없습니다</p>
+      {filteredSettlements.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          {statusFilter === "all" ? "정산 내역이 없습니다" : "해당 상태의 정산이 없습니다"}
+        </p>
       ) : (
-        settlements.map((settlement) => {
+        filteredSettlements.map((settlement) => {
           const paymentStatus = settlement.payment_status || settlement.payment?.status
           const isSelectable = allowManualConfirm && settlement.settlement_status === "PENDING" && paymentStatus === "PAID"
           return (
