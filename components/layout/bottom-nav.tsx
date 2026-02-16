@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Home, Package, Truck, LayoutDashboard, User, DollarSign, LogOut, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { signOut } from "@/lib/actions/auth"
 
@@ -26,8 +26,11 @@ export function BottomNav() {
 
       if (error) {
         console.error("BottomNav session check error:", error)
-        setIsAuthenticated(false)
-        setUserRole(null)
+        startTransition(() => {
+          setIsAuthenticated(false)
+          setUserRole(null)
+          setIsLoading(false)
+        })
       } else {
         let sessionUser = session?.user ?? null
         if (!sessionUser) {
@@ -39,7 +42,6 @@ export function BottomNav() {
           }
         }
         const authenticated = !!sessionUser
-        setIsAuthenticated(authenticated)
         console.log("BottomNav session check:", authenticated, sessionUser?.id)
 
         if (sessionUser) {
@@ -51,23 +53,35 @@ export function BottomNav() {
 
           if (profileError) {
             console.error("Profile fetch error:", profileError)
+            startTransition(() => {
+              setUserRole(null)
+              setIsAuthenticated(authenticated)
+              setIsLoading(false)
+            })
           } else {
-            setUserRole(profile?.role || null)
-            console.log("User role:", profile?.role)
+            startTransition(() => {
+              setIsAuthenticated(authenticated)
+              setUserRole(profile?.role || null)
+              console.log("User role:", profile?.role)
+              setIsLoading(false)
+            })
           }
         } else {
-          setUserRole(null)
+          startTransition(() => {
+            setIsAuthenticated(authenticated)
+            setUserRole(null)
+            setIsLoading(false)
+          })
         }
       }
     } catch (error) {
       if (!mountedRef.current) return
       console.error("BottomNav session check exception:", error)
-      setIsAuthenticated(false)
-      setUserRole(null)
-    } finally {
-      if (mountedRef.current) {
+      startTransition(() => {
+        setIsAuthenticated(false)
+        setUserRole(null)
         setIsLoading(false)
-      }
+      })
     }
   }, [supabase])
 
@@ -82,7 +96,6 @@ export function BottomNav() {
 
       console.log("BottomNav auth state changed:", _event, !!session)
       const authenticated = !!session
-      setIsAuthenticated(authenticated)
 
       if (session?.user) {
         supabase
@@ -94,14 +107,19 @@ export function BottomNav() {
             if (!mountedRef.current) return
             if (profileError) {
               console.error("Profile fetch error in onAuthStateChange:", profileError)
-            } else {
-              setUserRole(profile?.role || null)
             }
-            setIsLoading(false)
+            startTransition(() => {
+              setIsAuthenticated(true)
+              setUserRole(profileError ? null : (profile?.role ?? null))
+              setIsLoading(false)
+            })
           })
       } else {
-        setUserRole(null)
-        setIsLoading(false)
+        startTransition(() => {
+          setIsAuthenticated(authenticated)
+          setUserRole(null)
+          setIsLoading(false)
+        })
       }
     })
 
@@ -111,9 +129,7 @@ export function BottomNav() {
     }
   }, [refreshSession, supabase])
 
-  useEffect(() => {
-    refreshSession()
-  }, [pathname, refreshSession])
+  // pathname마다 세션 재조회 제거 → INP 개선 (클릭 시 메인 스레드 블로킹 방지)
 
   if (isAuthPage || isDriverDetailPage) return null
 

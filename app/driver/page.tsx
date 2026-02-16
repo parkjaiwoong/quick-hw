@@ -151,7 +151,7 @@ export default async function DriverDashboard() {
         <Tabs defaultValue="available" className="w-full">
           <div className="w-full">
             <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">탭 메뉴</p>
-            <TabsList className="tabs-scroll-mobile inline-flex w-full max-w-full h-auto min-h-[2.75rem] gap-1 rounded-xl border border-border bg-muted/50 p-1.5 shadow-sm overflow-x-auto overflow-y-hidden">
+            <TabsList className="tabs-scroll-mobile inline-flex w-full max-w-full h-auto min-h-[2.75rem] gap-1.5 rounded-xl border border-border bg-muted/50 py-1.5 pl-[max(0.75rem,env(safe-area-inset-left))] pr-1.5 shadow-sm overflow-x-auto overflow-y-hidden">
               <TabsTrigger value="available" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">대기 중 배송 ({available.length})</TabsTrigger>
               <TabsTrigger value="assigned" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">진행 중 배송 ({assigned.length})</TabsTrigger>
               <TabsTrigger value="history" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">운행 이력</TabsTrigger>

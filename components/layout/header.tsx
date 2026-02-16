@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Package, LogOut } from "lucide-react"
 import { signOut } from "@/lib/actions/auth"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 
 export function Header() {
@@ -30,8 +30,11 @@ export function Header() {
 
       if (error) {
         console.error("Header session check error:", error)
-        setIsAuthenticated(false)
-        setUserRole(null)
+        startTransition(() => {
+          setIsAuthenticated(false)
+          setUserRole(null)
+          setIsLoading(false)
+        })
       } else {
         let sessionUser = session?.user ?? null
         if (!sessionUser) {
@@ -43,7 +46,6 @@ export function Header() {
           }
         }
         const authenticated = !!sessionUser
-        setIsAuthenticated(authenticated)
         console.log("Header session check:", authenticated, sessionUser?.id)
         if (authenticated && sessionUser?.id) {
           const { data: profile } = await supabase
@@ -51,20 +53,27 @@ export function Header() {
             .select("role")
             .eq("id", sessionUser.id)
             .maybeSingle()
-          setUserRole(profile?.role ?? null)
+          startTransition(() => {
+            setIsAuthenticated(true)
+            setUserRole(profile?.role ?? null)
+            setIsLoading(false)
+          })
         } else {
-          setUserRole(null)
+          startTransition(() => {
+            setIsAuthenticated(authenticated)
+            setUserRole(null)
+            setIsLoading(false)
+          })
         }
       }
     } catch (error) {
       if (!mountedRef.current) return
       console.error("Header session check exception:", error)
-      setIsAuthenticated(false)
-      setUserRole(null)
-    } finally {
-      if (mountedRef.current) {
+      startTransition(() => {
+        setIsAuthenticated(false)
+        setUserRole(null)
         setIsLoading(false)
-      }
+      })
     }
   }, [supabase])
 
@@ -79,17 +88,23 @@ export function Header() {
 
       console.log("Header auth state changed:", _event, !!session)
       const authenticated = !!session
-      setIsAuthenticated(authenticated)
-      setIsLoading(false)
       if (authenticated && session?.user?.id) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", session.user.id)
           .maybeSingle()
-        setUserRole(profile?.role ?? null)
+        startTransition(() => {
+          setIsAuthenticated(true)
+          setUserRole(profile?.role ?? null)
+          setIsLoading(false)
+        })
       } else {
-        setUserRole(null)
+        startTransition(() => {
+          setIsAuthenticated(authenticated)
+          setUserRole(null)
+          setIsLoading(false)
+        })
       }
     })
 
@@ -99,9 +114,8 @@ export function Header() {
     }
   }, [refreshSession, supabase])
 
-  useEffect(() => {
-    refreshSession()
-  }, [pathname, refreshSession])
+  // pathname마다 세션 재조회 제거 → INP 개선 (클릭 시 메인 스레드 블로킹 방지)
+  // 마운트·auth 변경 시에만 refreshSession 호출됨
 
   async function handleSignOut() {
     await signOut()
