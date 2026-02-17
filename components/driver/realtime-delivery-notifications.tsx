@@ -288,7 +288,13 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
         async (payload) => {
           try {
             const notification = payload.new as DeliveryNotification
-            console.log("[기사-Realtime] INSERT 수신", { notificationId: notification?.id, deliveryId: notification?.delivery_id, type: notification?.type })
+            console.log("[기사-Realtime] INSERT 콜백 호출", {
+              notificationId: notification?.id,
+              deliveryId: notification?.delivery_id,
+              type: notification?.type,
+              userId: notification?.user_id,
+              구독userId: userId,
+            })
             if (
               (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
               notification.delivery_id
@@ -356,16 +362,21 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 // 수락 가능한 배송 목록 자동 갱신 (startTransition으로 스케줄해 확실히 반영)
                 startTransition(() => routerRef.current?.refresh())
               }
+            } else {
+              console.log("[기사-Realtime] INSERT 스킵(타입/ delivery_id 아님)", {
+                type: notification?.type,
+                delivery_id: notification?.delivery_id,
+              })
             }
           } catch (error) {
-            console.error("실시간 알림 처리 오류:", error)
+            console.error("[기사-Realtime] 실시간 알림 처리 오류:", error)
           }
         },
       )
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           setRealtimeStatus("subscribed")
-          console.log("실시간 알림 구독 성공")
+          console.log("[기사-Realtime] 실시간 알림 구독 성공", { userId })
           // 앱 복귀 후 재연결 시: 다른 앱 갔다 오는 동안 온 미확인 신규 요청이 있으면 모달로 표시
           try {
             const { data: rows } = await supabase

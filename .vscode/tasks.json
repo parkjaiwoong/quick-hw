@@ -4,15 +4,26 @@
     {
       "label": "adb-connect-wifi",
       "type": "shell",
-      "command": "adb connect 192.168.219.102:41913",
-      "options": {
-        "cwd": "D:/ai/QUICK_HW_MVP/delivery-app/driver_app"
-      },
+      "command": "adb connect 192.168.219.102:34017",
+      "options": { "cwd": "${workspaceFolder}/driver_app" },
       "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      }
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "adb-reconnect-wifi",
+      "type": "shell",
+      "command": "adb disconnect 192.168.219.102:34017; adb connect 192.168.219.102:34017",
+      "options": { "cwd": "${workspaceFolder}/driver_app" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared", "echo": true }
+    },
+    {
+      "label": "adb-logcat-driver",
+      "type": "shell",
+      "command": "adb logcat -v time -s flutter",
+      "options": { "cwd": "${workspaceFolder}/driver_app" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "focus": true, "clear": true }
     }
   ]
 }
