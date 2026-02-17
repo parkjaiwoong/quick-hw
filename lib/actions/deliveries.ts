@@ -33,6 +33,22 @@ interface CreateDeliveryData {
   scheduledPickupAt?: string
 }
 
+/** 감사 로그 기록 (실패해도 메인 흐름은 유지) */
+async function writeAuditLog(
+  service: { from: (t: string) => { insert: (r: object) => Promise<{ error: unknown }> } },
+  deliveryId: string,
+  eventType: string,
+  payload: Record<string, unknown>
+) {
+  try {
+    await service.from("notification_audit_log").insert({
+      delivery_id: deliveryId,
+      event_type: eventType,
+      payload,
+    })
+  } catch (_) {}
+}
+
 /** 결제 완료 후 기사에게 Realtime 알림(INSERT notifications). createDelivery(현금) 또는 payment confirm(카드/계좌이체)에서 호출 */
 export async function notifyDriversForDelivery(
   deliveryId: string,
@@ -49,6 +65,8 @@ export async function notifyDriversForDelivery(
   const { createClient: createServiceClient } = await import("@supabase/supabase-js")
   const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
 
+  await writeAuditLog(service, deliveryId, "notify_start", { pickup_lat: pickupLat, pickup_lng: pickupLng })
+
   // RPC는 반드시 service role로 호출 (고객 세션으로 호출 시 RLS로 driver_info 조회 불가 → 기사 0명)
   const { data: nearbyDrivers, error: rpcError } = await service.rpc("find_nearby_drivers", {
     pickup_lat: pickupLat,
@@ -56,13 +74,20 @@ export async function notifyDriversForDelivery(
     max_distance_km: 10.0,
     limit_count: 5,
   })
-  if (rpcError) console.error("[기사알림-2] find_nearby_drivers RPC 오류:", rpcError.message)
+  if (rpcError) {
+    console.error("[기사알림-2] find_nearby_drivers RPC 오류:", rpcError.message)
+    await writeAuditLog(service, deliveryId, "rpc_error", { error: rpcError.message })
+  }
+  const nearbyIds = (nearbyDrivers?.length ?? 0) > 0
+    ? (nearbyDrivers as { driver_id?: string; id?: string }[]).map((d) => d.driver_id ?? d.id).filter(Boolean)
+    : []
+  await writeAuditLog(service, deliveryId, "rpc_nearby", {
+    nearby_count: nearbyDrivers?.length ?? 0,
+    driver_ids: nearbyIds,
+  })
   console.log("[기사알림-2] 근처 기사 수:", nearbyDrivers?.length ?? 0, nearbyDrivers)
 
-  let driverIdsToNotify: string[] =
-    nearbyDrivers?.length > 0
-      ? nearbyDrivers.map((d: { driver_id?: string; id?: string }) => d.driver_id ?? d.id).filter(Boolean)
-      : []
+  let driverIdsToNotify: string[] = nearbyIds
 
   if (driverIdsToNotify.length === 0) {
     const { data: availableDrivers } = await service
@@ -72,11 +97,16 @@ export async function notifyDriversForDelivery(
     if (availableDrivers?.length) {
       driverIdsToNotify = availableDrivers.map((d) => d.id)
     }
+    await writeAuditLog(service, deliveryId, "fallback_available", {
+      available_count: availableDrivers?.length ?? 0,
+      driver_ids: driverIdsToNotify,
+    })
     console.log("[기사알림-2] 배송가능 기사로 대체:", driverIdsToNotify.length, driverIdsToNotify)
   }
 
   if (driverIdsToNotify.length === 0) {
     console.warn("[기사알림-2] 알림할 기사 0명 — INSERT 스킵")
+    await writeAuditLog(service, deliveryId, "insert_skip", { reason: "알림할 기사 0명" })
     return {}
   }
 
@@ -90,8 +120,17 @@ export async function notifyDriversForDelivery(
   const { error: notifError } = await service.from("notifications").insert(rows)
   if (notifError) {
     console.error("[기사알림-3] notifications INSERT 실패:", notifError.message, { deliveryId, driverIds: driverIdsToNotify })
+    await writeAuditLog(service, deliveryId, "insert_fail", {
+      error: notifError.message,
+      driver_count: driverIdsToNotify.length,
+      driver_ids: driverIdsToNotify,
+    })
     return { error: notifError.message }
   }
+  await writeAuditLog(service, deliveryId, "insert_ok", {
+    driver_count: driverIdsToNotify.length,
+    driver_ids: driverIdsToNotify,
+  })
   console.log("[기사알림-3] notifications INSERT 성공", { deliveryId, driverCount: driverIdsToNotify.length, driverIds: driverIdsToNotify })
 
   // 웹훅 없이도 FCM 전송: 서버에서 /api/push/send 직접 호출 (기사 앱 수신 보장)
