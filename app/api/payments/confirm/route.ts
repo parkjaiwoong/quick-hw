@@ -92,6 +92,24 @@ async function getDeliveryId(orderId: string) {
   return order?.delivery_id || null
 }
 
+/** DB는 pickup_location(point)만 있음. (x,y)=(lng,lat) 형태로 파싱 */
+function parsePickupLatLng(location: unknown): { lat: number; lng: number } | null {
+  if (!location) return null
+  if (typeof location === "string") {
+    const m = location.match(/\(([^,]+),([^)]+)\)/)
+    if (!m) return null
+    const lng = Number(m[1])
+    const lat = Number(m[2])
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+    return null
+  }
+  const o = location as { x?: number; y?: number; 0?: number; 1?: number }
+  const lng = o?.x ?? o?.[0]
+  const lat = o?.y ?? o?.[1]
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+  return null
+}
+
 async function notifyDriversAfterPayment(deliveryId: string) {
   console.log("[결제→기사] notifyDriversAfterPayment 시작", { deliveryId })
   const supabase = getServiceClient()
@@ -101,16 +119,17 @@ async function notifyDriversAfterPayment(deliveryId: string) {
   }
   const { data: delivery } = await supabase
     .from("deliveries")
-    .select("id, pickup_lat, pickup_lng")
+    .select("id, pickup_location")
     .eq("id", deliveryId)
     .maybeSingle()
-  if (!delivery?.pickup_lat || !delivery?.pickup_lng) {
-    console.warn("[결제→기사] delivery 좌표 없음", { deliveryId, delivery })
+  const coords = delivery?.pickup_location ? parsePickupLatLng(delivery.pickup_location) : null
+  if (!delivery?.id || !coords) {
+    console.warn("[결제→기사] delivery 또는 좌표 없음", { deliveryId, delivery })
     return
   }
-  console.log("[결제→기사] notifyDriversForDelivery 호출", { deliveryId, lat: delivery.pickup_lat, lng: delivery.pickup_lng })
+  console.log("[결제→기사] notifyDriversForDelivery 호출", { deliveryId, lat: coords.lat, lng: coords.lng })
   const { notifyDriversForDelivery } = await import("@/lib/actions/deliveries")
-  await notifyDriversForDelivery(delivery.id, delivery.pickup_lat, delivery.pickup_lng)
+  await notifyDriversForDelivery(delivery.id, coords.lat, coords.lng)
 }
 
 export async function GET(request: Request) {
