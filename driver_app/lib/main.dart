@@ -11,6 +11,7 @@ void main() async {
   // 백그라운드 메시지 핸들러는 반드시 main() 최상위에서 등록 (클래스/메서드 안이면 안 됨)
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await FcmService.initialize();
+  await getMyDeviceToken();
   runApp(const DriverApp());
 }
 
@@ -109,15 +110,20 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
   }
 
   /// FCM 토큰을 웹에 전달해 서버에 등록 (탭 종료 후에도 푸시 수신)
+  /// React 리스너가 붙기 전에 이벤트가 나가면 유실되므로, 지연 후 여러 번 전달
   Future<void> _injectFcmTokenToWeb() async {
     final t = await FcmService.getToken();
     if (t == null || !mounted) return;
     final escaped = t.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
-    try {
-      await _controller.runJavaScript(
-        "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));",
-      );
-    } catch (_) {}
+    final js = "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));";
+    for (final delayMs in [0, 1500, 3500]) {
+      if (!mounted) return;
+      if (delayMs > 0) await Future.delayed(Duration(milliseconds: delayMs));
+      if (!mounted) return;
+      try {
+        await _controller.runJavaScript(js);
+      } catch (_) {}
+    }
   }
 
   @override
@@ -170,5 +176,28 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
         ),
       ),
     );
+  }
+}
+
+/// 내 기기 FCM 토큰을 권한 요청 후 가져와 콘솔에 출력 (디버그/복사용)
+Future<void> getMyDeviceToken() async {
+  try {
+    NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      String? token = await FirebaseMessaging.instance.getToken();
+      print("------- 내 기기 FCM 토큰 -------");
+      print(token);
+      print("------------------------------");
+    } else {
+      print('사용자가 알림 권한을 거절했습니다.');
+    }
+  } catch (e, st) {
+    print('getMyDeviceToken 오류: $e');
+    print(st);
   }
 }

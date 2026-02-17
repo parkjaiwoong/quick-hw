@@ -8,12 +8,14 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
 
   if (!user) {
+    console.warn("[fcm-token] 401: 인증 없음 (WebView에서 기사 로그인 후 다시 시도)")
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
   }
 
   const body = await request.json().catch(() => null)
   const token = body?.token as string | undefined
   if (!token || typeof token !== "string") {
+    console.warn("[fcm-token] 400: token 없음")
     return NextResponse.json({ error: "token 필요" }, { status: 400 })
   }
 
@@ -28,9 +30,10 @@ export async function POST(request: Request) {
   )
 
   if (error) {
-    console.error("driver_fcm_tokens upsert error:", error)
+    console.error("[fcm-token] driver_fcm_tokens upsert error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  console.log("[fcm-token] 등록 완료 user_id=" + user.id)
   return NextResponse.json({ success: true })
 }
