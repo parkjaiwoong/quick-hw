@@ -1,19 +1,29 @@
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:vibration/vibration.dart';
 
-/// FCM 토큰을 가져와 WebView에 전달. 백그라운드 메시지 시 시스템 알림 표시.
+/// FCM 토큰을 가져와 WebView에 전달. 백그라운드 메시지 시 시스템 알림 표시 + 진동.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  // 백그라운드 수신 로그 (별도 isolate → Android는 logcat, 디버그 콘솔에는 안 나올 수 있음)
-  print('[FCM] 🔔 백그라운드 메시지 수신');
+  // 백그라운드 수신 로그 (별도 isolate → Android는 logcat에서 [FCM] 검색)
+  print('[FCM] 🔔 백그라운드 메시지 수신 (배송가능 시 UI/소리/진동 확인)');
   print('[FCM]   title: ${message.notification?.title}');
   print('[FCM]   body: ${message.notification?.body}');
   print('[FCM]   data: ${message.data}');
-  if (message.notification != null) {
-    // Android: foreground가 아니면 시스템 알림이 자동 표시됨
-  }
+  final data = message.data;
+  print('[FCM]   delivery_id: ${data != null ? data['delivery_id'] : null}');
+  try {
+    final hasVibrator = await Vibration.hasVibrator();
+    if (hasVibrator == true) {
+      Vibration.vibrate(duration: 200);
+      await Future.delayed(const Duration(milliseconds: 250));
+      Vibration.vibrate(duration: 200);
+      print('[FCM] 🔔 백그라운드 진동 실행');
+    }
+  } catch (_) {}
+  // Android: notification payload 있으면 시스템 알림(소리/진동) 자동 표시됨
 }
 
 class FcmService {

@@ -93,14 +93,22 @@ async function getDeliveryId(orderId: string) {
 }
 
 async function notifyDriversAfterPayment(deliveryId: string) {
+  console.log("[결제→기사] notifyDriversAfterPayment 시작", { deliveryId })
   const supabase = getServiceClient()
-  if (!supabase) return
+  if (!supabase) {
+    console.warn("[결제→기사] getServiceClient null")
+    return
+  }
   const { data: delivery } = await supabase
     .from("deliveries")
     .select("id, pickup_lat, pickup_lng")
     .eq("id", deliveryId)
     .maybeSingle()
-  if (!delivery?.pickup_lat || !delivery?.pickup_lng) return
+  if (!delivery?.pickup_lat || !delivery?.pickup_lng) {
+    console.warn("[결제→기사] delivery 좌표 없음", { deliveryId, delivery })
+    return
+  }
+  console.log("[결제→기사] notifyDriversForDelivery 호출", { deliveryId, lat: delivery.pickup_lat, lng: delivery.pickup_lng })
   const { notifyDriversForDelivery } = await import("@/lib/actions/deliveries")
   await notifyDriversForDelivery(delivery.id, delivery.pickup_lat, delivery.pickup_lng)
 }
@@ -134,7 +142,10 @@ export async function GET(request: Request) {
   await updatePaymentStatus({ orderId, status: "PAID", paymentKey })
   const deliveryId = await getDeliveryId(orderId)
   if (deliveryId) {
-    notifyDriversAfterPayment(deliveryId).catch((e) => console.error("[confirm] 기사 알림 실패:", e))
+    console.log("[결제확인] 기사 알림 트리거", { deliveryId })
+    notifyDriversAfterPayment(deliveryId)
+      .then(() => console.log("[결제확인] 기사 알림 완료", { deliveryId }))
+      .catch((e) => console.error("[결제확인] 기사 알림 실패:", e))
   }
   const redirectUrl = deliveryId ? `/customer/delivery/${deliveryId}` : "/customer"
   return NextResponse.redirect(new URL(redirectUrl, request.url))
@@ -159,7 +170,10 @@ export async function POST(request: Request) {
   await updatePaymentStatus({ orderId, status: "PAID", paymentKey })
   const deliveryId = await getDeliveryId(orderId)
   if (deliveryId) {
-    notifyDriversAfterPayment(deliveryId).catch((e) => console.error("[confirm] 기사 알림 실패:", e))
+    console.log("[결제확인-POST] 기사 알림 트리거", { deliveryId })
+    notifyDriversAfterPayment(deliveryId)
+      .then(() => console.log("[결제확인-POST] 기사 알림 완료", { deliveryId }))
+      .catch((e) => console.error("[결제확인-POST] 기사 알림 실패:", e))
   }
   return NextResponse.json({ success: true })
 }

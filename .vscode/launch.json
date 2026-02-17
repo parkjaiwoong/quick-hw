@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Flutter (Driver App) - Wi-Fi 디버깅 (192.168.219.102:43931)",
+      "name": "Flutter (Driver App) - Wi-Fi 디버깅 (192.168.219.102:41913)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",

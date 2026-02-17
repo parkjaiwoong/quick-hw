@@ -288,6 +288,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
         async (payload) => {
           try {
             const notification = payload.new as DeliveryNotification
+            console.log("[기사-Realtime] INSERT 수신", { notificationId: notification?.id, deliveryId: notification?.delivery_id, type: notification?.type })
             if (
               (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
               notification.delivery_id
@@ -332,6 +333,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
 
               // 콜백에서 직접 UI/진동/소리 실행 (WebView·모바일에서 커스텀 이벤트가 지연/누락될 수 있어)
               if (typeof window !== "undefined") {
+                console.log("[기사-Realtime] UI/진동/소리 실행", { deliveryId: payloadData.delivery.id, notificationId: payloadData.notificationId })
                 setEventReceiveCountRef.current((c) => c + 1)
                 setLastEventAtRef.current(Date.now())
                 setLatestNewDeliveryRef.current(payloadData)

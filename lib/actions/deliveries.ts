@@ -39,9 +39,13 @@ export async function notifyDriversForDelivery(
   pickupLat: number,
   pickupLng: number
 ): Promise<{ error?: string }> {
+  console.log("[기사알림-1] notifyDriversForDelivery 시작", { deliveryId, pickupLat, pickupLng })
   const supabase = await getSupabaseServerClient()
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) return { error: "서비스 키 없음" }
+  if (!serviceRoleKey) {
+    console.error("[기사알림-1] 서비스 키 없음")
+    return { error: "서비스 키 없음" }
+  }
 
   const { createClient: createServiceClient } = await import("@supabase/supabase-js")
   const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
@@ -52,6 +56,7 @@ export async function notifyDriversForDelivery(
     max_distance_km: 10.0,
     limit_count: 5,
   })
+  console.log("[기사알림-2] 근처 기사 수:", nearbyDrivers?.length ?? 0, nearbyDrivers)
 
   let driverIdsToNotify: string[] =
     nearbyDrivers?.length > 0
@@ -66,22 +71,62 @@ export async function notifyDriversForDelivery(
     if (availableDrivers?.length) {
       driverIdsToNotify = availableDrivers.map((d) => d.id)
     }
+    console.log("[기사알림-2] 배송가능 기사로 대체:", driverIdsToNotify.length, driverIdsToNotify)
   }
 
-  if (driverIdsToNotify.length === 0) return {}
+  if (driverIdsToNotify.length === 0) {
+    console.warn("[기사알림-2] 알림할 기사 0명 — INSERT 스킵")
+    return {}
+  }
 
-  const { error: notifError } = await service.from("notifications").insert(
-    driverIdsToNotify.map((driverId) => ({
-      user_id: driverId,
-      delivery_id: deliveryId,
-      title: "새로운 배송 요청",
-      message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
-      type: "new_delivery_request",
-    }))
-  )
+  const rows = driverIdsToNotify.map((driverId) => ({
+    user_id: driverId,
+    delivery_id: deliveryId,
+    title: "새로운 배송 요청",
+    message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
+    type: "new_delivery_request",
+  }))
+  const { error: notifError } = await service.from("notifications").insert(rows)
   if (notifError) {
-    console.error("[notifyDriversForDelivery] INSERT 실패:", notifError.message, { deliveryId, driverIds: driverIdsToNotify })
+    console.error("[기사알림-3] notifications INSERT 실패:", notifError.message, { deliveryId, driverIds: driverIdsToNotify })
     return { error: notifError.message }
+  }
+  console.log("[기사알림-3] notifications INSERT 성공", { deliveryId, driverCount: driverIdsToNotify.length, driverIds: driverIdsToNotify })
+
+  // 웹훅 없이도 FCM 전송: 서버에서 /api/push/send 직접 호출 (기사 앱 수신 보장)
+  const pushSecret = process.env.PUSH_WEBHOOK_SECRET
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    "https://quick-hw.vercel.app"
+  if (pushSecret && baseUrl) {
+    const pushUrl = `${baseUrl}/api/push/send`
+    for (const driverId of driverIdsToNotify) {
+      try {
+        const res = await fetch(pushUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-webhook-secret": pushSecret,
+          },
+          body: JSON.stringify({
+            record: {
+              user_id: driverId,
+              delivery_id: deliveryId,
+              title: "새로운 배송 요청",
+              message: "새 배송 요청이 등록되었습니다. 수락 가능한 배송 목록에서 확인하세요.",
+              type: "new_delivery_request",
+            },
+          }),
+        })
+        const text = await res.text()
+        console.log("[기사알림-4] push/send 호출", { driverId, status: res.status, body: text })
+      } catch (e) {
+        console.error("[기사알림-4] push/send 호출 실패", { driverId, error: (e as Error).message })
+      }
+    }
+  } else {
+    console.warn("[기사알림-4] PUSH_WEBHOOK_SECRET 또는 baseUrl 없음 — FCM 직접 호출 스킵 (웹훅에만 의존)")
   }
   return {}
 }

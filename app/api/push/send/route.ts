@@ -30,6 +30,11 @@ export async function POST(request: Request) {
   const notifType = (record?.type ?? body?.type) as string | undefined
   const deliveryId = (record?.delivery_id ?? body?.delivery_id) as string | undefined
 
+  // 웹훅 호출인지 서버 직접 호출인지 구분 (Supabase는 type/table 포함, 서버 직접 호출은 record만)
+  const source =
+    body?.type === "INSERT" && body?.table === "notifications" ? "webhook" : "server"
+  console.log("[push/send] 요청 수신", { source, userId, deliveryId, notifType })
+
   if (!userId) {
     return NextResponse.json({ error: "user_id 필요" }, { status: 400 })
   }
@@ -103,18 +108,31 @@ export async function POST(request: Request) {
         .from("driver_fcm_tokens")
         .select("token")
         .eq("user_id", userId)
+      console.log("[push/send] FCM 토큰 조회", { userId, tokenCount: tokens?.length ?? 0 })
       if (tokens && tokens.length > 0) {
         const messaging = getMessaging()
+        // 백그라운드에서도 시스템 알림 소리/진동: channelId는 Flutter 앱에서 생성한 채널과 동일하게
         const res = await messaging.sendEachForMulticast({
           tokens: tokens.map((r) => r.token),
           notification: { title, body: message },
           data: { url: openUrl, delivery_id: deliveryId || "" },
-          android: { priority: "high" as const },
+          android: {
+            priority: "high" as const,
+            notification: {
+              channelId: "delivery_request",
+              defaultSound: true,
+              defaultVibrateTimings: true,
+            },
+          },
         })
         results.fcm = `success=${res.successCount} failure=${res.failureCount}`
+        console.log("[push/send] FCM 발송 결과", { userId, deliveryId, successCount: res.successCount, failureCount: res.failureCount })
+      } else {
+        console.log("[push/send] FCM 토큰 없음 — 전송 생략", { userId })
       }
     } catch (e) {
       results.fcm = `error: ${(e as Error).message}`
+      console.error("[push/send] FCM 오류", { userId, deliveryId, error: (e as Error).message })
     }
   }
 

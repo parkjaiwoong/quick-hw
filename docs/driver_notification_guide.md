@@ -4,6 +4,68 @@
 
 ---
 
+## 로그로 흐름 검증 (고객 요청 → 기사 수신 UI/진동/소리)
+
+테스트 시 **서버 로그**와 **기사 측 로그**를 아래 순서대로 확인하면, 어느 단계에서 끊기는지 바로 알 수 있습니다.
+
+| 단계 | 위치 | 로그 태그 | 확인 내용 |
+|------|------|-----------|-----------|
+| 1 | 결제 확정 API | `[결제확인]` / `[결제확인-POST]` | `기사 알림 트리거` { deliveryId } → `기사 알림 완료` |
+| 2 | 결제→기사 | `[결제→기사]` | `notifyDriversAfterPayment 시작` → `notifyDriversForDelivery 호출` (좌표 있음) |
+| 3 | 알림 생성 | `[기사알림-1]` | `notifyDriversForDelivery 시작` { deliveryId, pickupLat, pickupLng } |
+| 4 | 알림 생성 | `[기사알림-2]` | 근처 기사 수 / 배송가능 기사로 대체, driverIds 배열 |
+| 5 | 알림 생성 | `[기사알림-3]` | `notifications INSERT 성공` { deliveryId, driverCount, driverIds } |
+| 6 | 푸시 전송 | `[기사알림-4]` | 각 driverId별 `push/send 호출` { status, body } (실패 시 `push/send 호출 실패`) |
+| 7 | push/send API | `[push/send]` | `요청 수신` { **source**: `webhook` \| `server`, userId, deliveryId } → `FCM 토큰 조회` → `FCM 발송 결과` |
+| 8 | 기사 웹(Realtime) | `[기사-Realtime]` | 브라우저 콘솔: `INSERT 수신` { notificationId, deliveryId, type } → `UI/진동/소리 실행` { deliveryId } |
+| 9 | 기사 Flutter 앱 | FCM 로그 | 포그라운드: `[FCM] 📩 포그라운드 메시지 수신` / 백그라운드: `[FCM] 🔔 백그라운드 메시지 수신` (logcat) |
+
+**정상 시나리오**: 1→2→3→4→5→6→7 까지 서버에서 순서대로 출력되고, 8은 기사가 **웹/WebView**로 대시를 열어 둔 경우, 9는 **Flutter 앱**으로 FCM 토큰이 등록된 경우 각각 확인됩니다.  
+**끊기는 단계**에서 로그가 없거나 에러가 나오면, 해당 단계(결제 redirect vs POST, 서비스 키, 근처 기사 0명, 웹훅/직접 push 미설정, FCM 토큰 없음, Realtime 미구독 등)를 위 표와 가이드 아래 항목으로 점검하면 됩니다.
+
+---
+
+## 웹훅·백그라운드 수신 확인 (기사 앱 백그라운드 시 UI/소리/진동)
+
+### 웹훅이 호출되는지 확인
+
+`notifications` INSERT 시 **Supabase Database Webhook**이 `/api/push/send`를 호출하면, 서버 로그에 **source: webhook** 이 찍힙니다.
+
+- **서버 로그** (Vercel Functions 또는 로컬 터미널)에서 `[push/send] 요청 수신` 다음에 **`source: "webhook"`** 이 있으면 웹훅 경로로 들어온 요청입니다.
+- **`source: "server"`** 는 우리 서버가 `notifyDriversForDelivery` 안에서 직접 `/api/push/send`를 호출한 경우입니다.
+- 웹훅을 설정했다면 INSERT 한 건당 웹훅 1회 + 서버 직접 1회가 될 수 있어, 같은 기사에게 **webhook** 로그와 **server** 로그가 둘 다 나올 수 있습니다. 둘 중 하나만 나와도 FCM은 전송된 것입니다.
+
+**웹훅이 안 나올 때**: Supabase Dashboard → Database → Webhooks 에서 `notifications` 테이블 **Insert** 이벤트로 `https://(도메인)/api/push/send` 가 등록돼 있는지, 헤더 `x-webhook-secret` 값이 `PUSH_WEBHOOK_SECRET`과 동일한지 확인하세요.
+
+### 백그라운드에서 기사 앱이 수신·소리·진동하는지 확인
+
+기사가 **배송 가능** 상태에서 앱을 **홈으로 내리거나 다른 앱**으로 보낸 뒤, 고객이 배송 요청·결제를 하면:
+
+1. **기기 시스템 알림**: 알림창(트레이)에 "새로운 배송 요청" 등이 떠야 하고, **소리**와 **진동**이 나야 합니다. (FCM의 `notification` + Android 채널 `delivery_request` 사용)
+2. **Flutter 백그라운드 로그**: Android는 `adb logcat | grep FCM` 또는 Android Studio Logcat에서 `[FCM]` 필터 시  
+   `[FCM] 🔔 백그라운드 메시지 수신 (배송가능 시 UI/소리/진동 확인)`  
+   `[FCM]   delivery_id: ...`  
+   `[FCM] 🔔 백그라운드 진동 실행`  
+   이 순서로 나오면 백그라운드 핸들러까지 도달한 것입니다.
+3. 알림을 **탭**하면 앱이 열리고 해당 배송 화면으로 이동할 수 있어야 합니다.
+
+**백그라운드에서 소리/진동이 안 날 때**:  
+- 기사 앱을 한 번이라도 실행해 두면 `MainActivity`에서 `delivery_request` 알림 채널이 생성됩니다.  
+- 기기 설정 → 앱 → 언넌(기사 앱) → 알림 → **배송 요청 알림** 채널이 있고, 소리/진동이 켜져 있는지 확인하세요.
+
+---
+
+## 결제 완료 후 기사 앱 로그가 안 나올 때
+
+고객이 결제까지 했는데 **기사 앱(Flutter) 로그에 `[FCM] 📩 포그라운드 메시지 수신` 등이 전혀 안 뜨면**, 알림이 **기사 앱까지 도달하지 않은** 상태입니다.
+
+1. **Supabase Database Webhook**이 `notifications` INSERT 시 `/api/push/send`를 호출하도록 설정돼 있는지 확인하세요. 없으면 FCM이 전송되지 않습니다.
+2. **Vercel** 환경 변수에 `FIREBASE_SERVICE_ACCOUNT_JSON`, `PUSH_WEBHOOK_SECRET`이 설정돼 있는지 확인하세요.
+3. 해당 기사의 **FCM 토큰**이 `driver_fcm_tokens`에 저장돼 있는지(기사가 앱에서 한 번이라도 로그인했는지) 확인하세요.
+4. **Realtime**은 WebView(React) 쪽이라 Flutter 로그에는 안 찍힙니다. Realtime으로 오는 알림은 기사 웹 화면의 "알림 N건 수신" 등으로만 확인 가능합니다.
+
+---
+
 ## 결제 완료 → 기사 화면 UI/소리/진동 점검 (흐름 요약)
 
 1. **고객 결제 완료** → `POST /api/payments/confirm` → `notifyDriversAfterPayment(deliveryId)` 호출  

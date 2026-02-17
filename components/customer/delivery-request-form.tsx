@@ -175,69 +175,73 @@ export function DeliveryRequestForm({
   }, [initialPickupAddress, initialPickupLat, initialPickupLng, initialDeliveryAddress, initialDeliveryLat, initialDeliveryLng])
 
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
-    if (deliveryOption === "scheduled" && !scheduledPickupAt.trim()) {
-      setError("예약 픽업을 선택했을 경우 픽업 희망 일시를 입력해주세요.")
-      setIsLoading(false)
-      return
-    }
-
-    const formData = new FormData(e.currentTarget)
-
-    const data = {
-      pickupAddress: formData.get("pickupAddress") as string,
-      pickupLat: Number.parseFloat(formData.get("pickupLat") as string) || 37.5665,
-      pickupLng: Number.parseFloat(formData.get("pickupLng") as string) || 126.978,
-      pickupContactName: formData.get("pickupContactName") as string,
-      pickupContactPhone: formData.get("pickupContactPhone") as string,
-      pickupNotes: formData.get("pickupNotes") as string,
-
-      deliveryAddress: formData.get("deliveryAddress") as string,
-      deliveryLat: Number.parseFloat(formData.get("deliveryLat") as string) || 37.5665,
-      deliveryLng: Number.parseFloat(formData.get("deliveryLng") as string) || 126.978,
-      deliveryContactName: formData.get("deliveryContactName") as string,
-      deliveryContactPhone: formData.get("deliveryContactPhone") as string,
-      deliveryNotes: formData.get("deliveryNotes") as string,
-
-      itemType: itemType,
-      itemDescription: (formData.get("itemDescription") as string) || undefined,
-      paymentMethod: (formData.get("paymentMethod") as string) || paymentMethod,
-      customerAmount: (() => {
-        const raw = (formData.get("customerAmount") as string)?.replace(/,/g, "") ?? ""
-        const num = Number.parseFloat(raw)
-        return Number.isFinite(num) ? Math.round(num) : undefined
-      })(),
-      deliveryOption: (formData.get("deliveryOption") as string) || "immediate",
-      vehicleType: (formData.get("vehicleType") as string) || "motorcycle",
-      urgency: (formData.get("urgency") as string) || "standard",
-      scheduledPickupAt: (formData.get("scheduledPickupAt") as string) || undefined,
-    }
-
-    const result = await createDelivery(data)
-
-    if (result.error) {
-      setError(result.error)
-      setIsLoading(false)
-    } else {
-      const id = result.delivery?.id
-      if (!id) {
-        setError("배송 정보를 불러올 수 없습니다.")
+    // INP 개선: 핸들러에서 무거운 작업을 하지 않고 한 틱 미룸 → UI(로딩 표시)가 먼저 그려짐
+    startTransition(() => {
+      setIsLoading(true)
+      setError("")
+    })
+    const form = e.currentTarget
+    queueMicrotask(async () => {
+      if (deliveryOption === "scheduled" && !scheduledPickupAt.trim()) {
+        setError("예약 픽업을 선택했을 경우 픽업 희망 일시를 입력해주세요.")
         setIsLoading(false)
         return
       }
-      const method = (data.paymentMethod || paymentMethod || "").toLowerCase()
-      startTransition(() => {
-        // 카드·계좌이체는 결제 페이지로, 현금 등은 배송 상세로
-        if (method === "card" || method === "bank_transfer") {
-          router.push(`/customer/delivery/${id}/pay`)
-        } else {
-          router.push(`/customer/delivery/${id}`)
+
+      const formData = new FormData(form)
+      const data = {
+        pickupAddress: formData.get("pickupAddress") as string,
+        pickupLat: Number.parseFloat(formData.get("pickupLat") as string) || 37.5665,
+        pickupLng: Number.parseFloat(formData.get("pickupLng") as string) || 126.978,
+        pickupContactName: formData.get("pickupContactName") as string,
+        pickupContactPhone: formData.get("pickupContactPhone") as string,
+        pickupNotes: formData.get("pickupNotes") as string,
+
+        deliveryAddress: formData.get("deliveryAddress") as string,
+        deliveryLat: Number.parseFloat(formData.get("deliveryLat") as string) || 37.5665,
+        deliveryLng: Number.parseFloat(formData.get("deliveryLng") as string) || 126.978,
+        deliveryContactName: formData.get("deliveryContactName") as string,
+        deliveryContactPhone: formData.get("deliveryContactPhone") as string,
+        deliveryNotes: formData.get("deliveryNotes") as string,
+
+        itemType: itemType,
+        itemDescription: (formData.get("itemDescription") as string) || undefined,
+        paymentMethod: (formData.get("paymentMethod") as string) || paymentMethod,
+        customerAmount: (() => {
+          const raw = (formData.get("customerAmount") as string)?.replace(/,/g, "") ?? ""
+          const num = Number.parseFloat(raw)
+          return Number.isFinite(num) ? Math.round(num) : undefined
+        })(),
+        deliveryOption: (formData.get("deliveryOption") as string) || "immediate",
+        vehicleType: (formData.get("vehicleType") as string) || "motorcycle",
+        urgency: (formData.get("urgency") as string) || "standard",
+        scheduledPickupAt: (formData.get("scheduledPickupAt") as string) || undefined,
+      }
+
+      const result = await createDelivery(data)
+
+      if (result.error) {
+        setError(result.error)
+        setIsLoading(false)
+      } else {
+        const id = result.delivery?.id
+        if (!id) {
+          setError("배송 정보를 불러올 수 없습니다.")
+          setIsLoading(false)
+          return
         }
-      })
-    }
+        const method = (data.paymentMethod || paymentMethod || "").toLowerCase()
+        startTransition(() => {
+          if (method === "card" || method === "bank_transfer") {
+            router.push(`/customer/delivery/${id}/pay`)
+          } else {
+            router.push(`/customer/delivery/${id}`)
+          }
+        })
+      }
+    })
   }
 
   return (
