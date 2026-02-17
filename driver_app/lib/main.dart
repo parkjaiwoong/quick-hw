@@ -1,3 +1,4 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -11,7 +12,28 @@ void main() async {
   // 백그라운드 메시지 핸들러는 반드시 main() 최상위에서 등록 (클래스/메서드 안이면 안 됨)
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await FcmService.initialize();
+  // Analytics 라이브러리 로드 (Messaging "analytics library is missing" 경고 제거)
+  FirebaseAnalytics.instance;
   await getMyDeviceToken();
+
+  // 포그라운드/알림 탭 시 로그 (Wi‑Fi 디버깅 시 Debug Console에서 확인)
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print('[FCM] 📩 포그라운드 메시지 수신');
+    print('[FCM]   title: ${message.notification?.title}');
+    print('[FCM]   body: ${message.notification?.body}');
+    print('[FCM]   data: ${message.data}');
+  });
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    print('[FCM] 👆 알림 탭해서 앱 열림');
+    print('[FCM]   title: ${message.notification?.title}');
+    print('[FCM]   data: ${message.data}');
+  });
+  final initial = await FirebaseMessaging.instance.getInitialMessage();
+  if (initial != null) {
+    print('[FCM] 🚀 앱이 알림으로부터 실행됨 (종료 상태에서 탭)');
+    print('[FCM]   data: ${initial.data}');
+  }
+
   runApp(const DriverApp());
 }
 
@@ -47,6 +69,11 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
   @override
   void initState() {
     super.initState();
+
+
+    // 🔍 확인 포인트 1: 이 로그가 한 번만 찍히는지, 아니면 계속 반복되는지 보세요.
+    print("🛠️ [DEBUG] initState 호출됨!");
+
     _checkAppVersion();
     _controller = _createController();
   }
@@ -56,7 +83,8 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (_) {
+          onPageStarted: (url) {
+            print("🌐 [DEBUG] 페이지 로딩 시작: $url");
             if (mounted) setState(() { _isLoading = true; _error = null; });
           },
           onPageFinished: (_) {
@@ -64,10 +92,14 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
             _injectFcmTokenToWeb();
           },
           onWebResourceError: (e) {
-            if (mounted) setState(() {
+            print("❌ [DEBUG] 에러 발생 주소: ${e.url}");
+            print("❌ [DEBUG] 에러 상세내용: ${e.description}");
+            if (mounted) {
+              setState(() {
               _isLoading = false;
               _error = e.description ?? '로드 실패';
             });
+            }
           },
         ),
       )
@@ -119,6 +151,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
   Future<void> _injectFcmTokenToWeb() async {
     final t = await FcmService.getToken();
     if (t == null || !mounted) return;
+    print('[FCM] 📤 FCM 토큰을 웹에 전달함 → 웹에서 /api/driver/fcm-token 호출 예정');
     final escaped = t.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
     final js = "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));";
     for (final delayMs in [0, 1500, 3500]) {
