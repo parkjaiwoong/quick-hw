@@ -89,6 +89,9 @@ Future<void> _runApp() async {
     addScreenError('FCM getInitialMessage: $e');
   }
 
+  // 테스트용: 무조건 한 건 넣어서 모달에 내용이 보이도록 (반영 확인)
+  addScreenError('테스트: 오류 로그 반영 확인');
+
   runApp(const DriverApp());
 }
 
@@ -109,66 +112,71 @@ class DriverApp extends StatelessWidget {
   }
 }
 
-/// 디버거 없이 기기에서 오류 확인: 기사코드 쪽(상단 우측)에 고정 프레임 + 내부 스크롤로 로그 표시
+/// 디버거 없이 기기에서 오류 확인: 상단 모달 형태로 오류내용 표시 (테스트 1건 항상, 신규 건은 밑에 추가)
 class ScreenErrorWrapper extends StatelessWidget {
   const ScreenErrorWrapper({super.key, required this.child});
   final Widget child;
 
-  static const double _logBoxWidth = 280.0;
-  static const double _logBoxHeight = 200.0;
+  static const double _modalWidth = 300.0;
+  static const double _modalHeight = 220.0;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         child,
+        // 상단 방향 모달: 오류내용 제목 + 바로 밑 여백 + 목록(스크롤)
         Positioned(
-          top: MediaQuery.of(context).padding.top + 8,
-          right: 8,
-          width: _logBoxWidth,
-          height: _logBoxHeight,
+          top: MediaQuery.of(context).padding.top + 12,
+          left: (MediaQuery.of(context).size.width - _modalWidth) / 2,
+          width: _modalWidth,
+          height: _modalHeight,
           child: Material(
-            elevation: 12,
-            borderRadius: BorderRadius.circular(8),
+            elevation: 16,
+            shadowColor: Colors.black54,
+            borderRadius: BorderRadius.circular(12),
             child: ValueListenableBuilder<List<String>>(
               valueListenable: screenErrorLog,
               builder: (context, list, _) {
                 return Container(
                   decoration: BoxDecoration(
-                    color: Colors.black87,
+                    color: Colors.grey[900],
                     border: Border.all(color: Colors.orange, width: 2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // 오류내용 헤더
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
                         child: Row(
                           children: [
-                            const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
-                            const SizedBox(width: 6),
+                            const Icon(Icons.warning_amber, color: Colors.orange, size: 22),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 '오류내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                             IconButton(
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              icon: const Icon(Icons.clear_all, color: Colors.white70, size: 18),
+                              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                              icon: const Icon(Icons.clear_all, color: Colors.white70, size: 20),
                               onPressed: () => screenErrorLog.value = [],
                             ),
                           ],
                         ),
                       ),
                       const Divider(height: 1, color: Colors.white24),
+                      // 오류내용 바로 밑 여백 후 목록 (신규 건은 여기 추가됨)
+                      const SizedBox(height: 8),
                       Expanded(
                         child: list.isEmpty
                             ? const Center(
@@ -179,14 +187,14 @@ class ScreenErrorWrapper extends StatelessWidget {
                                 ),
                               )
                             : ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                 itemCount: list.length,
                                 itemBuilder: (_, i) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  padding: const EdgeInsets.only(bottom: 6),
                                   child: SelectableText(
                                     list[i],
                                     style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                    maxLines: 3,
+                                    maxLines: 4,
                                   ),
                                 ),
                               ),
