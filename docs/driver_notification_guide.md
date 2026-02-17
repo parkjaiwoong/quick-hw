@@ -4,6 +4,26 @@
 
 ---
 
+## 결제 완료 → 기사 화면 UI/소리/진동 점검 (흐름 요약)
+
+1. **고객 결제 완료** → `POST /api/payments/confirm` → `notifyDriversAfterPayment(deliveryId)` 호출  
+2. **서버** → `notifyDriversForDelivery()` → 근처/배송가능 기사에게 **`notifications` 테이블 INSERT**  
+3. **기사 앱에 도달하는 경로 두 가지**
+   - **앱을 열어 둔 상태**: **Supabase Realtime**이 `notifications` INSERT를 구독 → WebView(React)에서 **모달 + 띵동 소리 + 진동** (한 번 터치 후 소리 재생 가능). Flutter 앱은 **포그라운드 FCM 수신 시 네이티브 진동** 추가로 수행.
+   - **앱을 닫은 상태**: **Supabase Database Webhook**이 `notifications` INSERT 시 **`/api/push/send`** 호출 → **FCM** 전송 → 기기 시스템 알림 + 탭 시 앱 열림.
+
+**UI/소리/진동이 안 될 때 확인할 것**
+
+| 순서 | 확인 항목 | 조치 |
+|------|-----------|------|
+| 1 | Realtime에 `notifications` 포함 여부 | Supabase SQL Editor에서 `scripts/055_verify_realtime_notifications.sql` 실행 |
+| 2 | 기사가 배송 가능인지 | 기사 대시에서 "배송 가능" 토글 켜기 |
+| 3 | 웹훅으로 FCM 전송되는지 | Supabase Database Webhooks에서 `notifications` INSERT → `https://(도메인)/api/push/send`, 헤더 `x-webhook-secret` = `PUSH_WEBHOOK_SECRET` |
+| 4 | Flutter 앱 진동 | Android: `AndroidManifest.xml`에 `VIBRATE` 권한, 앱에서 포그라운드 FCM 수신 시 진동 (이미 반영됨) |
+| 5 | WebView 소리 | 기사 화면에서 **한 번 터치** 후 배송 요청 시 띵동 재생 (자동재생 정책) |
+
+---
+
 ## 1. 기사 화면(웹 또는 앱)을 **열어 둔 상태**인데도 안 올 때
 
 이때는 **Supabase Realtime**으로 알림이 옵니다. 브라우저/앱이 `notifications` 테이블 INSERT를 구독하고 있어야 띵동·진동·팝업이 뜹니다.

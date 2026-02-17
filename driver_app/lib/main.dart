@@ -1,6 +1,7 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:vibration/vibration.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'app_config.dart';
@@ -16,12 +17,19 @@ void main() async {
   FirebaseAnalytics.instance;
   await getMyDeviceToken();
 
-  // 포그라운드/알림 탭 시 로그 (Wi‑Fi 디버깅 시 Debug Console에서 확인)
+  // 포그라운드 수신 시: 로그 + 네이티브 진동 (WebView UI/소리보다 먼저 도달할 수 있음)
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     print('[FCM] 📩 포그라운드 메시지 수신');
     print('[FCM]   title: ${message.notification?.title}');
     print('[FCM]   body: ${message.notification?.body}');
     print('[FCM]   data: ${message.data}');
+    // 포그라운드에서도 진동으로 즉시 알림 (WebView Realtime/소리보다 먼저 도달 가능)
+    try {
+      Vibration.vibrate(duration: 200);
+      Future.delayed(const Duration(milliseconds: 250), () {
+        try { Vibration.vibrate(duration: 200); } catch (_) {}
+      });
+    } catch (_) {}
   });
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
     print('[FCM] 👆 알림 탭해서 앱 열림');
