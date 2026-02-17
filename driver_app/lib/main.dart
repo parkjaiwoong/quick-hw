@@ -19,27 +19,41 @@ void main() async {
 
   // 포그라운드 수신 시: 로그 + 네이티브 진동 (WebView UI/소리보다 먼저 도달할 수 있음)
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('[FCM] 📩 포그라운드 메시지 수신');
-    print('[FCM]   title: ${message.notification?.title}');
-    print('[FCM]   body: ${message.notification?.body}');
-    print('[FCM]   data: ${message.data}');
-    // 포그라운드에서도 진동으로 즉시 알림 (WebView Realtime/소리보다 먼저 도달 가능)
     try {
-      Vibration.vibrate(duration: 200);
-      Future.delayed(const Duration(milliseconds: 250), () {
-        try { Vibration.vibrate(duration: 200); } catch (_) {}
-      });
-    } catch (_) {}
+      print('[FCM] 📩 포그라운드 메시지 수신');
+      print('[FCM]   title: ${message.notification?.title}');
+      print('[FCM]   body: ${message.notification?.body}');
+      print('[FCM]   data: ${message.data}');
+      try {
+        Vibration.vibrate(duration: 200);
+        Future.delayed(const Duration(milliseconds: 250), () {
+          try { Vibration.vibrate(duration: 200); } catch (_) {}
+        });
+      } catch (_) {}
+    } catch (e, st) {
+      print('[FCM] onMessage 처리 중 오류: $e');
+      print(st);
+    }
   });
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    print('[FCM] 👆 알림 탭해서 앱 열림');
-    print('[FCM]   title: ${message.notification?.title}');
-    print('[FCM]   data: ${message.data}');
+    try {
+      print('[FCM] 👆 알림 탭해서 앱 열림');
+      print('[FCM]   title: ${message.notification?.title}');
+      print('[FCM]   data: ${message.data}');
+    } catch (e, st) {
+      print('[FCM] onMessageOpenedApp 처리 중 오류: $e');
+      print(st);
+    }
   });
-  final initial = await FirebaseMessaging.instance.getInitialMessage();
-  if (initial != null) {
-    print('[FCM] 🚀 앱이 알림으로부터 실행됨 (종료 상태에서 탭)');
-    print('[FCM]   data: ${initial.data}');
+  try {
+    final initial = await FirebaseMessaging.instance.getInitialMessage();
+    if (initial != null) {
+      print('[FCM] 🚀 앱이 알림으로부터 실행됨 (종료 상태에서 탭)');
+      print('[FCM]   data: ${initial.data}');
+    }
+  } catch (e, st) {
+    print('[FCM] getInitialMessage 오류: $e');
+    print(st);
   }
 
   runApp(const DriverApp());

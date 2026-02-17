@@ -51,6 +51,11 @@ class AppVersionService {
       if (response.statusCode != 200) return null;
       final body = await response.transform(utf8.decoder).join();
       return jsonDecode(body);
+    } catch (e, st) {
+      // Wi‑Fi/네트워크 불안정 시 소켓·파싱 오류 가능 — 로그만 남기고 무시
+      print('[AppVersion] check fetch 오류: $e');
+      print(st);
+      return null;
     } finally {
       client.close();
     }
