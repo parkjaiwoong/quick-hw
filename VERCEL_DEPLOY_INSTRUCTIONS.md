@@ -46,7 +46,7 @@
 
    ```
    NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL
-   값: https://your-app-name.vercel.app/auth/verify-email
+   값: https://quick-hw.vercel.app/auth/verify-email
    ```
    (배포 후 실제 도메인으로 변경 필요)
 

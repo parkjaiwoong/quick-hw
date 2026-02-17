@@ -8,7 +8,6 @@ const ALLOWED_ORIGINS = [
   process.env.VERCEL_URL && `https://www.${process.env.VERCEL_URL}`,
   "https://quick-hw.vercel.app",
   "https://www.quick-hw.vercel.app",
-  "https://your-app.vercel.app",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "http://localhost:3001",

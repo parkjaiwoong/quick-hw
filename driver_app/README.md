@@ -16,12 +16,12 @@
 
 1. **소스에서 기본값 변경**  
    `lib/app_config.dart`의 `defaultValue`를 실제 서비스 URL로 수정합니다.  
-   예: `defaultValue: 'https://your-domain.com/driver'`
+   예: `defaultValue: 'https://quick-hw.vercel.app/driver'`
 
 2. **빌드 시 URL 지정** (권장)  
    ```bash
-   flutter run --dart-define=DRIVER_WEB_URL=https://your-domain.com/driver
-   flutter build apk --dart-define=DRIVER_WEB_URL=https://your-domain.com/driver
+   flutter run --dart-define=DRIVER_WEB_URL=https://quick-hw.vercel.app/driver
+   flutter build apk --dart-define=DRIVER_WEB_URL=https://quick-hw.vercel.app/driver
    ```
 
 3. **개발 시 로컬 웹**  
@@ -43,10 +43,10 @@ cd driver_app
 flutter run
 
 # APK 빌드 (기본: 모든 CPU 포함, 약 50~70MB)
-flutter build apk --dart-define=DRIVER_WEB_URL=https://your-domain.com/driver
+flutter build apk --dart-define=DRIVER_WEB_URL=https://quick-hw.vercel.app/driver
 
 # APK 용량 줄이기 (권장): CPU별로 나누면 개별 APK는 약 30~35MB
-flutter build apk --dart-define=DRIVER_WEB_URL=https://your-domain.com/driver --split-per-abi
+flutter build apk --dart-define=DRIVER_WEB_URL=https://quick-hw.vercel.app/driver --split-per-abi
 ```
 
 APK 출력:
@@ -82,7 +82,7 @@ Vercel 등 웹에서 APK 다운로드 링크를 쓰려면, 빌드한 APK를 Next
 |------|------|
 | `NEXT_PUBLIC_DRIVER_APP_LATEST_VERSION` | 최신 앱 버전 (예: `1.0.1`). 이 버전보다 낮으면 업데이트 안내 |
 | `NEXT_PUBLIC_DRIVER_APP_MIN_VERSION` | (선택) 필수 최소 버전. 이보다 낮으면 **업데이트 필요**로만 안내 |
-| `NEXT_PUBLIC_DRIVER_APP_DOWNLOAD_URL` | 새 APK 다운로드 URL 또는 스토어 링크 (예: `https://your-domain.com/downloads/driver-app.apk`) |
+| `NEXT_PUBLIC_DRIVER_APP_DOWNLOAD_URL` | 새 APK 다운로드 URL 또는 스토어 링크 (예: `https://quick-hw.vercel.app/downloads/driver-app.apk`) |
 
 새 APK를 빌드한 뒤 `pubspec.yaml`의 `version`을 올리고, 서버 env에 `NEXT_PUBLIC_DRIVER_APP_LATEST_VERSION`과 `NEXT_PUBLIC_DRIVER_APP_DOWNLOAD_URL`을 설정한 후 배포하면, 사용자가 앱을 열 때 업데이트 안내가 표시됩니다.
 

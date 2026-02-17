@@ -40,7 +40,7 @@
 배포가 완료되면:
 1. Vercel이 제공하는 도메인 확인 (예: `quick-hw-xxx.vercel.app`)
 2. Settings > Environment Variables에서 `NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL` 추가:
-   - 값: `https://your-app-name.vercel.app/auth/verify-email`
+   - 값: `https://quick-hw.vercel.app/auth/verify-email`
 3. 환경 변수 업데이트 후 자동 재배포됨
 
 ## 🔗 링크

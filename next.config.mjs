@@ -15,7 +15,7 @@ const nextConfig = {
   async headers() {
     const allowedOrigin =
       process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://your-app.vercel.app")
+      (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://quick-hw.vercel.app")
     return [
       {
         source: "/:path*",
