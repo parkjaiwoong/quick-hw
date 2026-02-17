@@ -106,11 +106,11 @@ export default async function DriverDashboard() {
               <CardHeader className="pb-2">
                 <CardDescription>반영 확인용</CardDescription>
                 <CardTitle className="text-base font-medium text-amber-800">
-                  오류내용 =&gt; 없음
+                  오류2내용 =&gt; 없음
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 text-xs text-muted-foreground">
-                (앱에서는 상단 우측에 로그 상자로 표시됨)
+                (앱에서는 제일 상단 모달로 표시됨)
               </CardContent>
             </Card>
           </div>

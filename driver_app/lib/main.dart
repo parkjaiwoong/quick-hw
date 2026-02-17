@@ -112,7 +112,7 @@ class DriverApp extends StatelessWidget {
   }
 }
 
-/// 디버거 없이 기기에서 오류 확인: 상단 모달 형태로 오류내용 표시 (테스트 1건 항상, 신규 건은 밑에 추가)
+/// 디버거 없이 기기에서 오류 확인: 제일 상단 모달 형태로 오류2내용 표시 (테스트 1건 항상, 신규 건은 밑에 추가)
 class ScreenErrorWrapper extends StatelessWidget {
   const ScreenErrorWrapper({super.key, required this.child});
   final Widget child;
@@ -125,9 +125,9 @@ class ScreenErrorWrapper extends StatelessWidget {
     return Stack(
       children: [
         child,
-        // 상단 방향 모달: 오류내용 제목 + 바로 밑 여백 + 목록(스크롤)
+        // 제일 상단 모달: 오류2내용 제목 + 바로 밑 여백 + 목록(스크롤)
         Positioned(
-          top: MediaQuery.of(context).padding.top + 12,
+          top: MediaQuery.of(context).padding.top + 4,
           left: (MediaQuery.of(context).size.width - _modalWidth) / 2,
           width: _modalWidth,
           height: _modalHeight,
@@ -148,7 +148,7 @@ class ScreenErrorWrapper extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // 오류내용 헤더
+                      // 오류2내용 헤더
                       Padding(
                         padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
                         child: Row(
@@ -157,7 +157,7 @@ class ScreenErrorWrapper extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '오류내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
+                                '오류2내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,
@@ -175,7 +175,7 @@ class ScreenErrorWrapper extends StatelessWidget {
                         ),
                       ),
                       const Divider(height: 1, color: Colors.white24),
-                      // 오류내용 바로 밑 여백 후 목록 (신규 건은 여기 추가됨)
+                      // 오류2내용 바로 밑 여백 후 목록 (신규 건은 여기 추가됨)
                       const SizedBox(height: 8),
                       Expanded(
                         child: list.isEmpty
