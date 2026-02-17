@@ -12,6 +12,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { RealtimeDeliveryNotifications } from "@/components/driver/realtime-delivery-notifications"
 import { DriverDashboardPoller } from "@/components/driver/driver-dashboard-poller"
+import { DriverErrorModal } from "@/components/driver/driver-error-modal"
 
 export default async function DriverDashboard() {
   const supabase = await getSupabaseServerClient()
@@ -70,6 +71,7 @@ export default async function DriverDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <RealtimeDeliveryNotifications userId={user.id} isAvailable={driverInfo?.is_available ?? false} />
+      <DriverErrorModal isAvailable={driverInfo?.is_available ?? false} />
       <DriverDashboardPoller />
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -100,17 +102,6 @@ export default async function DriverDashboard() {
               </CardHeader>
               <CardContent className="pt-0 text-xs text-muted-foreground">
                 기사 ID: {user.id}
-              </CardContent>
-            </Card>
-            <Card className="w-full md:w-auto border-amber-500/50 bg-amber-50/80">
-              <CardHeader className="pb-2">
-                <CardDescription>반영 확인용</CardDescription>
-                <CardTitle className="text-base font-medium text-amber-800">
-                  오류2내용 =&gt; 없음
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 text-xs text-muted-foreground">
-                (앱에서는 제일 상단 모달로 표시됨)
               </CardContent>
             </Card>
           </div>

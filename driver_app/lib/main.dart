@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vibration/vibration.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -11,14 +12,33 @@ import 'app_config.dart';
 import 'app_version_service.dart';
 import 'fcm_service.dart';
 
-/// 디버깅 없이 기기 화면에서 오류 확인용: 여기에 쌓인 메시지를 화면에 표시
+/// 디버깅 없이 기기 화면에서 오류 확인용: 여기에 쌓인 메시지를 화면에 표시 (앱 종료 후에도 유지)
 final ValueNotifier<List<String>> screenErrorLog = ValueNotifier<List<String>>([]);
 const int _maxScreenErrors = 20;
+const String _storageKey = 'driver_screen_error_log';
 
 void addScreenError(String message) {
   final line = '${DateTime.now().toString().substring(11, 19)} $message';
   final next = [...screenErrorLog.value, line];
   screenErrorLog.value = next.length > _maxScreenErrors ? next.sublist(next.length - _maxScreenErrors) : next;
+  _persistErrorLog();
+}
+
+Future<void> _persistErrorLog() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_storageKey, screenErrorLog.value);
+  } catch (_) {}
+}
+
+Future<void> _loadErrorLog() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_storageKey);
+    if (saved != null && saved.isNotEmpty) {
+      screenErrorLog.value = saved.length > _maxScreenErrors ? saved.sublist(saved.length - _maxScreenErrors) : saved;
+    }
+  } catch (_) {}
 }
 
 void main() async {
@@ -89,6 +109,8 @@ Future<void> _runApp() async {
     addScreenError('FCM getInitialMessage: $e');
   }
 
+  // 저장된 로그 복원 (앱 닫았다 열어도 그대로)
+  await _loadErrorLog();
   // 테스트용: 무조건 한 건 넣어서 모달에 내용이 보이도록 (반영 확인)
   addScreenError('테스트: 오류 로그 반영 확인');
 
@@ -112,7 +134,7 @@ class DriverApp extends StatelessWidget {
   }
 }
 
-/// 디버거 없이 기기에서 오류 확인: 제일 상단 모달 형태로 오류2내용 표시 (테스트 1건 항상, 신규 건은 밑에 추가)
+/// 디버거 없이 기기에서 오류 확인: 제일 상단 백그라운드 모달로 오류3내용 표시 (앱 닫아도 유지)
 class ScreenErrorWrapper extends StatelessWidget {
   const ScreenErrorWrapper({super.key, required this.child});
   final Widget child;
@@ -125,7 +147,7 @@ class ScreenErrorWrapper extends StatelessWidget {
     return Stack(
       children: [
         child,
-        // 제일 상단 모달: 오류2내용 제목 + 바로 밑 여백 + 목록(스크롤)
+        // 제일 상단 백그라운드 모달: 오류3내용 + 신규내용 (스크롤)
         Positioned(
           top: MediaQuery.of(context).padding.top + 4,
           left: (MediaQuery.of(context).size.width - _modalWidth) / 2,
@@ -148,7 +170,7 @@ class ScreenErrorWrapper extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // 오류2내용 헤더
+                      // 오류3내용 헤더
                       Padding(
                         padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
                         child: Row(
@@ -157,7 +179,7 @@ class ScreenErrorWrapper extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '오류2내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
+                                '오류3내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,
@@ -169,13 +191,16 @@ class ScreenErrorWrapper extends StatelessWidget {
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                               icon: const Icon(Icons.clear_all, color: Colors.white70, size: 20),
-                              onPressed: () => screenErrorLog.value = [],
+                              onPressed: () {
+                                screenErrorLog.value = [];
+                                _persistErrorLog();
+                              },
                             ),
                           ],
                         ),
                       ),
                       const Divider(height: 1, color: Colors.white24),
-                      // 오류2내용 바로 밑 여백 후 목록 (신규 건은 여기 추가됨)
+                      // 오류3내용 바로 밑 여백 → 신규내용(목록) 스크롤
                       const SizedBox(height: 8),
                       Expanded(
                         child: list.isEmpty
