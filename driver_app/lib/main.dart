@@ -109,71 +109,71 @@ class DriverApp extends StatelessWidget {
   }
 }
 
-/// 디버거 없이 기기에서 오류 확인: 화면 하단에 오류 로그 표시 (탭하면 펼침/접기)
-class ScreenErrorWrapper extends StatefulWidget {
+/// 디버거 없이 기기에서 오류 확인: 기사코드 쪽(상단 우측)에 고정 프레임 + 내부 스크롤로 로그 표시
+class ScreenErrorWrapper extends StatelessWidget {
   const ScreenErrorWrapper({super.key, required this.child});
   final Widget child;
 
-  @override
-  State<ScreenErrorWrapper> createState() => _ScreenErrorWrapperState();
-}
-
-class _ScreenErrorWrapperState extends State<ScreenErrorWrapper> {
-  bool _expanded = false;
+  static const double _logBoxWidth = 280.0;
+  static const double _logBoxHeight = 200.0;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        widget.child,
+        child,
         Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
+          top: MediaQuery.of(context).padding.top + 8,
+          right: 8,
+          width: _logBoxWidth,
+          height: _logBoxHeight,
           child: ValueListenableBuilder<List<String>>(
             valueListenable: screenErrorLog,
             builder: (context, list, _) {
               if (list.isEmpty) return const SizedBox.shrink();
-              return Material(
-                color: Colors.black87,
-                child: InkWell(
-                  onTap: () => setState(() => _expanded = !_expanded),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: _expanded ? MediaQuery.of(context).size.height * 0.5 : 80),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
-                              const SizedBox(width: 6),
-                              Text('오류 ${list.length}건 (탭하여 ${_expanded ? "접기" : "펼치기"})', style: const TextStyle(color: Colors.white, fontSize: 12)),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(Icons.clear_all, color: Colors.white70, size: 20),
-                                onPressed: () {
-                                  screenErrorLog.value = [];
-                                },
-                              ),
-                            ],
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  border: Border.all(color: Colors.orange, width: 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+                          const SizedBox(width: 4),
+                          Text('오류 ${list.length}건', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                          const Spacer(),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            icon: const Icon(Icons.clear_all, color: Colors.white70, size: 18),
+                            onPressed: () => screenErrorLog.value = [],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: Colors.white24),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        itemCount: list.length,
+                        itemBuilder: (_, i) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: SelectableText(
+                            list[i],
+                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                            maxLines: 3,
                           ),
                         ),
-                        if (_expanded)
-                          Expanded(
-                            child: ListView.builder(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              itemCount: list.length,
-                              itemBuilder: (_, i) => Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                child: SelectableText(list[i], style: const TextStyle(color: Colors.white70, fontSize: 11), maxLines: 5),
-                              ),
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               );
             },
