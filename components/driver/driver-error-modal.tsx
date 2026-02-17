@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
+import { createClient } from "@/lib/supabase/client"
 
-const STORAGE_KEY_ERROR = "driver_오류3내용"
+const STORAGE_KEY_ERROR = "driver_오류4내용"
 const STORAGE_KEY_NEW = "driver_신규내용"
 const DRIVER_NEW_DELIVERY_EVENT = "driver-new-delivery-request"
 const MAX_NEW = 30
@@ -28,16 +29,17 @@ function setStored(key: string, value: string[]) {
 }
 
 interface DriverErrorModalProps {
+  userId: string
   isAvailable: boolean
 }
 
-export function DriverErrorModal({ isAvailable }: DriverErrorModalProps) {
-  const [오류3, set오류3] = useState<string[]>([])
+export function DriverErrorModal({ userId, isAvailable }: DriverErrorModalProps) {
+  const [오류4, set오류4] = useState<string[]>([])
   const [신규, set신규] = useState<string[]>([])
   const [mounted, setMounted] = useState(false)
 
   const loadFromStorage = useCallback(() => {
-    set오류3(getStored(STORAGE_KEY_ERROR))
+    set오류4(getStored(STORAGE_KEY_ERROR))
     set신규(getStored(STORAGE_KEY_NEW))
   }, [])
 
@@ -49,6 +51,33 @@ export function DriverErrorModal({ isAvailable }: DriverErrorModalProps) {
     if (!mounted) return
     loadFromStorage()
   }, [mounted, loadFromStorage])
+
+  // 배송가능 시 마운트될 때 이미 있는 미확인 신규 요청을 신규내용에 반영 (realtime/폴링 이벤트 놓친 경우)
+  useEffect(() => {
+    if (!mounted || !isAvailable || !userId) return
+    const supabase = createClient()
+    supabase
+      .from("notifications")
+      .select("id, delivery_id, created_at")
+      .eq("user_id", userId)
+      .eq("is_read", false)
+      .in("type", ["new_delivery_request", "new_delivery"])
+      .not("delivery_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data: rows }) => {
+        if (!rows?.length) return
+        const prev = getStored(STORAGE_KEY_NEW)
+        const newLines = rows.map(
+          (r) => `${new Date(r.created_at).toLocaleTimeString("ko-KR")} 신규 배송 요청 (${r.delivery_id?.slice(0, 8) ?? ""})`
+        )
+        const merged = [...newLines, ...prev.filter((l) => !newLines.some((n) => l === n))]
+        const next = merged.slice(0, MAX_NEW)
+        setStored(STORAGE_KEY_NEW, next)
+        set신규(next)
+      })
+      .catch(() => {})
+  }, [mounted, isAvailable, userId])
 
   useEffect(() => {
     if (!mounted || !isAvailable) return
@@ -63,8 +92,8 @@ export function DriverErrorModal({ isAvailable }: DriverErrorModalProps) {
     return () => window.removeEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
   }, [mounted, isAvailable])
 
-  const clear오류3 = () => {
-    set오류3([])
+  const clear오류4 = () => {
+    set오류4([])
     setStored(STORAGE_KEY_ERROR, [])
   }
   const clear신규 = () => {
@@ -86,10 +115,10 @@ export function DriverErrorModal({ isAvailable }: DriverErrorModalProps) {
       <div className="relative z-10 w-[min(320px,90vw)] max-h-[70vh] overflow-hidden rounded-xl border-2 border-amber-500 bg-gray-900 shadow-2xl">
         <div className="border-b border-white/20 p-3">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-white">오류3내용 =&gt; {오류3.length ? `${오류3.length}건` : "없음"}</span>
+            <span className="font-semibold text-white">오류4내용 =&gt; {오류4.length ? `${오류4.length}건` : "없음"}</span>
             <button
               type="button"
-              onClick={clear오류3}
+              onClick={clear오류4}
               className="rounded px-2 py-1 text-xs text-white/80 hover:bg-white/10"
             >
               비우기
@@ -97,10 +126,10 @@ export function DriverErrorModal({ isAvailable }: DriverErrorModalProps) {
           </div>
         </div>
         <div className="max-h-[28vh] overflow-y-auto p-3 text-xs text-white/80">
-          {오류3.length === 0 ? (
+          {오류4.length === 0 ? (
             <p className="text-center text-white/50">오류 없음 (앱에서 표시됨)</p>
           ) : (
-            오류3.map((line, i) => (
+            오류4.map((line, i) => (
               <p key={i} className="mb-1.5 break-words">
                 {line}
               </p>

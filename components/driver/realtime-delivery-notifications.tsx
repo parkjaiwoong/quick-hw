@@ -321,6 +321,26 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
           duration: 5000,
           className: "border-blue-200 bg-blue-50",
         })
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent(DRIVER_NEW_DELIVERY_EVENT, {
+              detail: {
+                payloadData: {
+                  delivery: {
+                    id: delivery.id,
+                    pickup_address: delivery.pickup_address ?? "",
+                    delivery_address: delivery.delivery_address ?? "",
+                    distance_km: delivery.distance_km,
+                    total_fee: delivery.total_fee,
+                    driver_fee: delivery.driver_fee,
+                  },
+                  notificationId: row.id,
+                },
+                hasDelivery: true,
+              },
+            })
+          )
+        }
         startTransition(() => routerRef.current?.refresh())
       } catch (_) {}
     }
