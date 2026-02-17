@@ -269,9 +269,10 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => document.removeEventListener("visibilitychange", onVisible)
   }, [realtimeStatus])
 
-  // Realtime 미수신 시 폴백: 10초마다 미확인 신규 요청 조회 → UI/진동/소리 (Realtime 푸시가 안 와도 동작)
+  // Realtime 미수신/CHANNEL_ERROR 시에도 폴링으로 알림 수신: 10초마다 미확인 신규 요청 조회 → UI/진동/소리
   useEffect(() => {
-    if (!userId || realtimeStatus !== "subscribed") return
+    if (!userId) return
+    if (realtimeStatus !== "subscribed" && realtimeStatus !== "error") return
     const supabase = supabaseRef.current
     if (!supabase) return
 
@@ -478,7 +479,9 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
           } catch (_) {}
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setRealtimeStatus("error")
-          console.error("실시간 알림 구독 오류:", status)
+          console.error("[기사-Realtime] 실시간 알림 구독 오류:", status, "- 10초 폴링으로 알림 수신 계속 시도")
+          // 5초 후 재구독 시도 (retryKey 변경으로 useEffect 재실행)
+          setTimeout(() => setRetryKey((k) => k + 1), 5000)
         }
       })
 
