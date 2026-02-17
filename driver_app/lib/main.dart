@@ -130,7 +130,6 @@ class ScreenErrorWrapper extends StatelessWidget {
           child: ValueListenableBuilder<List<String>>(
             valueListenable: screenErrorLog,
             builder: (context, list, _) {
-              if (list.isEmpty) return const SizedBox.shrink();
               return Container(
                 decoration: BoxDecoration(
                   color: Colors.black87,
@@ -147,7 +146,10 @@ class ScreenErrorWrapper extends StatelessWidget {
                         children: [
                           const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
                           const SizedBox(width: 4),
-                          Text('오류 ${list.length}건', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                          Text(
+                            '오류내용 => ${list.isEmpty ? "(없음)" : "${list.length}건"}',
+                            style: const TextStyle(color: Colors.white, fontSize: 11),
+                          ),
                           const Spacer(),
                           IconButton(
                             padding: EdgeInsets.zero,
@@ -160,18 +162,25 @@ class ScreenErrorWrapper extends StatelessWidget {
                     ),
                     const Divider(height: 1, color: Colors.white24),
                     Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        itemCount: list.length,
-                        itemBuilder: (_, i) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: SelectableText(
-                            list[i],
-                            style: const TextStyle(color: Colors.white70, fontSize: 10),
-                            maxLines: 3,
-                          ),
-                        ),
-                      ),
+                      child: list.isEmpty
+                          ? const Center(
+                              child: Text(
+                                '오류 없음 (반영 확인용)',
+                                style: TextStyle(color: Colors.white54, fontSize: 11),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              itemCount: list.length,
+                              itemBuilder: (_, i) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: SelectableText(
+                                  list[i],
+                                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                  maxLines: 3,
+                                ),
+                              ),
+                            ),
                     ),
                   ],
                 ),
