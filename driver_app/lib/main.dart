@@ -48,14 +48,18 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
   void initState() {
     super.initState();
     _checkAppVersion();
-    _controller = WebViewController()
+    _controller = _createController();
+  }
+
+  WebViewController _createController() {
+    final c = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
             if (mounted) setState(() { _isLoading = true; _error = null; });
           },
-          onPageFinished: (url) {
+          onPageFinished: (_) {
             if (mounted) setState(() => _isLoading = false);
             _injectFcmTokenToWeb();
           },
@@ -68,6 +72,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
         ),
       )
       ..loadRequest(Uri.parse(driverWebUrl));
+    return c;
   }
 
   /// 앱 실행 시 서버에서 최신 버전 확인 후 업데이트 안내
@@ -126,52 +131,73 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
     }
   }
 
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.white,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('언넌 불러오는 중...'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorOverlay() {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () {
+                  setState(() { _error = null; _isLoading = true; });
+                  _controller.loadRequest(Uri.parse(driverWebUrl));
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Stack(
+          fit: StackFit.expand,
           children: [
+            // 1. WebView: 항상 최하단, initState에서 한 번만 생성된 컨트롤러 사용
+            WebViewWidget(
+              key: const Key('driver_webview'),
+              controller: _controller,
+            ),
+            // 2. 로딩/에러 시에만 위에 오버레이
             if (_error != null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        onPressed: () {
-                          setState(() { _error = null; _isLoading = true; });
-                          _controller.loadRequest(Uri.parse(driverWebUrl));
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('다시 시도'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              WebViewWidget(controller: _controller),
-            if (_isLoading && _error == null)
-              const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('언넌 불러오는 중...'),
-                  ],
-                ),
-              ),
+              _buildErrorOverlay()
+            else if (_isLoading)
+              _buildLoadingOverlay(),
           ],
         ),
       ),
