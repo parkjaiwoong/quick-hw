@@ -11,9 +11,11 @@ const nextConfig = {
   },
   // 프로덕션 빌드에서 소스맵 비활성화
   productionBrowserSourceMaps: false,
-  // CORS: Android WebView 등에서 프런트(동일 도메인) 요청 허용
+  // CORS: API는 middleware.ts에서 처리(OPTIONS·다중 origin). 여기는 페이지 등 보조용.
   async headers() {
-    const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://your-app.vercel.app"
+    const allowedOrigin =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://your-app.vercel.app")
     return [
       {
         source: "/:path*",
