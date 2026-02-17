@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -8,8 +11,36 @@ import 'app_config.dart';
 import 'app_version_service.dart';
 import 'fcm_service.dart';
 
+/// 디버깅 없이 기기 화면에서 오류 확인용: 여기에 쌓인 메시지를 화면에 표시
+final ValueNotifier<List<String>> screenErrorLog = ValueNotifier<List<String>>([]);
+const int _maxScreenErrors = 20;
+
+void addScreenError(String message) {
+  final line = '${DateTime.now().toString().substring(11, 19)} $message';
+  final next = [...screenErrorLog.value, line];
+  screenErrorLog.value = next.length > _maxScreenErrors ? next.sublist(next.length - _maxScreenErrors) : next;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 화면에 오류 찍기 (디버거 없이 기기에서 원인 확인용)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    addScreenError('ERR: ${details.exception}\n${details.stack?.toString().split('\n').take(5).join('\n') ?? ''}');
+    FlutterError.presentError(details);
+  };
+  ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stackTrace) {
+    addScreenError('DISP: $error\n${stackTrace.toString().split('\n').take(5).join('\n')}');
+    return true;
+  };
+  runZonedGuarded(() {
+    _runApp();
+  }, (Object error, StackTrace stackTrace) {
+    addScreenError('ZONE: $error\n${stackTrace.toString().split('\n').take(5).join('\n')}');
+  });
+}
+
+Future<void> _runApp() async {
   debugPrint('[기사앱] main() 시작 — 디버그 콘솔에 이 로그가 보이면 연결됨');
   // 백그라운드 메시지 핸들러는 반드시 main() 최상위에서 등록 (클래스/메서드 안이면 안 됨)
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -32,9 +63,9 @@ void main() async {
           try { Vibration.vibrate(duration: 200); } catch (_) {}
         });
       } catch (_) {}
-    } catch (e, st) {
+    } catch (e, _) {
       debugPrint('[FCM] onMessage 처리 중 오류: $e');
-      debugPrint('$st');
+      addScreenError('FCM onMessage: $e');
     }
   });
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -42,9 +73,9 @@ void main() async {
       debugPrint('[FCM] 👆 알림 탭해서 앱 열림');
       debugPrint('[FCM]   title: ${message.notification?.title}');
       debugPrint('[FCM]   data: ${message.data}');
-    } catch (e, st) {
+    } catch (e, _) {
       debugPrint('[FCM] onMessageOpenedApp 처리 중 오류: $e');
-      debugPrint('$st');
+      addScreenError('FCM onMessageOpenedApp: $e');
     }
   });
   try {
@@ -53,9 +84,9 @@ void main() async {
       debugPrint('[FCM] 🚀 앱이 알림으로부터 실행됨 (종료 상태에서 탭)');
       debugPrint('[FCM]   data: ${initial.data}');
     }
-  } catch (e, st) {
+  } catch (e, _) {
     debugPrint('[FCM] getInitialMessage 오류: $e');
-    debugPrint('$st');
+    addScreenError('FCM getInitialMessage: $e');
   }
 
   runApp(const DriverApp());
@@ -73,7 +104,82 @@ class DriverApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const DriverWebViewPage(),
+      home: const ScreenErrorWrapper(child: DriverWebViewPage()),
+    );
+  }
+}
+
+/// 디버거 없이 기기에서 오류 확인: 화면 하단에 오류 로그 표시 (탭하면 펼침/접기)
+class ScreenErrorWrapper extends StatefulWidget {
+  const ScreenErrorWrapper({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<ScreenErrorWrapper> createState() => _ScreenErrorWrapperState();
+}
+
+class _ScreenErrorWrapperState extends State<ScreenErrorWrapper> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: ValueListenableBuilder<List<String>>(
+            valueListenable: screenErrorLog,
+            builder: (context, list, _) {
+              if (list.isEmpty) return const SizedBox.shrink();
+              return Material(
+                color: Colors.black87,
+                child: InkWell(
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: _expanded ? MediaQuery.of(context).size.height * 0.5 : 80),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                              const SizedBox(width: 6),
+                              Text('오류 ${list.length}건 (탭하여 ${_expanded ? "접기" : "펼치기"})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.clear_all, color: Colors.white70, size: 20),
+                                onPressed: () {
+                                  screenErrorLog.value = [];
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_expanded)
+                          Expanded(
+                            child: ListView.builder(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              itemCount: list.length,
+                              itemBuilder: (_, i) => Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                child: SelectableText(list[i], style: const TextStyle(color: Colors.white70, fontSize: 11), maxLines: 5),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -117,10 +223,11 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
           },
           onWebResourceError: (e) {
             debugPrint('[기사앱] 에러 발생: ${e.url} — ${e.description}');
+            addScreenError('WebView: ${e.description} (${e.url})');
             if (mounted) {
               setState(() {
               _isLoading = false;
-              _error = e.description ?? '로드 실패';
+              _error = e.description;
             });
             }
           },
@@ -278,8 +385,8 @@ Future<void> getMyDeviceToken() async {
     } else {
       debugPrint('사용자가 알림 권한을 거절했습니다.');
     }
-  } catch (e, st) {
+  } catch (e, _) {
     debugPrint('getMyDeviceToken 오류: $e');
-    debugPrint('$st');
+    addScreenError('getMyDeviceToken: $e');
   }
 }
