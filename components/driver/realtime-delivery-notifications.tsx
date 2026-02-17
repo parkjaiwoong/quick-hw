@@ -101,6 +101,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   const setLatestNewDeliveryRef = useRef(setLatestNewDelivery)
   const setEventReceiveCountRef = useRef(setEventReceiveCount)
   const setLastEventAtRef = useRef(setLastEventAt)
+  const lastShownNotificationIdRef = useRef<string | null>(null)
   setLatestNewDeliveryRef.current = setLatestNewDelivery
   setEventReceiveCountRef.current = setEventReceiveCount
   setLastEventAtRef.current = setLastEventAt
@@ -268,6 +269,66 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => document.removeEventListener("visibilitychange", onVisible)
   }, [realtimeStatus])
 
+  // Realtime 미수신 시 폴백: 10초마다 미확인 신규 요청 조회 → UI/진동/소리 (Realtime 푸시가 안 와도 동작)
+  useEffect(() => {
+    if (!userId || realtimeStatus !== "subscribed") return
+    const supabase = supabaseRef.current
+    if (!supabase) return
+
+    const poll = async () => {
+      if (typeof document === "undefined" || document.visibilityState !== "visible") return
+      try {
+        const { data: rows } = await supabase
+          .from("notifications")
+          .select("id, delivery_id, type, created_at")
+          .eq("user_id", userId)
+          .eq("is_read", false)
+          .in("type", ["new_delivery_request", "new_delivery"])
+          .not("delivery_id", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+        const row = rows?.[0]
+        if (!row?.delivery_id || row.id === lastShownNotificationIdRef.current) return
+
+        const { data: delivery } = await supabase
+          .from("deliveries")
+          .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee")
+          .eq("id", row.delivery_id)
+          .single()
+        if (!delivery) return
+
+        console.log("[기사-Realtime] 폴링으로 신규 알림 발견", { notificationId: row.id, deliveryId: row.delivery_id })
+        lastShownNotificationIdRef.current = row.id
+        setEventReceiveCountRef.current((c) => c + 1)
+        setLastEventAtRef.current(Date.now())
+        setLatestNewDeliveryRef.current({
+          delivery: {
+            id: delivery.id,
+            pickup_address: delivery.pickup_address ?? "",
+            delivery_address: delivery.delivery_address ?? "",
+            distance_km: delivery.distance_km,
+            total_fee: delivery.total_fee,
+            driver_fee: delivery.driver_fee,
+          },
+          notificationId: row.id,
+        })
+        triggerVibration()
+        playDingDongSound(audioContextRef)
+        toastRef.current({
+          title: "📦 새 배송 요청 도착",
+          description: "아래에서 수락하거나 거절하세요.",
+          duration: 5000,
+          className: "border-blue-200 bg-blue-50",
+        })
+        startTransition(() => routerRef.current?.refresh())
+      } catch (_) {}
+    }
+
+    const interval = setInterval(poll, 10000)
+    poll()
+    return () => clearInterval(interval)
+  }, [userId, realtimeStatus])
+
   // 실시간 알림 구독 (userId 또는 retryKey 변경 시 재구독 — 앱 복귀 시 재연결)
   useEffect(() => {
     if (!userId) return
@@ -340,6 +401,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
               // 콜백에서 직접 UI/진동/소리 실행 (WebView·모바일에서 커스텀 이벤트가 지연/누락될 수 있어)
               if (typeof window !== "undefined") {
                 console.log("[기사-Realtime] UI/진동/소리 실행", { deliveryId: payloadData.delivery.id, notificationId: payloadData.notificationId })
+                lastShownNotificationIdRef.current = payloadData.notificationId
                 setEventReceiveCountRef.current((c) => c + 1)
                 setLastEventAtRef.current(Date.now())
                 setLatestNewDeliveryRef.current(payloadData)
@@ -376,7 +438,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           setRealtimeStatus("subscribed")
-          console.log("[기사-Realtime] 실시간 알림 구독 성공", { userId })
+          console.log("[기사-Realtime] 실시간 알림 구독 성공 userId:", userId)
           // 앱 복귀 후 재연결 시: 다른 앱 갔다 오는 동안 온 미확인 신규 요청이 있으면 모달로 표시
           try {
             const { data: rows } = await supabase
@@ -396,6 +458,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 .eq("id", row.delivery_id)
                 .single()
               if (delivery) {
+                lastShownNotificationIdRef.current = row.id
                 setLatestNewDelivery({
                   delivery: {
                     id: delivery.id,
