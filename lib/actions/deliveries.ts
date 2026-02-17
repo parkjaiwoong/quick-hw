@@ -40,7 +40,6 @@ export async function notifyDriversForDelivery(
   pickupLng: number
 ): Promise<{ error?: string }> {
   console.log("[기사알림-1] notifyDriversForDelivery 시작", { deliveryId, pickupLat, pickupLng })
-  const supabase = await getSupabaseServerClient()
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceRoleKey) {
     console.error("[기사알림-1] 서비스 키 없음")
@@ -50,12 +49,14 @@ export async function notifyDriversForDelivery(
   const { createClient: createServiceClient } = await import("@supabase/supabase-js")
   const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
 
-  const { data: nearbyDrivers } = await supabase.rpc("find_nearby_drivers", {
+  // RPC는 반드시 service role로 호출 (고객 세션으로 호출 시 RLS로 driver_info 조회 불가 → 기사 0명)
+  const { data: nearbyDrivers, error: rpcError } = await service.rpc("find_nearby_drivers", {
     pickup_lat: pickupLat,
     pickup_lng: pickupLng,
     max_distance_km: 10.0,
     limit_count: 5,
   })
+  if (rpcError) console.error("[기사알림-2] find_nearby_drivers RPC 오류:", rpcError.message)
   console.log("[기사알림-2] 근처 기사 수:", nearbyDrivers?.length ?? 0, nearbyDrivers)
 
   let driverIdsToNotify: string[] =

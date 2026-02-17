@@ -20,6 +20,11 @@
 | 8 | 기사 웹(Realtime) | `[기사-Realtime]` | 브라우저 콘솔: `INSERT 수신` { notificationId, deliveryId, type } → `UI/진동/소리 실행` { deliveryId } |
 | 9 | 기사 Flutter 앱 | FCM 로그 | 포그라운드: `[FCM] 📩 포그라운드 메시지 수신` / 백그라운드: `[FCM] 🔔 백그라운드 메시지 수신` (logcat) |
 
+**로그가 어디에 찍히나요?**
+- **서버(1~7)**: 로컬 개발 시 `npm run dev` / `pnpm dev` 를 띄운 **그 터미널**에 출력됩니다. 배포(Vercel) 환경에서는 **Vercel Dashboard → 프로젝트 → Logs** (또는 Runtime Logs)에서 확인하세요.
+- **기사 웹(8)**: 기사가 **앱(WebView) 또는 브라우저**로 `/driver` 에 접속한 상태에서, **Chrome 원격 디버깅** 또는 PC에서 같은 계정으로 `/driver` 접속 후 **F12 → Console** 에서 `[기사-Realtime]` 로그를 볼 수 있습니다.
+- **기사 Flutter(9)**: `flutter run` 으로 앱을 실행한 **터미널** 또는 **Android Studio Logcat**(필터 `FCM`)에서 확인합니다.
+
 **정상 시나리오**: 1→2→3→4→5→6→7 까지 서버에서 순서대로 출력되고, 8은 기사가 **웹/WebView**로 대시를 열어 둔 경우, 9는 **Flutter 앱**으로 FCM 토큰이 등록된 경우 각각 확인됩니다.  
 **끊기는 단계**에서 로그가 없거나 에러가 나오면, 해당 단계(결제 redirect vs POST, 서비스 키, 근처 기사 0명, 웹훅/직접 push 미설정, FCM 토큰 없음, Realtime 미구독 등)를 위 표와 가이드 아래 항목으로 점검하면 됩니다.
 
