@@ -102,6 +102,17 @@ export default async function DriverDashboard() {
                 기사 ID: {user.id}
               </CardContent>
             </Card>
+            <Card className="w-full md:w-auto border-amber-500/50 bg-amber-50/80">
+              <CardHeader className="pb-2">
+                <CardDescription>반영 확인용</CardDescription>
+                <CardTitle className="text-base font-medium text-amber-800">
+                  오류내용 =&gt; 없음
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 text-xs text-muted-foreground">
+                (앱에서는 상단 우측에 로그 상자로 표시됨)
+              </CardContent>
+            </Card>
           </div>
         </div>
 
