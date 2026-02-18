@@ -111,18 +111,18 @@ export async function POST(request: Request) {
       console.log("[push/send] FCM 토큰 조회", { userId, tokenCount: tokens?.length ?? 0 })
       if (tokens && tokens.length > 0) {
         const messaging = getMessaging()
-        // 백그라운드에서도 시스템 알림 소리/진동: channelId는 Flutter 앱에서 생성한 채널과 동일하게
+        // 기사 앱: notification 없이 data만 전송해야 백그라운드/종료 시 onMessageReceived 호출됨 (오버레이·Full Screen Intent 동작)
         const res = await messaging.sendEachForMulticast({
           tokens: tokens.map((r) => r.token),
-          notification: { title, body: message },
-          data: { url: openUrl, delivery_id: deliveryId || "" },
+          data: {
+            type: notifType || "new_delivery_request",
+            delivery_id: deliveryId || "",
+            title,
+            body: message,
+            url: openUrl,
+          },
           android: {
             priority: "high" as const,
-            notification: {
-              channelId: "delivery_request",
-              defaultSound: true,
-              defaultVibrateTimings: true,
-            },
           },
         })
         results.fcm = `success=${res.successCount} failure=${res.failureCount}`

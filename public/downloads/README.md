@@ -6,8 +6,17 @@
 - **Vercel에서 다운로드 가능하게 하려면**  
   빌드한 APK를 이 폴더에 `driver-app.apk` 이름으로 복사해 두고 커밋/배포하면 됩니다.
 
+  **한 번에 빌드 + 복사 (프로젝트 루트에서):**
+  ```bash
+  npm run driver-app:release
+  ```
+  또는 수동:
+  ```bash
+  npm run driver-app:build
+  npm run driver-app:copy
+  ```
   ```powershell
-  # driver_app에서 APK 빌드 후 (프로젝트 루트에서)
+  # Windows 수동 복사
   copy driver_app\build\app\outputs\flutter-apk\app-release.apk public\downloads\driver-app.apk
   ```
 

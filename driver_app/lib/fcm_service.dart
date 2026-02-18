@@ -1,32 +1,79 @@
 import 'dart:io';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:vibration/vibration.dart';
 
-/// FCM 토큰을 가져와 WebView에 전달. 백그라운드 메시지 시 시스템 알림 표시 + 진동.
+/// overlayMain(entry point)으로 전달할 주문(배차) 데이터 맵 구성.
+/// FCM data의 주문 번호, 주소 등과 동일한 키로 맞춰 overlay 위젯에서 그대로 사용.
+Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
+  String s(dynamic v) {
+    final t = v?.toString() ?? '';
+    return t.isEmpty ? '-' : t;
+  }
+  final deliveryId = (data['delivery_id'] ?? data['deliveryId'])?.toString() ?? '';
+  final orderId = (data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
+  final origin = s(data['origin_address'] ?? data['origin']);
+  final dest = s(data['destination_address'] ?? data['destination']);
+  final fee = s(data['fee'] ?? data['price']);
+  return {
+    'delivery_id': deliveryId,
+    'deliveryId': deliveryId,
+    'order_id': orderId,
+    'orderId': orderId,
+    'order_number': orderId,
+    'origin_address': origin,
+    'origin': origin,
+    'destination_address': dest,
+    'destination': dest,
+    'fee': fee,
+    'price': fee,
+  };
+}
+
+/// Flutter 측 백그라운드 FCM 핸들러.
+/// 별도 isolate에서 실행되므로 반드시 @pragma('vm:entry-point') 필요.
+/// FCM data에 배차 정보가 포함되어 있으면 FlutterOverlayWindow.showOverlay() 호출,
+/// 주문 번호·주소 등은 shareData로 entry point(overlayMain)에 전달.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  // 백그라운드 수신 로그 (별도 isolate → Android는 logcat에서 [FCM] 검색)
-  debugPrint('[FCM] 🔔 백그라운드 메시지 수신 (배송가능 시 UI/소리/진동 확인)');
-  debugPrint('[FCM]   title: ${message.notification?.title}');
-  debugPrint('[FCM]   body: ${message.notification?.body}');
+  debugPrint('[FCM] 백그라운드 메시지 수신');
   debugPrint('[FCM]   data: ${message.data}');
   final data = message.data;
-  debugPrint('[FCM]   delivery_id: ${data != null ? data['delivery_id'] : null}');
+  final type = data['type'];
+  final hasDispatchInfo = (type == 'new_delivery_request' || type == 'new_delivery') &&
+      ((data['delivery_id'] ?? data['deliveryId'] ?? '').toString().isNotEmpty);
+  if (!hasDispatchInfo || !Platform.isAndroid) return;
   try {
     final hasVibrator = await Vibration.hasVibrator();
     if (hasVibrator == true) {
       Vibration.vibrate(duration: 200);
       await Future.delayed(const Duration(milliseconds: 250));
       Vibration.vibrate(duration: 200);
-      debugPrint('[FCM] 🔔 백그라운드 진동 실행');
     }
   } catch (_) {}
-  // Android: notification payload 있으면 시스템 알림(소리/진동) 자동 표시됨
+  try {
+    final dataMap = Map<String, dynamic>.from(data);
+    final overlayPayload = buildOverlayPayloadFromFcmData(dataMap);
+    if ((overlayPayload['delivery_id'] ?? '').isEmpty) return;
+    // entry point(overlayMain)가 overlayListener로 수신: 주문 번호, 출발지·도착지, 요금 등
+    await FlutterOverlayWindow.shareData(overlayPayload);
+    await FlutterOverlayWindow.showOverlay(
+      overlayTitle: '신규 배차 요청',
+      overlayContent: '출발: ${overlayPayload['origin_address']}',
+      alignment: OverlayAlignment.center,
+      width: 400,
+      height: 520,
+    );
+  } catch (e) {
+    debugPrint('[FCM] shareData/showOverlay 오류: $e');
+  }
 }
 
+/// FCM 초기화·토큰 관리. 초기화는 main에서 한 번만 호출하고, 토큰은 getToken()으로 조회.
 class FcmService {
   static String? _token;
   static String? get token => _token;

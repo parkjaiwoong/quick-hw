@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:ui' as ui;
+import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:vibration/vibration.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -12,126 +13,119 @@ import 'app_config.dart';
 import 'app_version_service.dart';
 import 'fcm_service.dart';
 
-/// 디버깅 없이 기기 화면에서 오류 확인용: 여기에 쌓인 메시지를 화면에 표시 (앱 종료 후에도 유지)
-final ValueNotifier<List<String>> screenErrorLog = ValueNotifier<List<String>>([]);
-/// 넘기기/연결요청 수락 클릭 전까지 모달 유지 (true = 숨김, false = 표시)
-final ValueNotifier<bool> screenModalDismissed = ValueNotifier<bool>(true);
-const int _maxScreenErrors = 20;
-const String _storageKey = 'driver_screen_error_log';
-const String _modalDismissedKey = 'driver_modal_dismissed';
+/// 배차 수락 팝업에서 "수락" 후 MainActivity가 전달하는 delivery_id (MethodChannel)
+const _launchChannel = MethodChannel('com.quickhw.driver_app/launch');
 
-/// 앱 오버레이에서 "연결요청 수락" 시 WebView에 전달 (DriverWebViewPage에서 등록)
-void Function()? driverAcceptRequestCallback;
-
-Future<void> _persistModalDismissed(bool dismissed) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_modalDismissedKey, dismissed);
-  } catch (_) {}
-}
-
-void addScreenError(String message) {
-  final line = '${DateTime.now().toString().substring(11, 19)} $message';
-  final next = [...screenErrorLog.value, line];
-  screenErrorLog.value = next.length > _maxScreenErrors ? next.sublist(next.length - _maxScreenErrors) : next;
-  _persistErrorLog();
-  screenModalDismissed.value = false;
-  _persistModalDismissed(false);
-}
-
-Future<void> _persistErrorLog() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_storageKey, screenErrorLog.value);
-  } catch (_) {}
-}
-
-Future<void> _loadErrorLog() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList(_storageKey);
-    if (saved != null && saved.isNotEmpty) {
-      screenErrorLog.value = saved.length > _maxScreenErrors ? saved.sublist(saved.length - _maxScreenErrors) : saved;
-    }
-  } catch (_) {}
-}
+/// 오버레이 전용 채널 (overlayMain 엔트리 포인트에서 payload 수신 / 수락·거절 전달)
+const _overlayChannel = MethodChannel('com.quickhw.driver_app/overlay');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await _runApp();
+}
 
-  // 화면에 오류 찍기 (디버거 없이 기기에서 원인 확인용)
-  FlutterError.onError = (FlutterErrorDetails details) {
-    addScreenError('ERR: ${details.exception}\n${details.stack?.toString().split('\n').take(5).join('\n') ?? ''}');
-    FlutterError.presentError(details);
-  };
-  ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stackTrace) {
-    addScreenError('DISP: $error\n${stackTrace.toString().split('\n').take(5).join('\n')}');
-    return true;
-  };
-  runZonedGuarded(() {
-    _runApp();
-  }, (Object error, StackTrace stackTrace) {
-    addScreenError('ZONE: $error\n${stackTrace.toString().split('\n').take(5).join('\n')}');
-  });
+/// 오버레이 전용 엔트리 포인트. 별도 isolate/엔진에서 실행되므로 반드시 @pragma 필요.
+/// 시스템이 앱이 꺼져 있어도 이 함수를 찾아 실행할 수 있게 함.
+/// Android에서 배차 FCM 수신 시 Flutter 오버레이가 이 함수를 진입점으로 실행함.
+@pragma('vm:entry-point')
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  _runOverlayApp();
+}
+
+Future<void> _runOverlayApp() async {
+  Map<String, String> payload = {};
+
+  // 1) 네이티브 DispatchOverlayActivity 경로: MethodChannel getPayload로 수신 (즉시 표시)
+  try {
+    final result = await _overlayChannel.invokeMethod<Map<Object?, Object?>>('getPayload');
+    if (result != null && result.isNotEmpty) {
+      payload = result.map((k, v) => MapEntry(k?.toString() ?? '', v?.toString() ?? ''));
+    }
+  } catch (_) {}
+
+  // 2) FlutterOverlayWindow 경로: overlayListener로 데이터 수신 (getPayload 비었을 때만 대기)
+  if (payload.isEmpty) {
+    try {
+      final fromListener = await FlutterOverlayWindow.overlayListener
+          .map((event) => _payloadFromOverlayEvent(event))
+          .where((p) => p.isNotEmpty)
+          .first
+          .timeout(const Duration(seconds: 3));
+      if (fromListener.isNotEmpty) payload = fromListener;
+    } on TimeoutException catch (_) {
+    } catch (_) {}
+  }
+
+  runApp(OverlayApp(payload: payload));
+}
+
+/// overlayListener 이벤트를 overlayMain에서 쓸 payload 맵으로 변환 (shareData로 전달된 주문 데이터).
+Map<String, String> _payloadFromOverlayEvent(dynamic event) {
+  if (event is! Map) return {};
+  final map = event.map((k, v) => MapEntry(k?.toString() ?? '', v?.toString() ?? ''));
+  return Map<String, String>.from(map);
 }
 
 Future<void> _runApp() async {
-  debugPrint('[기사앱] main() 시작 — 디버그 콘솔에 이 로그가 보이면 연결됨');
-  // 백그라운드 메시지 핸들러는 반드시 main() 최상위에서 등록 (클래스/메서드 안이면 안 됨)
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await FcmService.initialize();
-  debugPrint('[기사앱] FcmService.initialize 완료');
-  // Analytics 라이브러리 로드 (Messaging "analytics library is missing" 경고 제거)
   FirebaseAnalytics.instance;
-  await getMyDeviceToken();
-
-  // 포그라운드 수신 시: 로그 + 네이티브 진동 (WebView UI/소리보다 먼저 도달할 수 있음)
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    try {
-      debugPrint('[FCM] 📩 포그라운드 메시지 수신');
-      debugPrint('[FCM]   title: ${message.notification?.title}');
-      debugPrint('[FCM]   body: ${message.notification?.body}');
-      debugPrint('[FCM]   data: ${message.data}');
-      try {
-        Vibration.vibrate(duration: 200);
-        Future.delayed(const Duration(milliseconds: 250), () {
-          try { Vibration.vibrate(duration: 200); } catch (_) {}
-        });
-      } catch (_) {}
-    } catch (e, _) {
-      debugPrint('[FCM] onMessage 처리 중 오류: $e');
-      addScreenError('FCM onMessage: $e');
-    }
-  });
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    try {
-      debugPrint('[FCM] 👆 알림 탭해서 앱 열림');
-      debugPrint('[FCM]   title: ${message.notification?.title}');
-      debugPrint('[FCM]   data: ${message.data}');
-    } catch (e, _) {
-      debugPrint('[FCM] onMessageOpenedApp 처리 중 오류: $e');
-      addScreenError('FCM onMessageOpenedApp: $e');
-    }
-  });
-  try {
-    final initial = await FirebaseMessaging.instance.getInitialMessage();
-    if (initial != null) {
-      debugPrint('[FCM] 🚀 앱이 알림으로부터 실행됨 (종료 상태에서 탭)');
-      debugPrint('[FCM]   data: ${initial.data}');
-    }
-  } catch (e, _) {
-    debugPrint('[FCM] getInitialMessage 오류: $e');
-    addScreenError('FCM getInitialMessage: $e');
-  }
-
-  // 저장된 로그 복원 (앱 닫았다 열어도 그대로)
-  await _loadErrorLog();
-  final prefs = await SharedPreferences.getInstance();
-  screenModalDismissed.value = prefs.getBool(_modalDismissedKey) ?? false;
-  // 테스트용: 무조건 한 건 넣어서 모달에 내용이 보이도록 (반영 확인)
-  addScreenError('테스트: 오류 로그 반영 확인');
-
+  await logFcmToken();
+  FirebaseMessaging.onMessage.listen(_onForegroundMessage);
   runApp(const DriverApp());
+}
+
+/// SYSTEM_ALERT_WINDOW(다른 앱 위에 표시) 권한 확인 후, 없으면 이유 설명 AlertDialog를 띄우고
+/// [설정 열기] 시 Android 설정의 '다른 앱 위에 표시' 페이지로 이동.
+/// Android가 아니거나 이미 권한이 있으면 다이얼로그를 띄우지 않음.
+Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
+  if (!Platform.isAndroid) return;
+  try {
+    final granted = await _launchChannel.invokeMethod<bool>('getOverlayPermissionGranted');
+    if (granted == true) return;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('배차 알림 권한'),
+        content: const Text(
+          '앱이 꺼져 있거나 다른 앱을 사용 중일 때도 배차 요청을 받으려면 '
+          '"다른 앱 위에 표시" 권한이 필요합니다.\n\n'
+          '아래 [설정 열기]를 누르면 설정 화면으로 이동합니다. '
+          '언넌 앱의 "다른 앱 위에 표시"를 켜주세요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _launchChannel.invokeMethod('openOverlayPermissionSettings');
+            },
+            child: const Text('설정 열기'),
+          ),
+        ],
+      ),
+    );
+  } catch (_) {}
+}
+
+/// 포그라운드 FCM: 새 배송 요청일 때만 진동 (Full Screen Intent는 백그라운드에서 네이티브가 처리)
+void _onForegroundMessage(RemoteMessage message) {
+  try {
+    final type = message.data['type'];
+    final isNewDelivery = type == 'new_delivery_request' || type == 'new_delivery';
+    if (isNewDelivery) {
+      try { Vibration.vibrate(duration: 200); } catch (_) {}
+      Future.delayed(const Duration(milliseconds: 250), () {
+        try { Vibration.vibrate(duration: 200); } catch (_) {}
+      });
+    }
+  } catch (_) {}
 }
 
 class DriverApp extends StatelessWidget {
@@ -146,140 +140,215 @@ class DriverApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const ScreenErrorWrapper(child: DriverWebViewPage()),
+      home: const DriverWebViewPage(),
     );
   }
 }
 
-/// 디버거 없이 기기에서 오류 확인: 제일 상단 백그라운드 모달 오류5 (넘기기/연결요청 수락 전까지 유지)
-class ScreenErrorWrapper extends StatelessWidget {
-  const ScreenErrorWrapper({super.key, required this.child});
-  final Widget child;
+/// 오버레이 전용 앱: 배경 투명한 MaterialApp + 배차 알림 위젯만 렌더링.
+class OverlayApp extends StatelessWidget {
+  const OverlayApp({super.key, required this.payload});
 
-  static const double _modalWidth = 300.0;
-  static const double _modalHeight = 260.0;
+  final Map<String, String> payload;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        child,
-        ValueListenableBuilder<bool>(
-          valueListenable: screenModalDismissed,
-          builder: (context, dismissed, _) {
-            if (dismissed) return const SizedBox.shrink();
-            return Positioned(
-              top: MediaQuery.of(context).padding.top + 4,
-              left: (MediaQuery.of(context).size.width - _modalWidth) / 2,
-              width: _modalWidth,
-              height: _modalHeight,
-              child: Material(
-                elevation: 16,
-                shadowColor: Colors.black54,
-                borderRadius: BorderRadius.circular(12),
-                child: ValueListenableBuilder<List<String>>(
-                  valueListenable: screenErrorLog,
-                  builder: (context, list, _) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[900],
-                        border: Border.all(color: Colors.orange, width: 2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+        scaffoldBackgroundColor: Colors.transparent,
+      ),
+      home: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: DispatchAcceptOverlayWidget(payload: payload),
+      ),
+    );
+  }
+}
+
+/// 기사님이 볼 배차 알림 위젯 (오버레이 전용). 배경 투명 + 카드만 표시.
+/// UI 구성: 상단 '신규 배차 요청' 타이틀 / 중간 출발지·도착지·요금 / 하단 슬라이드 수락 버튼 + 거절 버튼.
+class DispatchAcceptOverlayWidget extends StatefulWidget {
+  const DispatchAcceptOverlayWidget({super.key, required this.payload});
+
+  final Map<String, String> payload;
+
+  @override
+  State<DispatchAcceptOverlayWidget> createState() => _DispatchAcceptOverlayWidgetState();
+}
+
+class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidget> {
+  double _slideValue = 0;
+  final GlobalKey _slideKey = GlobalKey();
+  bool _acceptSent = false;
+
+  String get _deliveryId => widget.payload['delivery_id'] ?? widget.payload['deliveryId'] ?? '';
+  String get _origin => widget.payload['origin_address'] ?? widget.payload['origin'] ?? '-';
+  String get _dest => widget.payload['destination_address'] ?? widget.payload['destination'] ?? '-';
+  String get _fee => widget.payload['fee'] ?? widget.payload['price'] ?? '-';
+
+  Future<void> _accept() async {
+    if (_deliveryId.isEmpty || _acceptSent) return;
+    _acceptSent = true;
+    const openPath = '/driver?accept_delivery=';
+    final openUrl = '$openPath$_deliveryId';
+    try {
+      await FlutterOverlayWindow.closeOverlay();
+    } catch (_) {}
+    try {
+      await _overlayChannel.invokeMethod('accept', {
+        'deliveryId': _deliveryId,
+        'openUrl': openUrl,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _dismiss() async {
+    try {
+      await _overlayChannel.invokeMethod('dismiss');
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 배경 투명: 다른 앱 위에 카드만 보이도록 함. 카드 뒤만 살짝 딤 처리.
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismiss,
+              child: Container(color: Colors.black26),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Card(
+                    elevation: 8,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.warning_amber, color: Colors.orange, size: 22),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '오류5내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                  icon: const Icon(Icons.clear_all, color: Colors.white70, size: 20),
-                                  onPressed: () {
-                                    screenErrorLog.value = [];
-                                    _persistErrorLog();
-                                  },
-                                ),
-                              ],
-                            ),
+                          const Text(
+                            '신규 배차 요청',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                           ),
-                          const Divider(height: 1, color: Colors.white24),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: list.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      '오류 없음\n(반영 확인용)',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.white54, fontSize: 11),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                    itemCount: list.length,
-                                    itemBuilder: (_, i) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 6),
-                                      child: SelectableText(
-                                        list[i],
-                                        style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                        maxLines: 4,
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const Divider(height: 1, color: Colors.white24),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextButton(
-                                    onPressed: () {
-                                      screenModalDismissed.value = true;
-                                      _persistModalDismissed(true);
-                                    },
-                                    child: const Text('넘기기'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: FilledButton(
-                                    onPressed: () {
-                                      driverAcceptRequestCallback?.call();
-                                      screenModalDismissed.value = true;
-                                      _persistModalDismissed(true);
-                                    },
-                                    child: const Text('연결요청 수락'),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          const SizedBox(height: 16),
+                          _infoRow('출발지', _origin),
+                          const SizedBox(height: 10),
+                          _infoRow('도착지', _dest),
+                          if (_fee != '-') ...[
+                            const SizedBox(height: 10),
+                            _infoRow('요금', _fee),
+                          ],
+                          const SizedBox(height: 20),
+                          _slideAcceptButton(context),
+                          const SizedBox(height: 10),
+                          TextButton(
+                            onPressed: _acceptSent ? null : _dismiss,
+                            child: const Text('거절'),
                           ),
                         ],
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value.isEmpty ? '-' : value,
+          style: const TextStyle(fontSize: 15),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+
+  Widget _slideAcceptButton(BuildContext context) {
+    return GestureDetector(
+      key: _slideKey,
+      onHorizontalDragUpdate: (d) {
+        if (_acceptSent) return;
+        final box = _slideKey.currentContext?.findRenderObject() as RenderBox?;
+        final w = box?.size.width ?? 0;
+        if (w <= 0) return;
+        setState(() {
+          _slideValue = (_slideValue * w + d.delta.dx).clamp(0.0, w) / w;
+          if (_slideValue >= 0.95) _accept();
+        });
+      },
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            FractionallySizedBox(
+              widthFactor: _slideValue,
+              child: Container(color: Theme.of(context).colorScheme.primary),
+            ),
+            Text(
+              _slideValue >= 0.95 ? '수락됨' : '슬라이드하여 수락하기 →',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// widthFactor만 적용하는 SizedBox (Stack 내 레이아웃용).
+class FractionallySizedBox extends StatelessWidget {
+  const FractionallySizedBox({super.key, required this.widthFactor, required this.child});
+
+  final double widthFactor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          width: constraints.maxWidth * widthFactor,
+          child: child,
+        );
+      },
     );
   }
 }
@@ -291,7 +360,7 @@ class DriverWebViewPage extends StatefulWidget {
   State<DriverWebViewPage> createState() => _DriverWebViewPageState();
 }
 
-class _DriverWebViewPageState extends State<DriverWebViewPage> {
+class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindingObserver {
   late final WebViewController _controller;
   bool _isLoading = true;
   String? _error;
@@ -299,20 +368,28 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[기사앱] initState 호출됨');
+    WidgetsBinding.instance.addObserver(this);
+    debugPrint('[기사앱] initState');
     _checkAppVersion();
     _controller = _createController();
-    driverAcceptRequestCallback = () {
-      _controller.runJavaScript(
-        "window.dispatchEvent(new CustomEvent('driver-accept-latest-request'));",
-      );
-    };
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) requestOverlayPermissionWithDialog(context);
+      });
+    });
   }
 
   @override
   void dispose() {
-    driverAcceptRequestCallback = null;
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _handleLaunchUrl();
+    }
   }
 
   WebViewController _createController() {
@@ -327,16 +404,11 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
           onPageFinished: (_) {
             if (mounted) setState(() => _isLoading = false);
             _injectFcmTokenToWeb();
+            _handleLaunchUrl();
           },
           onWebResourceError: (e) {
-            debugPrint('[기사앱] 에러 발생: ${e.url} — ${e.description}');
-            addScreenError('WebView: ${e.description} (${e.url})');
-            if (mounted) {
-              setState(() {
-              _isLoading = false;
-              _error = e.description;
-            });
-            }
+            debugPrint('[기사앱] 에러: ${e.description}');
+            if (mounted) setState(() { _isLoading = false; _error = e.description; });
           },
         ),
       )
@@ -344,13 +416,36 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
     return c;
   }
 
-  /// 앱 실행 시 서버에서 최신 버전 확인 후 업데이트 안내
+  /// 오버레이/배차 수락으로 진입 시: open_url 있으면 해당 URL 로드, 없으면 accept_delivery_id로 쿼리 로드
+  Future<void> _handleLaunchUrl() async {
+    if (!Platform.isAndroid || !mounted) return;
+    try {
+      final path = await _launchChannel.invokeMethod<String>('getLaunchOpenUrl');
+      if (path != null && path.isNotEmpty) {
+        final base = Uri.parse(driverWebUrl).origin;
+        final url = path.startsWith('http') ? path : '$base$path';
+        await _controller.loadRequest(Uri.parse(url));
+        debugPrint('[기사앱] 배차 수락으로 진입: $url');
+        return;
+      }
+      final id = await _launchChannel.invokeMethod<String>('getLaunchAcceptDeliveryId');
+      if (id == null || id.isEmpty || !mounted) return;
+      final uri = driverWebUrl.contains('?')
+          ? '$driverWebUrl&accept_delivery=$id'
+          : '$driverWebUrl?accept_delivery=$id';
+      await _controller.loadRequest(Uri.parse(uri));
+      debugPrint('[기사앱] 배차 수락으로 진입: accept_delivery=$id');
+    } catch (_) {}
+  }
+
+  /// 앱을 열 때마다 서버에 최신 버전을 물어보고, 필요 시 업데이트 안내(필수 시 다이얼로그 후 다운로드 페이지 열기).
   Future<void> _checkAppVersion() async {
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
     final result = await AppVersionService.checkUpdate();
     if (!mounted || result == null || !result.shouldUpdate) return;
     final mustUpdate = result.mustUpdate;
+    final downloadUrl = result.downloadUrl;
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -373,7 +468,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
             FilledButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
-                AppVersionService.openDownloadUrl(result.downloadUrl);
+                AppVersionService.openDownloadUrl(downloadUrl);
               },
               child: const Text('업데이트'),
             ),
@@ -383,12 +478,9 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
     });
   }
 
-  /// FCM 토큰을 웹에 전달해 서버에 등록 (탭 종료 후에도 푸시 수신)
-  /// React 리스너가 붙기 전에 이벤트가 나가면 유실되므로, 지연 후 여러 번 전달
   Future<void> _injectFcmTokenToWeb() async {
     final t = await FcmService.getToken();
     if (t == null || !mounted) return;
-    debugPrint('[FCM] 📤 FCM 토큰을 웹에 전달함 → 웹에서 /api/driver/fcm-token 호출 예정');
     final escaped = t.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
     final js = "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));";
     for (final delayMs in [0, 1500, 3500]) {
@@ -399,6 +491,24 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
         await _controller.runJavaScript(js);
       } catch (_) {}
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            WebViewWidget(key: const Key('driver_webview'), controller: _controller),
+            if (_error != null)
+              _buildErrorOverlay()
+            else if (_isLoading)
+              _buildLoadingOverlay(),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildLoadingOverlay() {
@@ -425,16 +535,11 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
-              ),
+              Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () {
@@ -450,50 +555,18 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 1. WebView: 항상 최하단, initState에서 한 번만 생성된 컨트롤러 사용
-            WebViewWidget(
-              key: const Key('driver_webview'),
-              controller: _controller,
-            ),
-            // 2. 로딩/에러 시에만 위에 오버레이
-            if (_error != null)
-              _buildErrorOverlay()
-            else if (_isLoading)
-              _buildLoadingOverlay(),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-/// 내 기기 FCM 토큰을 권한 요청 후 가져와 콘솔에 출력 (디버그/복사용)
-Future<void> getMyDeviceToken() async {
+/// FCM 토큰 로그 (서버 등록/디버깅용). initialize() 이후 한 번 호출.
+Future<void> logFcmToken() async {
   try {
-    NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      String? token = await FirebaseMessaging.instance.getToken();
+    final token = await FcmService.getToken();
+    if (token != null && token.isNotEmpty) {
       debugPrint('------- 내 기기 FCM 토큰 -------');
-      debugPrint(token ?? '');
+      debugPrint(token);
       debugPrint('------------------------------');
-    } else {
-      debugPrint('사용자가 알림 권한을 거절했습니다.');
     }
-  } catch (e, _) {
-    debugPrint('getMyDeviceToken 오류: $e');
-    addScreenError('getMyDeviceToken: $e');
+  } catch (e) {
+    debugPrint('logFcmToken 오류: $e');
   }
 }

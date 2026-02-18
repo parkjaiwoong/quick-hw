@@ -1,6 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 다른 앱 위에 오버레이(배차 수락 팝업) 표시 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application
         android:usesCleartextTraffic="true"
         android:label="언넌"
@@ -36,6 +45,50 @@
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
+
+        <!-- 배차 수락 전체화면 팝업: 새 배송 요청 시 앱 꺼져 있어도 화면 전체에 표시 -->
+        <activity
+            android:name=".DispatchAcceptActivity"
+            android:exported="true"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/DispatchAcceptTheme"
+            android:launchMode="singleInstance" />
+
+        <!-- Flutter 위젯 방식 배차 오버레이 (overlayMain 엔트리 포인트) -->
+        <activity
+            android:name=".DispatchOverlayActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/DispatchAcceptTheme"
+            android:launchMode="singleInstance" />
+
+        <!-- FCM 수신 시 Full Screen Intent로 배차 수락 Activity 띄움 (기본 Flutter FCM 서비스 대체) -->
+        <service
+            android:name=".DriverFcmService"
+            android:exported="false">
+            <intent-filter android:priority="999">
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService"
+            android:exported="false"
+            tools:node="remove" />
+        <!-- flutter_overlay_window: 배차 오버레이 표시용 -->
+        <service
+            android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="배차 수락 알림을 다른 앱 위에 표시하기 위함" />
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -6,7 +6,10 @@
     "build": "next build",
     "dev": "next dev --webpack",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "driver-app:build": "cd driver_app && flutter build apk --release",
+    "driver-app:copy": "node -e \"const fs=require('fs');const p='driver_app/build/app/outputs/flutter-apk/app-release.apk';const out='public/downloads/driver-app.apk';if(!fs.existsSync(p)){console.error('APK not found. Run: npm run driver-app:build');process.exit(1);}fs.mkdirSync('public/downloads',{recursive:true});fs.copyFileSync(p,out);console.log('Copied to public/downloads/driver-app.apk');\"",
+    "driver-app:release": "npm run driver-app:build && npm run driver-app:copy"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
