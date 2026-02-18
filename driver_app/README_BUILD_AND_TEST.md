@@ -27,6 +27,28 @@ flutter run
 
 ---
 
+## FCM data 키: 서버 vs 앱
+
+서버(`app/api/push/send/route.ts`)가 **data만** 보낼 때 사용하는 키 (snake_case):
+
+| 서버 전송 키 | 앱에서 읽는 키 (fcm_service buildOverlayPayloadFromFcmData) | 비고 |
+|-------------|-------------------------------------------------------------|------|
+| `type` | (조건 분기용, payload에는 미포함) | new_delivery_request / new_delivery |
+| `delivery_id` | `delivery_id` 또는 `deliveryId` | ✅ 일치 |
+| `title` | (오버레이 제목에 사용 가능) | |
+| `body` | (오버레이 본문에 사용 가능) | |
+| `url` | (수락 후 열 URL) | |
+| (미전송) | `order_id` / `orderId` / `order_number` | 서버에서 안 보내면 빈 값 → '-' |
+| (미전송) | `origin_address` / `origin` | 서버에서 안 보내면 '-' |
+| (미전송) | `destination_address` / `destination` | 서버에서 안 보내면 '-' |
+| (미전송) | `fee` / `price` | 서버에서 안 보내면 '-' |
+
+- **서버는 현재 `delivery_id`, `type`, `title`, `body`, `url` 만 전송.** 출발지/도착지/요금은 미전송이면 앱에서 '-'로 표시.
+- 앱은 **snake_case(`delivery_id`)와 camelCase(`deliveryId`) 둘 다** 읽으므로 키 이름 불일치로 인한 미표시는 없음.
+- 수신 시 로그: `[FCM] data["키"] = 값` 으로 서버에서 보낸 키와 대조 가능.
+
+---
+
 ## 1. 빌드
 
 ### APK (실기기 테스트용)
@@ -94,6 +116,12 @@ flutter build appbundle --release
 ### 포그라운드 동작
 
 - 앱이 **열려 있는** 상태에서 같은 FCM이 오면 **전체 화면 팝업은 뜨지 않고**, 앱 내에서 **진동**만 발생할 수 있음 (의도된 동작).
+
+### 이번 수정 버전 테스트 포인트
+
+- **FCM 백그라운드 로그**: 앱 종료/백그라운드 상태에서 FCM 수신 시 `adb logcat` 에서 `[FCM] 백그라운드 데이터 수신 성공`, `[FCM]   data["키"] = 값`, `[FCM]   파싱결과["키"] = 값` 확인. 서버 키와 앱 파싱 키 대조용.
+- **에러 시에도 앱 유지**: `shareData`/`showOverlay` 예외 시 `[FCM] shareData 오류` 또는 `[FCM] showOverlay 오류` + stackTrace 가 로그에만 찍히고 앱이 죽지 않는지 확인.
+- **오버레이 테스트 버튼**: 메인 웹뷰 화면 FAB으로 오버레이만 먼저 띄워 보는 동작 확인.
 
 ---
 
