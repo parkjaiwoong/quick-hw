@@ -111,9 +111,10 @@ export async function POST(request: Request) {
       console.log("[push/send] FCM 토큰 조회", { userId, tokenCount: tokens?.length ?? 0 })
       if (tokens && tokens.length > 0) {
         const messaging = getMessaging()
+        const tokenList = tokens.map((r) => r.token)
         // 기사 앱: notification 없이 data만 전송해야 백그라운드/종료 시 onMessageReceived 호출됨 (오버레이·Full Screen Intent 동작)
         const res = await messaging.sendEachForMulticast({
-          tokens: tokens.map((r) => r.token),
+          tokens: tokenList,
           data: {
             type: notifType || "new_delivery_request",
             delivery_id: deliveryId || "",
@@ -127,6 +128,33 @@ export async function POST(request: Request) {
         })
         results.fcm = `success=${res.successCount} failure=${res.failureCount}`
         console.log("[push/send] FCM 발송 결과", { userId, deliveryId, successCount: res.successCount, failureCount: res.failureCount })
+
+        if (res.successCount > 0) {
+          const successTokens = (res.responses ?? [])
+            .map((r, i) => (r.success ? tokenList[i]?.slice(-24) : null))
+            .filter(Boolean) as string[]
+          console.log("[push/send] Successfully sent message", { userId, successCount: res.successCount, token끝24자: successTokens })
+        }
+        if (res.failureCount > 0 && res.responses?.length) {
+          const invalidCodes = ["unregistered", "registration-token-not-registered", "invalid-argument", "invalid-registration-token"]
+          for (let i = 0; i < res.responses.length; i++) {
+            const r = res.responses[i]
+            if (r.success) continue
+            const err = r.error as { code?: string; message?: string } | undefined
+            const code = err?.code ?? "unknown"
+            const msg = err?.message ?? String(err)
+            const tokenSuffix = tokenList[i]?.slice(-24) ?? "?"
+            console.error("[push/send] FCM 토큰별 실패", { userId, index: i, code, message: msg, token끝24자: tokenSuffix })
+            if (invalidCodes.some((c) => code?.toLowerCase().includes(c))) {
+              const deadToken = tokenList[i]
+              if (deadToken) {
+                const { error: delErr } = await supabase.from("driver_fcm_tokens").delete().eq("user_id", userId).eq("token", deadToken)
+                if (delErr) console.error("[push/send] FCM 무효 토큰 DB 삭제 실패", { userId, error: delErr.message })
+                else console.log("[push/send] FCM 무효 토큰 DB에서 삭제", { userId, token끝24자: tokenSuffix })
+              }
+            }
+          }
+        }
       } else {
         console.log("[push/send] FCM 토큰 없음 — 전송 생략", { userId })
       }

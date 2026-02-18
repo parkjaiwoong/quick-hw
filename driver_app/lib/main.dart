@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -14,6 +15,7 @@ import 'app_config.dart';
 import 'app_version_service.dart';
 import 'availability_storage.dart';
 import 'fcm_service.dart';
+import 'overlay_alert_service.dart';
 
 /// 배차 수락 팝업에서 "수락" 후 MainActivity가 전달하는 delivery_id (MethodChannel)
 const _launchChannel = MethodChannel('com.quickhw.driver_app/launch');
@@ -226,6 +228,7 @@ class _OverlayPayloadLoaderState extends State<_OverlayPayloadLoader> {
   @override
   void initState() {
     super.initState();
+    OverlayAlertService.playDispatchSound();
     _getOverlayPayload().then((payload) {
       print('[Overlay] overlayMain 위젯에 payload 적용: $payload');
       if (mounted) setState(() => _payload = payload);
@@ -489,6 +492,43 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
           final v = message.message == 'true';
           await DriverAvailabilityStorage.save(v);
           if (kDebugMode) debugPrint('[기사앱] 배송 가능 상태 저장: $v');
+          if (v) _injectFcmTokenToWeb();
+        },
+      )
+      ..addJavaScriptChannel(
+        'FlutterOverlayChannel',
+        onMessageReceived: (JavaScriptMessage message) async {
+          if (!Platform.isAndroid) return;
+          try {
+            final data = jsonDecode(message.message) as Map<String, dynamic>?;
+            if (data == null || data.isEmpty) {
+              debugPrint('[기사앱] FlutterOverlayChannel: payload 비어있음');
+              return;
+            }
+            final overlayPayload = Map<String, String>.from(
+              buildOverlayPayloadFromFcmData(Map<String, dynamic>.from(data)),
+            );
+            final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? '';
+            if (deliveryId.isEmpty) {
+              overlayPayload['delivery_id'] = 'web-${DateTime.now().millisecondsSinceEpoch}';
+              overlayPayload['deliveryId'] = overlayPayload['delivery_id']!;
+            }
+            final origin = overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-';
+            final dest = overlayPayload['destination_address'] ?? overlayPayload['destination'] ?? '-';
+            await OverlayAlertService.triggerOverlayVibration();
+            await FlutterOverlayWindow.shareData(overlayPayload);
+            await FlutterOverlayWindow.showOverlay(
+              overlayTitle: '신규 배차 요청',
+              overlayContent: '출발: $origin\n도착: $dest',
+              alignment: OverlayAlignment.center,
+              width: 400,
+              height: 520,
+            );
+            if (kDebugMode) debugPrint('[기사앱] FlutterOverlayChannel: 오버레이 표시 완료');
+          } catch (e, st) {
+            debugPrint('[기사앱] FlutterOverlayChannel 오류: $e');
+            debugPrint('$st');
+          }
         },
       )
       ..setNavigationDelegate(
@@ -577,6 +617,10 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
   Future<void> _injectFcmTokenToWeb() async {
     final t = await FcmService.getToken();
     if (t == null || !mounted) return;
+    if (kDebugMode) {
+      debugPrint('[기사앱] FCM 토큰 웹 전달(서버 DB 대조용) 전체: $t');
+      debugPrint('[기사앱] FCM 토큰 끝 24자: ${t.length >= 24 ? t.substring(t.length - 24) : t}');
+    }
     final escaped = t.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
     final js = "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));";
     for (final delayMs in [0, 1500, 3500]) {
@@ -587,12 +631,14 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
         await _controller.runJavaScript(js);
       } catch (_) {}
     }
+    if (kDebugMode) debugPrint('[기사앱] FCM 토큰 웹 전달 완료 (동일 토큰으로 서버 등록 요청됨)');
   }
 
   /// 테스트: 오버레이가 뜨면 FCM 연결 문제, 안 뜨면 OverlayApp 렌더링 문제.
   Future<void> _testOverlay() async {
     if (!Platform.isAndroid) return;
     try {
+      await OverlayAlertService.triggerOverlayVibration();
       const testPayload = <String, String>{
         'delivery_id': 'test-overlay-1',
         'deliveryId': 'test-overlay-1',

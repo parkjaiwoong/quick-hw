@@ -5,6 +5,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
+import 'overlay_alert_service.dart';
+
 /// 서버(push/send) FCM data 키: type, delivery_id, title, body, url (snake_case).
 /// 앱 파싱: delivery_id/deliveryId, order_id/orderId/order_number, origin_address/origin, destination_address/destination, fee/price 모두 대응.
 Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
@@ -61,6 +63,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         overlayPayload['deliveryId'] = id;
       }
       print('[FCM] shareData 후 showOverlay 호출(조건 무시): $overlayPayload');
+      await OverlayAlertService.triggerOverlayVibration();
       try {
         await FlutterOverlayWindow.shareData(overlayPayload);
       } catch (e, st) {

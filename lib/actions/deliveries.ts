@@ -85,27 +85,34 @@ export async function notifyDriversForDelivery(
     nearby_count: nearbyDrivers?.length ?? 0,
     driver_ids: nearbyIds,
   })
-  console.log("[기사알림-2] 근처 기사 수:", nearbyDrivers?.length ?? 0, nearbyDrivers)
+  console.log("[기사알림-2] 근처 기사 수:", nearbyDrivers?.length ?? 0, "driver_ids:", nearbyIds)
 
-  let driverIdsToNotify: string[] = nearbyIds
+  // 배송 가능(is_available=true) 전원 조회 (위치 없음 포함)
+  const { data: availableDrivers } = await service
+    .from("driver_info")
+    .select("id")
+    .eq("is_available", true)
+  const allAvailableIds = (availableDrivers ?? []).map((d) => d.id)
 
-  if (driverIdsToNotify.length === 0) {
-    const { data: availableDrivers } = await service
-      .from("driver_info")
-      .select("id")
-      .eq("is_available", true)
-    if (availableDrivers?.length) {
-      driverIdsToNotify = availableDrivers.map((d) => d.id)
-    }
-    await writeAuditLog(service, deliveryId, "fallback_available", {
-      available_count: availableDrivers?.length ?? 0,
+  // 근처 5명 이하일 때는 배송 가능 전원에게 FCM (위치 없어도 포함). 6명 이상이면 근처만(현재 RPC limit=5라 항상 5명 이하).
+  let driverIdsToNotify: string[]
+  if (nearbyIds.length <= 5) {
+    const merged = new Set<string>([...nearbyIds, ...allAvailableIds])
+    driverIdsToNotify = Array.from(merged)
+    await writeAuditLog(service, deliveryId, "merge_nearby_and_available", {
+      nearby_count: nearbyIds.length,
+      available_count: allAvailableIds.length,
+      merged_count: driverIdsToNotify.length,
       driver_ids: driverIdsToNotify,
     })
-    console.log("[기사알림-2] 배송가능 기사로 대체:", driverIdsToNotify.length, driverIdsToNotify)
+    console.log("[기사알림-2] 근처 5명 이하 → 배송가능 전원에게 알림 (위치 없음 포함)", { merged: driverIdsToNotify.length, nearby: nearbyIds.length, available: allAvailableIds.length })
+  } else {
+    driverIdsToNotify = nearbyIds
+    console.log("[기사알림-2] 근처 6명 이상 → 근처만 알림:", driverIdsToNotify.length)
   }
 
   if (driverIdsToNotify.length === 0) {
-    console.warn("[기사알림-2] 알림할 기사 0명 — INSERT 스킵")
+    console.warn("[기사알림-2] 알림할 기사 0명 — INSERT 스킵 (is_available=true인 기사 0명)")
     await writeAuditLog(service, deliveryId, "insert_skip", { reason: "알림할 기사 0명" })
     return {}
   }

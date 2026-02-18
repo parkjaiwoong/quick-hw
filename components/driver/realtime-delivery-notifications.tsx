@@ -181,12 +181,19 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     const handler = (e: Event) => {
       const token = (e as CustomEvent<string>).detail
       if (!token) return
+      const suffix = token.length >= 24 ? token.slice(-24) : token
+      console.log("[기사앱-웹] FCM 토큰 서버 등록 요청, 토큰 끝 24자(DB 대조용):", suffix)
       fetch("/api/driver/fcm-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
         credentials: "same-origin",
-      }).catch(() => {})
+      })
+        .then(async (res) => {
+          if (res.ok) console.log("[기사앱-웹] FCM 토큰 서버 등록 성공 (끝 24자:", suffix + ")")
+          else console.warn("[기사앱-웹] FCM 토큰 서버 등록 실패:", res.status, await res.text())
+        })
+        .catch((err) => console.warn("[기사앱-웹] FCM 토큰 서버 등록 오류:", err))
     }
     window.addEventListener("driverFcmToken", handler)
     return () => window.removeEventListener("driverFcmToken", handler)
@@ -442,6 +449,24 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     detail: { payloadData, hasDelivery: !!delivery },
                   })
                 )
+                // Flutter WebView 브릿지: 네이티브 오버레이 띄우기 (기사앱에서만 동작)
+                const win = window as Window & { FlutterOverlayChannel?: { postMessage: (s: string) => void } }
+                if (win.FlutterOverlayChannel) {
+                  const overlayData = {
+                    delivery_id: payloadData.delivery.id,
+                    origin_address: payloadData.delivery.pickup_address ?? "",
+                    destination_address: payloadData.delivery.delivery_address ?? "",
+                    fee: payloadData.delivery.driver_fee != null ? `${payloadData.delivery.driver_fee}원` : payloadData.delivery.total_fee != null ? `${payloadData.delivery.total_fee}원` : "",
+                    title: "신규 배차 요청",
+                    body: `${payloadData.delivery.pickup_address ?? ""} → ${payloadData.delivery.delivery_address ?? ""}`,
+                  }
+                  try {
+                    win.FlutterOverlayChannel.postMessage(JSON.stringify(overlayData))
+                    console.log("[기사-Realtime] FlutterOverlayChannel.postMessage 호출", overlayData)
+                  } catch (e) {
+                    console.warn("[기사-Realtime] FlutterOverlayChannel 오류:", e)
+                  }
+                }
                 // 수락 가능한 배송 목록 자동 갱신 (startTransition으로 스케줄해 확실히 반영)
                 startTransition(() => routerRef.current?.refresh())
               }

@@ -39,6 +39,7 @@ dependencies:
   package_info_plus: ^8.1.2
   url_launcher: ^6.3.1
   vibration: ^2.0.0
+  audioplayers: ^6.0.0
   shared_preferences: ^2.3.3
   flutter_overlay_window: ^0.5.0
 
@@ -73,6 +74,7 @@ flutter:
 
   assets:
     - assets/icon/
+    - assets/sounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

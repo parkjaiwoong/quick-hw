@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  console.log("[fcm-token] 등록 완료 user_id=" + user.id)
+  const tokenSuffix = token.length >= 24 ? token.slice(-24) : token
+  console.log("[fcm-token] 등록 완료 user_id=" + user.id + " token 끝 24자(DB 대조용): " + tokenSuffix)
   return NextResponse.json({ success: true })
 }
