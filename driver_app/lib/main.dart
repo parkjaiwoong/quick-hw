@@ -25,10 +25,23 @@ const _launchChannel = MethodChannel('com.quickhw.driver_app/launch');
 const _overlayChannel = MethodChannel('com.quickhw.driver_app/overlay');
 
 void main() async {
+  // 1. 바인딩 초기화 (필수)
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 2. Firebase 초기화
   await Firebase.initializeApp();
+
+  // 3. 백그라운드 핸들러 등록 (initializeApp 바로 뒤에!)
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  await _runApp();
+
+  // 4. 알림 권한 및 포그라운드 설정 호출
+  await FcmService.initialize();
+
+  // 5. 포그라운드 FCM 수신·토큰 로그·앱 실행
+  FirebaseAnalytics.instance;
+  await logFcmToken();
+  FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+  runApp(const DriverApp());
 }
 
 /// 오버레이 전용 엔트리 포인트. 별도 isolate/엔진에서 실행되므로 반드시 @pragma 필요.
@@ -87,13 +100,6 @@ Map<String, String> _payloadFromOverlayEvent(dynamic event) {
   return Map<String, String>.from(map);
 }
 
-Future<void> _runApp() async {
-  await FcmService.initialize();
-  FirebaseAnalytics.instance;
-  await logFcmToken();
-  FirebaseMessaging.onMessage.listen(_onForegroundMessage);
-  runApp(const DriverApp());
-}
 
 /// '다른 앱 위에 표시' 권한: 앱 실행 시 확인 후 없으면 다이얼로그 → 확인 시 설정 화면으로 이동.
 Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
@@ -167,8 +173,10 @@ Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context)
 /// 포그라운드 FCM: 콘솔 테스트 메시지 포함 모든 수신 로그, 새 배송 요청일 때 진동
 void _onForegroundMessage(RemoteMessage message) {
   try {
+    print('🚨🚨🚨 [FCM 포그라운드] 신호 포착!!! 🚨🚨🚨');
+    print('데이터: ${message.data}');
     if (kDebugMode) {
-      debugPrint('[FCM] 포그라운드 수신: data=${message.data} notification=${message.notification?.title}');
+      debugPrint('[FCM] notification: ${message.notification?.title}');
     }
     final type = message.data['type'];
     final isNewDelivery = type == 'new_delivery_request' || type == 'new_delivery';

@@ -47,6 +47,10 @@
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
+        <!-- Android 8.0+ 알림 채널: FCM 등 기본 알림이 올 채널 ID (MainActivity에서 delivery_request 채널 생성) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="delivery_request" />
 
         <!-- 배차 수락 전체화면 팝업: 새 배송 요청 시 앱 꺼져 있어도 화면 전체에 표시 -->
         <activity

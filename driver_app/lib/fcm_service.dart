@@ -41,8 +41,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
     final data = message.data;
-    // 수신한 FCM data 키·값 전부 로그 (서버 전송 키와 대조용)
-    print('[FCM] 백그라운드 데이터 수신 성공');
+    print('🚨🚨🚨 [FCM 백그라운드] 신호 포착!!! 🚨🚨🚨');
+    print('데이터: $data');
     for (final e in data.entries) {
       print('[FCM]   data["${e.key}"] = ${e.value}');
     }
@@ -62,7 +62,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         overlayPayload['delivery_id'] = id;
         overlayPayload['deliveryId'] = id;
       }
-      print('[FCM] shareData 후 showOverlay 호출(조건 무시): $overlayPayload');
+      print('🚨 [FCM 백그라운드] shareData 후 showOverlay 호출: $overlayPayload');
       await OverlayAlertService.triggerOverlayVibration();
       try {
         await FlutterOverlayWindow.shareData(overlayPayload);
@@ -79,7 +79,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           width: 400,
           height: 520,
         );
-        print('[FCM] showOverlay 완료');
+        print('🚨🚨🚨 [FCM 백그라운드] showOverlay 완료!!! 🚨🚨🚨');
       } catch (e, st) {
         print('[FCM] showOverlay 오류: $e');
         print('[FCM] showOverlay stackTrace:\n$st');
