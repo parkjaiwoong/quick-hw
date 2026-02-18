@@ -36,5 +36,6 @@ export async function POST(request: Request) {
 
   const tokenSuffix = token.length >= 24 ? token.slice(-24) : token
   console.log("[fcm-token] 등록 완료 user_id=" + user.id + " token 끝 24자(DB 대조용): " + tokenSuffix)
-  return NextResponse.json({ success: true })
+  console.log("[fcm-token] DB 업데이트됨 — 앱 로그의 'FCM 토큰 끝 24자'와 위 값이 일치하면 정상 반영된 것입니다.")
+  return NextResponse.json({ success: true, token끝24자: tokenSuffix })
 }

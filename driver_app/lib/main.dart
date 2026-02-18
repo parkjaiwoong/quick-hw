@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +26,7 @@ const _overlayChannel = MethodChannel('com.quickhw.driver_app/overlay');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await _runApp();
 }
@@ -162,9 +164,12 @@ Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context)
   } catch (_) {}
 }
 
-/// 포그라운드 FCM: 새 배송 요청일 때만 진동 (Full Screen Intent는 백그라운드에서 네이티브가 처리)
+/// 포그라운드 FCM: 콘솔 테스트 메시지 포함 모든 수신 로그, 새 배송 요청일 때 진동
 void _onForegroundMessage(RemoteMessage message) {
   try {
+    if (kDebugMode) {
+      debugPrint('[FCM] 포그라운드 수신: data=${message.data} notification=${message.notification?.title}');
+    }
     final type = message.data['type'];
     final isNewDelivery = type == 'new_delivery_request' || type == 'new_delivery';
     if (isNewDelivery) {
@@ -228,7 +233,7 @@ class _OverlayPayloadLoaderState extends State<_OverlayPayloadLoader> {
   @override
   void initState() {
     super.initState();
-    OverlayAlertService.playDispatchSound();
+    OverlayAlertService.playDispatchSound().catchError((_) {});
     _getOverlayPayload().then((payload) {
       print('[Overlay] overlayMain 위젯에 payload 적용: $payload');
       if (mounted) setState(() => _payload = payload);
@@ -451,6 +456,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
   late final WebViewController _controller;
   bool _isLoading = true;
   String? _error;
+  String? _lastSentFcmToken;
 
   @override
   void initState() {
@@ -614,24 +620,23 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     });
   }
 
+  /// 토큰이 변경되었을 때만 웹에 1회 전달. 플래그를 먼저 세워 동시 호출 시 메인 스레드 점유·중복 전달 방지.
   Future<void> _injectFcmTokenToWeb() async {
     final t = await FcmService.getToken();
     if (t == null || !mounted) return;
+    if (_lastSentFcmToken == t) return;
+    _lastSentFcmToken = t;
     if (kDebugMode) {
-      debugPrint('[기사앱] FCM 토큰 웹 전달(서버 DB 대조용) 전체: $t');
-      debugPrint('[기사앱] FCM 토큰 끝 24자: ${t.length >= 24 ? t.substring(t.length - 24) : t}');
+      debugPrint('[기사앱] FCM 토큰 웹 전달(서버 DB 대조용) 끝 24자: ${t.length >= 24 ? t.substring(t.length - 24) : t}');
     }
     final escaped = t.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
     final js = "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));";
-    for (final delayMs in [0, 1500, 3500]) {
-      if (!mounted) return;
-      if (delayMs > 0) await Future.delayed(Duration(milliseconds: delayMs));
-      if (!mounted) return;
-      try {
-        await _controller.runJavaScript(js);
-      } catch (_) {}
+    try {
+      await _controller.runJavaScript(js);
+      if (kDebugMode) debugPrint('[기사앱] FCM 토큰 웹 전달 완료 (토큰 변경 시 1회)');
+    } catch (_) {
+      _lastSentFcmToken = null;
     }
-    if (kDebugMode) debugPrint('[기사앱] FCM 토큰 웹 전달 완료 (동일 토큰으로 서버 등록 요청됨)');
   }
 
   /// 테스트: 오버레이가 뜨면 FCM 연결 문제, 안 뜨면 OverlayApp 렌더링 문제.

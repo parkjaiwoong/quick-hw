@@ -24,15 +24,25 @@ class OverlayAlertService {
     }
   }
 
-  /// 배차 알림음 재생. assets/sounds/dispatch_alert.mp3 (파일 없으면 무시).
-  /// 오버레이가 표시될 때 한 번 호출 (백그라운드/포그라운드 모두).
+  static bool _soundErrorLogged = false;
+
+  /// 배차 알림음 재생. 파일 없어도 예외를 모두 흡수해 오버레이는 무조건 뜨게 함.
   static Future<void> playDispatchSound() async {
     try {
-      final player = AudioPlayer();
-      await player.setReleaseMode(ReleaseMode.release);
-      await player.play(AssetSource('sounds/dispatch_alert.mp3'));
-    } catch (e) {
-      if (kDebugMode) debugPrint('[OverlayAlert] 알림음 재생 오류: $e');
+      try {
+        final player = AudioPlayer();
+        await player.setReleaseMode(ReleaseMode.release);
+        await player.play(AssetSource('sounds/dispatch_alert.mp3'));
+      } catch (e) {
+        if (kDebugMode && !_soundErrorLogged) {
+          _soundErrorLogged = true;
+          try {
+            debugPrint('[OverlayAlert] 알림음 재생 오류(파일 없음 시 정상): $e — 진동만 사용됩니다.');
+          } catch (_) {}
+        }
+      }
+    } catch (_) {
+      // 알림음 실패가 오버레이에 영향을 주지 않도록 모든 예외 흡수
     }
   }
 }
