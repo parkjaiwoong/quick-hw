@@ -80,6 +80,28 @@ export async function getMyDeliveryHistory() {
   return { deliveries: data }
 }
 
+/** 기사용: 미확인 신규 배송 요청 목록 (DB 직접 조회, 신규내용 표시/요청승낙용) */
+export async function getDriverUnreadNewRequests() {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { notifications: [] as { id: string; delivery_id: string; created_at: string }[] }
+
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, delivery_id, created_at")
+    .eq("user_id", user.id)
+    .eq("is_read", false)
+    .in("type", ["new_delivery_request", "new_delivery"])
+    .not("delivery_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(20)
+
+  if (error) return { notifications: [] }
+  return { notifications: (data ?? []) as { id: string; delivery_id: string; created_at: string }[] }
+}
+
 export async function acceptDelivery(deliveryId: string) {
   const supabase = await getSupabaseServerClient()
 

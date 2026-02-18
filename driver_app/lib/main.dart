@@ -14,14 +14,29 @@ import 'fcm_service.dart';
 
 /// 디버깅 없이 기기 화면에서 오류 확인용: 여기에 쌓인 메시지를 화면에 표시 (앱 종료 후에도 유지)
 final ValueNotifier<List<String>> screenErrorLog = ValueNotifier<List<String>>([]);
+/// 넘기기/연결요청 수락 클릭 전까지 모달 유지 (true = 숨김, false = 표시)
+final ValueNotifier<bool> screenModalDismissed = ValueNotifier<bool>(true);
 const int _maxScreenErrors = 20;
 const String _storageKey = 'driver_screen_error_log';
+const String _modalDismissedKey = 'driver_modal_dismissed';
+
+/// 앱 오버레이에서 "연결요청 수락" 시 WebView에 전달 (DriverWebViewPage에서 등록)
+void Function()? driverAcceptRequestCallback;
+
+Future<void> _persistModalDismissed(bool dismissed) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_modalDismissedKey, dismissed);
+  } catch (_) {}
+}
 
 void addScreenError(String message) {
   final line = '${DateTime.now().toString().substring(11, 19)} $message';
   final next = [...screenErrorLog.value, line];
   screenErrorLog.value = next.length > _maxScreenErrors ? next.sublist(next.length - _maxScreenErrors) : next;
   _persistErrorLog();
+  screenModalDismissed.value = false;
+  _persistModalDismissed(false);
 }
 
 Future<void> _persistErrorLog() async {
@@ -111,6 +126,8 @@ Future<void> _runApp() async {
 
   // 저장된 로그 복원 (앱 닫았다 열어도 그대로)
   await _loadErrorLog();
+  final prefs = await SharedPreferences.getInstance();
+  screenModalDismissed.value = prefs.getBool(_modalDismissedKey) ?? false;
   // 테스트용: 무조건 한 건 넣어서 모달에 내용이 보이도록 (반영 확인)
   addScreenError('테스트: 오류 로그 반영 확인');
 
@@ -134,102 +151,133 @@ class DriverApp extends StatelessWidget {
   }
 }
 
-/// 디버거 없이 기기에서 오류 확인: 제일 상단 백그라운드 모달로 오류4내용 표시 (앱 닫아도 유지)
+/// 디버거 없이 기기에서 오류 확인: 제일 상단 백그라운드 모달 오류5 (넘기기/연결요청 수락 전까지 유지)
 class ScreenErrorWrapper extends StatelessWidget {
   const ScreenErrorWrapper({super.key, required this.child});
   final Widget child;
 
   static const double _modalWidth = 300.0;
-  static const double _modalHeight = 220.0;
+  static const double _modalHeight = 260.0;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         child,
-        // 제일 상단 백그라운드 모달: 오류4내용 + 신규내용 (스크롤)
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 4,
-          left: (MediaQuery.of(context).size.width - _modalWidth) / 2,
-          width: _modalWidth,
-          height: _modalHeight,
-          child: Material(
-            elevation: 16,
-            shadowColor: Colors.black54,
-            borderRadius: BorderRadius.circular(12),
-            child: ValueListenableBuilder<List<String>>(
-              valueListenable: screenErrorLog,
-              builder: (context, list, _) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    border: Border.all(color: Colors.orange, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 오류4내용 헤더
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.warning_amber, color: Colors.orange, size: 22),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '오류4내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                              icon: const Icon(Icons.clear_all, color: Colors.white70, size: 20),
-                              onPressed: () {
-                                screenErrorLog.value = [];
-                                _persistErrorLog();
-                              },
-                            ),
-                          ],
-                        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: screenModalDismissed,
+          builder: (context, dismissed, _) {
+            if (dismissed) return const SizedBox.shrink();
+            return Positioned(
+              top: MediaQuery.of(context).padding.top + 4,
+              left: (MediaQuery.of(context).size.width - _modalWidth) / 2,
+              width: _modalWidth,
+              height: _modalHeight,
+              child: Material(
+                elevation: 16,
+                shadowColor: Colors.black54,
+                borderRadius: BorderRadius.circular(12),
+                child: ValueListenableBuilder<List<String>>(
+                  valueListenable: screenErrorLog,
+                  builder: (context, list, _) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        border: Border.all(color: Colors.orange, width: 2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const Divider(height: 1, color: Colors.white24),
-                      // 오류4내용 바로 밑 여백 → 신규내용(목록) 스크롤
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: list.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  '오류 없음\n(반영 확인용)',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white54, fontSize: 11),
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                itemCount: list.length,
-                                itemBuilder: (_, i) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 6),
-                                  child: SelectableText(
-                                    list[i],
-                                    style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                    maxLines: 4,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.warning_amber, color: Colors.orange, size: 22),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '오류5내용 => ${list.isEmpty ? "없음" : "${list.length}건"}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                  icon: const Icon(Icons.clear_all, color: Colors.white70, size: 20),
+                                  onPressed: () {
+                                    screenErrorLog.value = [];
+                                    _persistErrorLog();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: Colors.white24),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: list.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      '오류 없음\n(반영 확인용)',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.white54, fontSize: 11),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                    itemCount: list.length,
+                                    itemBuilder: (_, i) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 6),
+                                      child: SelectableText(
+                                        list[i],
+                                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                        maxLines: 4,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          const Divider(height: 1, color: Colors.white24),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextButton(
+                                    onPressed: () {
+                                      screenModalDismissed.value = true;
+                                      _persistModalDismissed(true);
+                                    },
+                                    child: const Text('넘기기'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () {
+                                      driverAcceptRequestCallback?.call();
+                                      screenModalDismissed.value = true;
+                                      _persistModalDismissed(true);
+                                    },
+                                    child: const Text('연결요청 수락'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+                    );
+                  },
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -251,13 +299,20 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> {
   @override
   void initState() {
     super.initState();
-
-
-    // 🔍 확인 포인트 1: 이 로그가 한 번만 찍히는지, 아니면 계속 반복되는지 보세요.
     debugPrint('[기사앱] initState 호출됨');
-
     _checkAppVersion();
     _controller = _createController();
+    driverAcceptRequestCallback = () {
+      _controller.runJavaScript(
+        "window.dispatchEvent(new CustomEvent('driver-accept-latest-request'));",
+      );
+    };
+  }
+
+  @override
+  void dispose() {
+    driverAcceptRequestCallback = null;
+    super.dispose();
   }
 
   WebViewController _createController() {
