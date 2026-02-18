@@ -29,6 +29,30 @@
      예: `--dart-define=DRIVER_WEB_URL=http://192.168.0.10:3000/driver`  
    - Android 에뮬레이터: `http://10.0.2.2:3000/driver` (호스트 PC의 localhost)
 
+## 앱 아이콘 변경
+
+1. **아이콘 이미지 준비**  
+   - 1024×1024 픽셀 PNG 권장 (정사각형, 투명 배경 가능).  
+   - 파일 이름: `app_icon.png`
+
+2. **위치**  
+   - `driver_app/assets/icon/app_icon.png` 에 넣습니다.  
+   - `assets/icon/` 폴더가 없으면 만들고, 그 안에 `app_icon.png`만 넣으면 됩니다.
+
+3. **아이콘 생성**  
+   ```bash
+   cd driver_app
+   flutter pub get
+   dart run flutter_launcher_icons
+   ```
+   - 실행 후 Android용 `mipmap-*` 아이콘이 자동 생성됩니다.
+
+4. **반영**  
+   - 아이콘은 네이티브 리소스이므로 **Hot Reload로 안 바뀝니다.**  
+   - 앱 삭제 후 `flutter run` 또는 새로 APK 빌드해서 확인하세요.
+
+자세한 내용은 `assets/icon/README.md` 참고.
+
 ## 빌드 및 실행 (Windows)
 
 PowerShell에서 Flutter/Java 경로를 지정한 뒤 실행:
