@@ -36,31 +36,44 @@ void overlayMain() {
   _runOverlayApp();
 }
 
-Future<void> _runOverlayApp() async {
-  Map<String, String> payload = {};
+/// runApp은 즉시 실행하고, payload는 위젯 내부에서 비동기 수신. getPayload는 호출하지 않으므로 여기서 앱이 멈추지 않음.
+void _runOverlayApp() {
+  print('[Overlay] runApp 실행 직전');
+  runApp(const OverlayApp());
+}
 
-  // 1) 네이티브 DispatchOverlayActivity 경로: MethodChannel getPayload로 수신 (즉시 표시)
+/// 오버레이용 payload 비동기 조회 (MethodChannel getPayload → 없으면 overlayListener 대기).
+/// 예외 또는 payload 없어도 빈 맵을 반환해 기본 UI가 뜨도록 함.
+Future<Map<String, String>> _getOverlayPayload() async {
   try {
-    final result = await _overlayChannel.invokeMethod<Map<Object?, Object?>>('getPayload');
-    if (result != null && result.isNotEmpty) {
-      payload = result.map((k, v) => MapEntry(k?.toString() ?? '', v?.toString() ?? ''));
-    }
-  } catch (_) {}
-
-  // 2) FlutterOverlayWindow 경로: overlayListener로 데이터 수신 (getPayload 비었을 때만 대기)
-  if (payload.isEmpty) {
+    Map<String, String> payload = {};
     try {
-      final fromListener = await FlutterOverlayWindow.overlayListener
-          .map((event) => _payloadFromOverlayEvent(event))
-          .where((p) => p.isNotEmpty)
-          .first
-          .timeout(const Duration(seconds: 3));
-      if (fromListener.isNotEmpty) payload = fromListener;
-    } on TimeoutException catch (_) {
+      final result = await _overlayChannel.invokeMethod<Map<Object?, Object?>>('getPayload');
+      if (result != null && result.isNotEmpty) {
+        payload = result.map((k, v) => MapEntry(k?.toString() ?? '', v?.toString() ?? ''));
+        print('[Overlay] overlayMain 수신(getPayload): $payload');
+      }
     } catch (_) {}
+    if (payload.isEmpty) {
+      try {
+        final fromListener = await FlutterOverlayWindow.overlayListener
+            .map((event) => _payloadFromOverlayEvent(event))
+            .where((p) => p.isNotEmpty)
+            .first
+            .timeout(const Duration(seconds: 3));
+        if (fromListener.isNotEmpty) {
+          payload = fromListener;
+          print('[Overlay] overlayMain 수신(overlayListener/shareData): $payload');
+        }
+      } on TimeoutException catch (_) {
+      } catch (_) {}
+    }
+    return payload;
+  } catch (e, st) {
+    debugPrint('[Overlay] _getOverlayPayload 예외: $e');
+    debugPrint('[Overlay] $st');
+    return {};
   }
-
-  runApp(OverlayApp(payload: payload));
 }
 
 /// overlayListener 이벤트를 overlayMain에서 쓸 payload 맵으로 변환 (shareData로 전달된 주문 데이터).
@@ -82,7 +95,9 @@ Future<void> _runApp() async {
 Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
   if (!Platform.isAndroid) return;
   try {
+    print('[오버레이] 권한 체크 시작');
     final granted = await FlutterOverlayWindow.isPermissionGranted();
+    print('[오버레이] 현재 권한 상태: $granted');
     if (granted) return;
     if (!context.mounted) return;
     await showDialog<void>(
@@ -102,7 +117,10 @@ Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
         ],
       ),
     );
-  } catch (_) {}
+  } catch (e, st) {
+    print('[오버레이] 권한 체크/다이얼로그 오류: $e');
+    debugPrint('[오버레이] $st');
+  }
 }
 
 /// 배터리 최적화 제외 여부 확인 후, 미제외 시 안내 다이얼로그를 띄우고 [설정 열기]로 시스템 화면 이동.
@@ -173,11 +191,9 @@ class DriverApp extends StatelessWidget {
   }
 }
 
-/// 오버레이 전용 앱: 배경 투명한 MaterialApp + 배차 알림 위젯만 렌더링.
+/// 오버레이 전용 앱: runApp 직후 화면이 뜨고, 내부에서 payload를 비동기로 받아 표시.
 class OverlayApp extends StatelessWidget {
-  const OverlayApp({super.key, required this.payload});
-
-  final Map<String, String> payload;
+  const OverlayApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -188,11 +204,51 @@ class OverlayApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.transparent,
       ),
-      home: Scaffold(
+      home: const Scaffold(
         backgroundColor: Colors.transparent,
-        body: DispatchAcceptOverlayWidget(payload: payload),
+        body: _OverlayPayloadLoader(),
       ),
     );
+  }
+}
+
+/// payload를 비동기로 기다렸다가 배차 수락 위젯으로 전달. 로딩 중에는 로딩 표시.
+class _OverlayPayloadLoader extends StatefulWidget {
+  const _OverlayPayloadLoader();
+
+  @override
+  State<_OverlayPayloadLoader> createState() => _OverlayPayloadLoaderState();
+}
+
+class _OverlayPayloadLoaderState extends State<_OverlayPayloadLoader> {
+  Map<String, String>? _payload;
+
+  @override
+  void initState() {
+    super.initState();
+    _getOverlayPayload().then((payload) {
+      print('[Overlay] overlayMain 위젯에 payload 적용: $payload');
+      if (mounted) setState(() => _payload = payload);
+    }).catchError((_, __) {
+      if (mounted) setState(() => _payload = {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_payload == null) {
+      return const Material(
+        color: Colors.transparent,
+        child: Center(
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          ),
+        ),
+      );
+    }
+    return DispatchAcceptOverlayWidget(payload: _payload!);
   }
 }
 
@@ -401,7 +457,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     _checkAppVersion();
     _controller = _createController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 앱 실행 시 1) '다른 앱 위에 표시' 권한 확인 → 없으면 다이얼로그 → 확인 시 설정 화면
+      // [권한 호출 위치] '다른 앱 위에 표시'는 initState에서만 호출 (배송 가능 버튼과 무관). 800ms 후 requestOverlayPermissionWithDialog(context)
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) requestOverlayPermissionWithDialog(context);
       });
@@ -533,6 +589,32 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     }
   }
 
+  /// 테스트: 오버레이가 뜨면 FCM 연결 문제, 안 뜨면 OverlayApp 렌더링 문제.
+  Future<void> _testOverlay() async {
+    if (!Platform.isAndroid) return;
+    try {
+      const testPayload = <String, String>{
+        'delivery_id': 'test-overlay-1',
+        'deliveryId': 'test-overlay-1',
+        'order_id': 'test-order',
+        'origin_address': '테스트 출발지',
+        'destination_address': '테스트 도착지',
+        'fee': '0원',
+      };
+      await FlutterOverlayWindow.shareData(testPayload);
+      await FlutterOverlayWindow.showOverlay(
+        overlayTitle: '신규 배차 요청',
+        overlayContent: '테스트 출발지',
+        alignment: OverlayAlignment.center,
+        width: 400,
+        height: 520,
+      );
+      debugPrint('[기사앱] 오버레이 테스트: showOverlay 호출 완료');
+    } catch (e) {
+      debugPrint('[기사앱] 오버레이 테스트 실패: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -548,6 +630,13 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
           ],
         ),
       ),
+      floatingActionButton: Platform.isAndroid
+          ? FloatingActionButton.small(
+              onPressed: _testOverlay,
+              tooltip: '배차 오버레이 테스트',
+              child: const Icon(Icons.notifications_active),
+            )
+          : null,
     );
   }
 

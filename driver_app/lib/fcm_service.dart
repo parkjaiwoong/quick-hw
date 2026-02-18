@@ -42,6 +42,7 @@ Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+  print('[FCM] 백그라운드 데이터 수신 성공: ${message.data}');
   // 로그: adb logcat에서 확인 가능 (flutter 태그 또는 패키지명). 앱 종료 시에는 네이티브 DriverFcmService 로그 우선 확인.
   debugPrint('[FCM] 백그라운드 메시지 수신');
   debugPrint('[FCM]   data: ${message.data}');
@@ -77,6 +78,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final overlayPayload = buildOverlayPayloadFromFcmData(dataMap);
     if ((overlayPayload['delivery_id'] ?? '').isEmpty) return;
     // entry point(overlayMain)가 overlayListener로 수신: 주문 번호, 출발지·도착지, 요금 등
+    print('[FCM] shareData 전달(주문정보): delivery_id=${overlayPayload['delivery_id']}, origin=${overlayPayload['origin_address']}, dest=${overlayPayload['destination_address']}, fee=${overlayPayload['fee']}');
     await FlutterOverlayWindow.shareData(overlayPayload);
     await FlutterOverlayWindow.showOverlay(
       overlayTitle: '신규 배차 요청',

@@ -8,7 +8,7 @@
 6. `curl`이나 로컬 테스트 스크립트를 사용하여 수정 사항이 정상인지 반드시 검증하라.
 #7. API 나 다른 모듈을 사용할 때 유효인경우는 즉시 멈추고, 꼭 설명을 하고 물어보라.
 
-- adb 경로는 D:\Android\platform-tools\adb.exe 이다.
+- Android SDK의 adb 경로는 D:\Android\platform-tools\adb.exe 이다.
 - flutter 경로는 D:\tools\flutter 이다.
 - jdk 경로는 D:\Java\jdk-17.0.18+8 이다.
 

@@ -4,6 +4,8 @@
 
 **AndroidManifest.xml** 이나 **네이티브(Kotlin, Gradle, 리소스)** 설정을 수정했다면 **Hot Reload로 반영되지 않습니다.**
 
+**Kotlin 빌드 오류** (IllegalArgumentException, "different roots", incremental caches): 프로젝트가 D: 드라이브이고 Pub 캐시가 C:에 있으면 증분 컴파일에서 실패할 수 있음. `android/gradle.properties`에 `kotlin.incremental=false`가 설정되어 있으면 해소됨. `flutter clean` 후에는 반드시 `flutter pub get`을 먼저 실행한 뒤 빌드할 것.
+
 - 기기에서 **앱을 완전히 삭제**한 뒤
 - **다시 설치**해서 확인하세요.
 
@@ -13,6 +15,15 @@ flutter run
 ```
 
 또는 APK로 설치한 경우: 설정 > 앱 > 언넌 > 저장공간 > 앱 삭제 후 `flutter run` 또는 `adb install ...` 로 재설치.
+
+---
+
+## '다른 앱 위에 표시' 권한 호출 위치
+
+- **호출**: `requestOverlayPermissionWithDialog(context)` (main.dart)
+- **위치**: **initState** 안 `WidgetsBinding.instance.addPostFrameCallback` → **800ms 후** 한 번만 호출 (배송 가능 버튼과 무관).
+- **동작**: `FlutterOverlayWindow.isPermissionGranted()`로 확인 후, 미허용 시 다이얼로그 → [확인] 시 `FlutterOverlayWindow.requestPermission()`으로 설정 화면 이동.
+- 로그: `[오버레이] 권한 체크 시작`, `[오버레이] 현재 권한 상태: true/false` 로 추적 가능.
 
 ---
 
