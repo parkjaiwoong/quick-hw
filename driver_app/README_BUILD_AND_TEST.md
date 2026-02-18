@@ -99,3 +99,41 @@ flutter build appbundle --release
   - 웹뷰 URL `?accept_delivery=ID` 및 웹 쪽 `acceptDelivery(id)` 호출 확인.
 
 자세한 Full Screen Intent 구조는 `android/FULL_SCREEN_INTENT_README.md` 참고.
+
+---
+
+## 6. FCM 수신 로그 확인 (adb logcat)
+
+앱을 **완전히 끈 상태**에서 FCM을 보냈을 때, 수신 여부를 확인하려면 **adb logcat**으로 로그를 봅니다.
+
+### 1) 기기 연결 후 로그 실시간 보기
+
+```bash
+# FCM 관련 네이티브 로그만 보기 (앱 종료 상태에서도 찍힘)
+adb logcat -s DriverFcmService:D
+
+# 여러 태그 함께 보기
+adb logcat DriverFcmService:D flutter:D *:S
+```
+
+- **DriverFcmService**: FCM이 도착하면 항상 `onMessageReceived`가 호출되며, 여기서 `Log.d(TAG, ...)` 로그가 찍힙니다. **앱이 꺼져 있어도** 시스템이 서비스를 깨우므로 이 로그는 확인할 수 있습니다.
+- **flutter**: Flutter 쪽 `print`/`debugPrint` (백그라운드 핸들러 등)는 **디버그 빌드**에서만 보입니다. 앱이 완전 종료된 뒤 FCM으로 엔진이 다시 뜨는 경우에도 flutter 태그로 나올 수 있습니다.
+
+### 2) 확인 순서
+
+1. **앱 완전 종료**: 최근 앱에서 스와이프로 제거하거나, 설정 > 앱 > 언넌 > 강제 종료.
+2. **로그 필터 켜기**: 터미널에서 `adb logcat -s DriverFcmService:D` 실행.
+3. **서버/테스트 도구로 FCM 전송** (data만, notification 없이).
+4. **로그 확인**:
+   - `onMessageReceived: data=...` → FCM이 기기까지 도착함.
+   - `Dispatch FCM: type=... delivery_id=...` → 배차 타입으로 처리됨.
+   - `skip (not dispatch)` → 배차 타입이 아니라 상위로 넘김.
+
+### 3) 로그 버퍼 지우고 다시 보기
+
+```bash
+adb logcat -c
+adb logcat -s DriverFcmService:D
+```
+
+FCM 보낸 직후 로그만 깔끔하게 볼 때 유용합니다.

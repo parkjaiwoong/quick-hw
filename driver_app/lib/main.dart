@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -11,6 +12,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import 'app_config.dart';
 import 'app_version_service.dart';
+import 'availability_storage.dart';
 import 'fcm_service.dart';
 
 /// 배차 수락 팝업에서 "수락" 후 MainActivity가 전달하는 delivery_id (MethodChannel)
@@ -76,25 +78,51 @@ Future<void> _runApp() async {
   runApp(const DriverApp());
 }
 
-/// SYSTEM_ALERT_WINDOW(다른 앱 위에 표시) 권한 확인 후, 없으면 이유 설명 AlertDialog를 띄우고
-/// [설정 열기] 시 Android 설정의 '다른 앱 위에 표시' 페이지로 이동.
-/// Android가 아니거나 이미 권한이 있으면 다이얼로그를 띄우지 않음.
+/// '다른 앱 위에 표시' 권한: 앱 실행 시 확인 후 없으면 다이얼로그 → 확인 시 설정 화면으로 이동.
 Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
   if (!Platform.isAndroid) return;
   try {
-    final granted = await _launchChannel.invokeMethod<bool>('getOverlayPermissionGranted');
-    if (granted == true) return;
+    final granted = await FlutterOverlayWindow.isPermissionGranted();
+    if (granted) return;
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('배차 알림 권한'),
+        title: const Text('권한 필요'),
+        content: const Text('배차 팝업을 위해 설정이 필요합니다.'),
+        actions: [
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await FlutterOverlayWindow.requestPermission();
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  } catch (_) {}
+}
+
+/// 배터리 최적화 제외 여부 확인 후, 미제외 시 안내 다이얼로그를 띄우고 [설정 열기]로 시스템 화면 이동.
+/// 백그라운드에서도 배차 알림(오버레이)이 즉시 뜨도록 요청.
+Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context) async {
+  if (!Platform.isAndroid) return;
+  try {
+    final excluded = await _launchChannel.invokeMethod<bool>('getBatteryOptimizationExcluded');
+    if (excluded == true) return;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('배터리 최적화 제외'),
         content: const Text(
-          '앱이 꺼져 있거나 다른 앱을 사용 중일 때도 배차 요청을 받으려면 '
-          '"다른 앱 위에 표시" 권한이 필요합니다.\n\n'
+          '백그라운드에서도 배차 요청이 즉시 알림으로 뜨려면 '
+          '"배터리 최적화 제외"가 필요합니다.\n\n'
           '아래 [설정 열기]를 누르면 설정 화면으로 이동합니다. '
-          '언넌 앱의 "다른 앱 위에 표시"를 켜주세요.',
+          '언넌 앱을 "제한 없음" 또는 "최적화 안 함"으로 설정해 주세요.',
         ),
         actions: [
           TextButton(
@@ -104,7 +132,7 @@ Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
           FilledButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              _launchChannel.invokeMethod('openOverlayPermissionSettings');
+              _launchChannel.invokeMethod('openBatteryOptimizationSettings');
             },
             child: const Text('설정 열기'),
           ),
@@ -373,8 +401,12 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     _checkAppVersion();
     _controller = _createController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 1500), () {
+      // 앱 실행 시 1) '다른 앱 위에 표시' 권한 확인 → 없으면 다이얼로그 → 확인 시 설정 화면
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) requestOverlayPermissionWithDialog(context);
+      });
+      Future.delayed(const Duration(milliseconds: 4000), () {
+        if (mounted) requestBatteryOptimizationExclusionWithDialog(context);
       });
     });
   }
@@ -395,6 +427,14 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
   WebViewController _createController() {
     final c = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel(
+        'AvailabilityChannel',
+        onMessageReceived: (JavaScriptMessage message) async {
+          final v = message.message == 'true';
+          await DriverAvailabilityStorage.save(v);
+          if (kDebugMode) debugPrint('[기사앱] 배송 가능 상태 저장: $v');
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {

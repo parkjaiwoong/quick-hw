@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:vibration/vibration.dart';
 
+import 'availability_storage.dart';
+
 /// overlayMain(entry point)으로 전달할 주문(배차) 데이터 맵 구성.
 /// FCM data의 주문 번호, 주소 등과 동일한 키로 맞춰 overlay 위젯에서 그대로 사용.
 Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
@@ -40,13 +42,28 @@ Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+  // 로그: adb logcat에서 확인 가능 (flutter 태그 또는 패키지명). 앱 종료 시에는 네이티브 DriverFcmService 로그 우선 확인.
   debugPrint('[FCM] 백그라운드 메시지 수신');
   debugPrint('[FCM]   data: ${message.data}');
+  print('[FCM] background handler: data=${message.data}');
   final data = message.data;
   final type = data['type'];
   final hasDispatchInfo = (type == 'new_delivery_request' || type == 'new_delivery') &&
       ((data['delivery_id'] ?? data['deliveryId'] ?? '').toString().isNotEmpty);
-  if (!hasDispatchInfo || !Platform.isAndroid) return;
+  if (!hasDispatchInfo || !Platform.isAndroid) {
+    debugPrint('[FCM] skip: hasDispatchInfo=$hasDispatchInfo Android=$Platform.isAndroid');
+    return;
+  }
+
+  // 배송 가능 상태일 때만 오버레이 표시 (웹뷰에서 토글 시 네이티브에 저장된 값 사용)
+  final isAvailable = await DriverAvailabilityStorage.load();
+  if (!isAvailable) {
+    debugPrint('[FCM] 배송 불가 상태 — 오버레이 미표시');
+    print('[FCM] overlay skipped: driver not available');
+    return;
+  }
+
+  debugPrint('[FCM] 배송 가능 상태 — 오버레이 표시 시도');
   try {
     final hasVibrator = await Vibration.hasVibrator();
     if (hasVibrator == true) {
@@ -68,8 +85,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       width: 400,
       height: 520,
     );
+    debugPrint('[FCM] showOverlay 완료');
+    print('[FCM] overlay shown');
   } catch (e) {
     debugPrint('[FCM] shareData/showOverlay 오류: $e');
+    print('[FCM] overlay error: $e');
   }
 }
 

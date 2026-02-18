@@ -23,9 +23,11 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         val data = remoteMessage.data ?: emptyMap()
+        Log.d(TAG, "onMessageReceived: data=$data")
         val type = data["type"] ?: ""
         val deliveryId = data["delivery_id"] ?: ""
         if ((type != "new_delivery_request" && type != "new_delivery") || deliveryId.isEmpty()) {
+            Log.d(TAG, "onMessageReceived: skip (not dispatch) type=$type deliveryId=$deliveryId")
             super.onMessageReceived(remoteMessage)
             return
         }
@@ -34,8 +36,10 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         val dest = data["destination_address"] ?: data["destination"] ?: "-"
         val fee = data["fee"] ?: data["price"] ?: "-"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+            Log.d(TAG, "Dispatch FCM: starting DispatchOverlayActivity (overlay permitted)")
             startDispatchOverlayActivity(deliveryId, origin, dest, fee)
         } else {
+            Log.d(TAG, "Dispatch FCM: showing FullScreenIntent (overlay not permitted)")
             // data만 보낸 경우 notification이 null이므로 기본 문구 사용
             createFullScreenIntentNotification(
                 title = remoteMessage.notification?.title ?: "신규 배차 요청",

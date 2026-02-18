@@ -1,10 +1,18 @@
 "use client"
 
-import { useState, startTransition } from "react"
+import { useState, useEffect, startTransition } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { updateDriverAvailability, updateDriverLocation } from "@/lib/actions/driver"
 import { useRouter } from "next/navigation"
+
+/** 기사 앱 WebView에만 노출됨. 배송 가능 상태를 네이티브에 전달해 FCM 백그라운드 시 오버레이 노출 여부에 사용 */
+function notifyAppAvailability(available: boolean) {
+  if (typeof window === "undefined") return
+  const ch = (window as Window & { AvailabilityChannel?: { postMessage: (s: string) => void } })
+    .AvailabilityChannel
+  if (ch) ch.postMessage(available ? "true" : "false")
+}
 
 interface DriverStatusToggleProps {
   initialStatus: boolean
@@ -14,6 +22,11 @@ export function DriverStatusToggle({ initialStatus }: DriverStatusToggleProps) {
   const router = useRouter()
   const [isAvailable, setIsAvailable] = useState(initialStatus)
   const [isLoading, setIsLoading] = useState(false)
+
+  // 기사 앱 WebView 로드 시 서버의 초기 상태를 네이티브에 동기화
+  useEffect(() => {
+    notifyAppAvailability(initialStatus)
+  }, [initialStatus])
 
   async function handleToggle(checked: boolean) {
     setIsLoading(true)
@@ -25,6 +38,7 @@ export function DriverStatusToggle({ initialStatus }: DriverStatusToggleProps) {
     }
     setIsAvailable(checked)
     setIsLoading(false)
+    notifyAppAvailability(checked)
     const doRefresh = () => startTransition(() => router.refresh())
     if (checked && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
