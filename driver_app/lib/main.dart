@@ -296,6 +296,7 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
     _acceptSent = true;
     const openPath = '/driver?accept_delivery=';
     final openUrl = '$openPath$_deliveryId';
+    // 플러그인 오버레이(OverlayService) 사용 시에도 overlay를 반드시 먼저 닫음
     try {
       await FlutterOverlayWindow.closeOverlay();
     } catch (_) {}
@@ -308,6 +309,9 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
   }
 
   Future<void> _dismiss() async {
+    try {
+      await FlutterOverlayWindow.closeOverlay();
+    } catch (_) {}
     try {
       await _overlayChannel.invokeMethod('dismiss');
     } catch (_) {}
