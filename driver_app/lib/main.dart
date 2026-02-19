@@ -172,7 +172,7 @@ Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context)
   } catch (_) {}
 }
 
-/// 포그라운드 FCM: 콘솔 테스트 메시지 포함 모든 수신 로그, 새 배송 요청일 때 진동
+/// 포그라운드 FCM: 새 배송 요청이면 진동 + 오버레이 표시 (백그라운드와 동일하게)
 void _onForegroundMessage(RemoteMessage message) {
   try {
     print('FCM 수신됨');
@@ -183,13 +183,42 @@ void _onForegroundMessage(RemoteMessage message) {
     }
     final type = message.data['type'];
     final isNewDelivery = type == 'new_delivery_request' || type == 'new_delivery';
-    if (isNewDelivery) {
+    if (isNewDelivery && Platform.isAndroid) {
       try { Vibration.vibrate(duration: 200); } catch (_) {}
       Future.delayed(const Duration(milliseconds: 250), () {
         try { Vibration.vibrate(duration: 200); } catch (_) {}
       });
+      _showOverlayForFcmData(message.data);
     }
   } catch (_) {}
+}
+
+/// FCM data로 오버레이 표시 (포그라운드/백그라운드 공통 로직)
+Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
+  if (!Platform.isAndroid) return;
+  try {
+    final overlayPayload = Map<String, String>.from(
+      buildOverlayPayloadFromFcmData(Map<String, dynamic>.from(data)),
+    );
+    final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? '';
+    if (deliveryId.isEmpty) {
+      overlayPayload['delivery_id'] = 'fcm-${DateTime.now().millisecondsSinceEpoch}';
+      overlayPayload['deliveryId'] = overlayPayload['delivery_id']!;
+    }
+    await OverlayAlertService.triggerOverlayVibration();
+    await FlutterOverlayWindow.shareData(overlayPayload);
+    await FlutterOverlayWindow.showOverlay(
+      overlayTitle: '신규 배차 요청',
+      overlayContent: '출발: ${overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination_address'] ?? '-'}',
+      alignment: OverlayAlignment.center,
+      width: 400,
+      height: 520,
+    );
+    if (kDebugMode) debugPrint('[FCM 포그라운드] 오버레이 표시 완료');
+  } catch (e, st) {
+    debugPrint('[FCM 포그라운드] 오버레이 오류: $e');
+    debugPrint('$st');
+  }
 }
 
 class DriverApp extends StatelessWidget {
