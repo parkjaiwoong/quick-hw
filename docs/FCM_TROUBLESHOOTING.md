@@ -38,10 +38,16 @@ DriverFcmService는 아래 조건을 만족해야 배차 오버레이를 띄웁�
 메시지가 앱까지 도달했는지 확인:
 
 ```bash
+# Kotlin (DriverFcmService) + Dart FCM 로그 모두 보기
+adb logcat -s DriverFcmService:I FCM_BG:D FCM_FG:D flutter:I
+
+# Kotlin만 보기
 adb logcat -s DriverFcmService
 ```
 
-- `onMessageReceived: data=...` → 메시지 수신됨
+**중요**: 앱이 백그라운드일 때 FCM 로그는 `flutter run` 터미널에 안 나옵니다. 반드시 `adb logcat`으로 확인하세요.
+
+- `FCM onMessageReceived 진입` → 메시지 수신됨
 - `skip (not dispatch)` → type/delivery_id 없음 (Dart로는 전달됨)
 - 아무 로그 없음 → FCM이 아예 도달 안 함 (토큰/프로젝트/네트워크 점검)
 

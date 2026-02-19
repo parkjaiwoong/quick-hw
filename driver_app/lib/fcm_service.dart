@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -40,13 +41,13 @@ Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
+    developer.log('===== FCM 백그라운드 핸들러 진입 =====', name: 'FCM_BG');
     await Firebase.initializeApp();
     final data = message.data;
-    print('전체 수신 데이터: ${message.data}');
-    print('🚨🚨🚨 [FCM 백그라운드] 신호 포착!!! 🚨🚨🚨');
-    print('데이터: $data');
+    developer.log('전체 수신 데이터: ${message.data}', name: 'FCM_BG');
+    developer.log('🚨 [FCM_BG] 신호 포착 data=$data', name: 'FCM_BG');
     for (final e in data.entries) {
-      print('[FCM]   data["${e.key}"] = ${e.value}');
+      developer.log('  data["${e.key}"] = ${e.value}', name: 'FCM_BG');
     }
 
     if (!Platform.isAndroid) return;
@@ -58,12 +59,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       final typeRaw = (data['type'] ?? '').toString();
       final isDelivery = typeRaw == 'new_delivery_request' || typeRaw == 'new_delivery' || deliveryIdRaw.isNotEmpty;
       if (!isDelivery || dataMap.isEmpty) {
-        print('[FCM 백그라운드] 오버레이 스킵: 배송 관련 키 없음 (type=$typeRaw delivery_id/order_id=$deliveryIdRaw)');
+        developer.log('오버레이 스킵: 배송 관련 키 없음 type=$typeRaw delivery_id/order_id=$deliveryIdRaw', name: 'FCM_BG');
         return;
       }
       final overlayPayload = buildOverlayPayloadFromFcmData(dataMap);
       for (final e in overlayPayload.entries) {
-        print('[FCM]   파싱결과["${e.key}"] = ${e.value}');
+        developer.log('  파싱["${e.key}"] = ${e.value}', name: 'FCM_BG');
       }
       final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? overlayPayload['order_id'] ?? overlayPayload['orderId'] ?? '';
       if (deliveryId.isEmpty) {
@@ -71,13 +72,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         overlayPayload['delivery_id'] = id;
         overlayPayload['deliveryId'] = id;
       }
-      print('🚨 [FCM 백그라운드] shareData 후 showOverlay 호출: $overlayPayload');
+      developer.log('shareData 후 showOverlay 호출: $overlayPayload', name: 'FCM_BG');
       await OverlayAlertService.triggerOverlayVibration();
       try {
         await FlutterOverlayWindow.shareData(overlayPayload);
       } catch (e, st) {
-        print('[FCM] shareData 오류: $e');
-        print('[FCM] shareData stackTrace:\n$st');
+        developer.log('shareData 오류: $e\n$st', name: 'FCM_BG');
         return;
       }
       try {
@@ -88,18 +88,15 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           width: 400,
           height: 520,
         );
-        print('🚨🚨🚨 [FCM 백그라운드] showOverlay 완료!!! 🚨🚨🚨');
+        developer.log('🚨 showOverlay 완료', name: 'FCM_BG');
       } catch (e, st) {
-        print('[FCM] showOverlay 오류: $e');
-        print('[FCM] showOverlay stackTrace:\n$st');
+        developer.log('showOverlay 오류: $e\n$st', name: 'FCM_BG');
       }
     } catch (e, st) {
-      print('[FCM] shareData/showOverlay 오류: $e');
-      print('[FCM] stackTrace:\n$st');
+      developer.log('shareData/showOverlay 오류: $e\n$st', name: 'FCM_BG');
     }
   } catch (e, st) {
-    print('[FCM] 백그라운드 핸들러 전체 오류 (앱은 유지): $e');
-    print('[FCM] stackTrace:\n$st');
+    developer.log('백그라운드 핸들러 전체 오류: $e\n$st', name: 'FCM_BG');
   }
 }
 

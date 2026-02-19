@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -57,7 +58,7 @@ void overlayMain() {
 
 /// runApp은 즉시 실행하고, payload는 위젯 내부에서 비동기 수신. getPayload는 호출하지 않으므로 여기서 앱이 멈추지 않음.
 void _runOverlayApp() {
-  print('[Overlay] runApp 실행 직전');
+  developer.log('[Overlay] runApp 실행 직전', name: 'FCM_OVERLAY');
   runApp(const OverlayApp());
 }
 
@@ -70,7 +71,7 @@ Future<Map<String, String>> _getOverlayPayload() async {
       final result = await _overlayChannel.invokeMethod<Map<Object?, Object?>>('getPayload');
       if (result != null && result.isNotEmpty) {
         payload = result.map((k, v) => MapEntry(k?.toString() ?? '', v?.toString() ?? ''));
-        print('[Overlay] overlayMain 수신(getPayload): $payload');
+        developer.log('[Overlay] getPayload: $payload', name: 'FCM_OVERLAY');
       }
     } catch (_) {}
     if (payload.isEmpty) {
@@ -82,7 +83,7 @@ Future<Map<String, String>> _getOverlayPayload() async {
             .timeout(const Duration(seconds: 3));
         if (fromListener.isNotEmpty) {
           payload = fromListener;
-          print('[Overlay] overlayMain 수신(overlayListener/shareData): $payload');
+          developer.log('[Overlay] overlayListener/shareData: $payload', name: 'FCM_OVERLAY');
         }
       } on TimeoutException catch (_) {
       } catch (_) {}
@@ -175,12 +176,10 @@ Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context)
 /// 포그라운드 FCM: message.data만 있어도 동작 (notification 불필요). 배송 관련 키 있으면 진동 + 오버레이
 void _onForegroundMessage(RemoteMessage message) {
   try {
-    print('전체 수신 데이터: ${message.data}');
-    print('FCM 수신됨');
-    print('🚨🚨🚨 [FCM 포그라운드] 신호 포착!!! 🚨🚨🚨');
-    print('데이터: ${message.data}');
+    developer.log('===== FCM 포그라운드 수신 =====', name: 'FCM_FG');
+    developer.log('전체 수신 데이터: ${message.data}', name: 'FCM_FG');
     if (kDebugMode) {
-      debugPrint('[FCM] notification: ${message.notification?.title}');
+      developer.log('notification: ${message.notification?.title}', name: 'FCM_FG');
     }
     final data = message.data;
     if (data.isEmpty || !Platform.isAndroid) return;

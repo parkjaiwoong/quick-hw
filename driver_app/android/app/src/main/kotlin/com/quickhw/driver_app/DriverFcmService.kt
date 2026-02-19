@@ -22,29 +22,29 @@ import io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService
 class DriverFcmService : FlutterFirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        Log.i(TAG, "========== FCM onMessageReceived 진입 ==========")
         val data = remoteMessage.data ?: emptyMap()
-        Log.d(TAG, "전체 수신 데이터: $data")
-        Log.d(TAG, "onMessageReceived: data=$data")
+        Log.i(TAG, "전체 수신 데이터: $data")
         val type = data["type"] ?: ""
         val deliveryId = data["delivery_id"] ?: data["deliveryId"]
             ?: data["order_id"] ?: data["orderId"] ?: data["order_number"] ?: ""
         val isDeliveryType = type == "new_delivery_request" || type == "new_delivery"
         val hasDeliveryKey = deliveryId.isNotEmpty()
         if (!isDeliveryType && !hasDeliveryKey) {
-            Log.d(TAG, "onMessageReceived: skip (not dispatch) type=$type deliveryId=$deliveryId")
+            Log.i(TAG, "skip (not dispatch) type=$type deliveryId=$deliveryId")
             super.onMessageReceived(remoteMessage)
             return
         }
         // data만 있어도 동작 (notification 불필요)
-        Log.d(TAG, "Dispatch FCM: type=$type delivery_id=$deliveryId")
+        Log.i(TAG, "Dispatch FCM: type=$type delivery_id=$deliveryId")
         val origin = data["origin_address"] ?: data["origin"] ?: "-"
         val dest = data["destination_address"] ?: data["destination"] ?: "-"
         val fee = data["fee"] ?: data["price"] ?: "-"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-            Log.d(TAG, "Dispatch FCM: starting DispatchOverlayActivity (overlay permitted)")
+            Log.i(TAG, "Dispatch FCM: starting DispatchOverlayActivity (overlay permitted)")
             startDispatchOverlayActivity(deliveryId, origin, dest, fee)
         } else {
-            Log.d(TAG, "Dispatch FCM: showing FullScreenIntent (overlay not permitted)")
+            Log.i(TAG, "Dispatch FCM: showing FullScreenIntent (overlay not permitted)")
             // data만 보낸 경우 notification이 null이므로 기본 문구 사용
             createFullScreenIntentNotification(
                 title = remoteMessage.notification?.title ?: "신규 배차 요청",
