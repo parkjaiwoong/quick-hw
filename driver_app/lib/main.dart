@@ -222,9 +222,19 @@ class OverlayApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.transparent,
       ),
-      home: const Scaffold(
-        backgroundColor: Colors.transparent,
-        body: _OverlayPayloadLoader(),
+      home: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            try {
+              FlutterOverlayWindow.closeOverlay();
+            } catch (_) {}
+          }
+        },
+        child: const Scaffold(
+          backgroundColor: Colors.transparent,
+          body: _OverlayPayloadLoader(),
+        ),
       ),
     );
   }
@@ -720,11 +730,10 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
           ],
         ),
       ),
-      // 디버그 모드에서 오버레이 FAB 비활성화: 오버레이(별도 엔진) 띄우면 flutter run 연결이 끊기는 이슈 회피
-      floatingActionButton: Platform.isAndroid && !kDebugMode
+      floatingActionButton: Platform.isAndroid
           ? FloatingActionButton.small(
               onPressed: _testOverlay,
-              tooltip: '배차 오버레이 테스트',
+              tooltip: '배차 오버레이 테스트 (신규 배송 건)',
               child: const Icon(Icons.notifications_active),
             )
           : null,
