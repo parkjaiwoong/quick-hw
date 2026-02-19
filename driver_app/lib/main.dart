@@ -172,18 +172,22 @@ Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context)
   } catch (_) {}
 }
 
-/// 포그라운드 FCM: 새 배송 요청이면 진동 + 오버레이 표시 (백그라운드와 동일하게)
+/// 포그라운드 FCM: message.data만 있어도 동작 (notification 불필요). 배송 관련 키 있으면 진동 + 오버레이
 void _onForegroundMessage(RemoteMessage message) {
   try {
+    print('전체 수신 데이터: ${message.data}');
     print('FCM 수신됨');
     print('🚨🚨🚨 [FCM 포그라운드] 신호 포착!!! 🚨🚨🚨');
     print('데이터: ${message.data}');
     if (kDebugMode) {
       debugPrint('[FCM] notification: ${message.notification?.title}');
     }
-    final type = message.data['type'];
-    final isNewDelivery = type == 'new_delivery_request' || type == 'new_delivery';
-    if (isNewDelivery && Platform.isAndroid) {
+    final data = message.data;
+    if (data.isEmpty || !Platform.isAndroid) return;
+    final typeRaw = (data['type'] ?? '').toString();
+    final deliveryIdRaw = (data['delivery_id'] ?? data['deliveryId'] ?? data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
+    final isNewDelivery = typeRaw == 'new_delivery_request' || typeRaw == 'new_delivery' || deliveryIdRaw.isNotEmpty;
+    if (isNewDelivery) {
       try { Vibration.vibrate(duration: 200); } catch (_) {}
       Future.delayed(const Duration(milliseconds: 250), () {
         try { Vibration.vibrate(duration: 200); } catch (_) {}
@@ -200,11 +204,12 @@ Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
     final overlayPayload = Map<String, String>.from(
       buildOverlayPayloadFromFcmData(Map<String, dynamic>.from(data)),
     );
-    final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? '';
+    var deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? overlayPayload['order_id'] ?? overlayPayload['orderId'] ?? overlayPayload['order_number'] ?? '';
     if (deliveryId.isEmpty) {
-      overlayPayload['delivery_id'] = 'fcm-${DateTime.now().millisecondsSinceEpoch}';
-      overlayPayload['deliveryId'] = overlayPayload['delivery_id']!;
+      deliveryId = 'fcm-${DateTime.now().millisecondsSinceEpoch}';
     }
+    overlayPayload['delivery_id'] = deliveryId;
+    overlayPayload['deliveryId'] = deliveryId;
     await OverlayAlertService.triggerOverlayVibration();
     await FlutterOverlayWindow.shareData(overlayPayload);
     await FlutterOverlayWindow.showOverlay(

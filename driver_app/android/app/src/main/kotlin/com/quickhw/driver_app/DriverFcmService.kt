@@ -23,14 +23,19 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         val data = remoteMessage.data ?: emptyMap()
+        Log.d(TAG, "전체 수신 데이터: $data")
         Log.d(TAG, "onMessageReceived: data=$data")
         val type = data["type"] ?: ""
-        val deliveryId = data["delivery_id"] ?: ""
-        if ((type != "new_delivery_request" && type != "new_delivery") || deliveryId.isEmpty()) {
+        val deliveryId = data["delivery_id"] ?: data["deliveryId"]
+            ?: data["order_id"] ?: data["orderId"] ?: data["order_number"] ?: ""
+        val isDeliveryType = type == "new_delivery_request" || type == "new_delivery"
+        val hasDeliveryKey = deliveryId.isNotEmpty()
+        if (!isDeliveryType && !hasDeliveryKey) {
             Log.d(TAG, "onMessageReceived: skip (not dispatch) type=$type deliveryId=$deliveryId")
             super.onMessageReceived(remoteMessage)
             return
         }
+        // data만 있어도 동작 (notification 불필요)
         Log.d(TAG, "Dispatch FCM: type=$type delivery_id=$deliveryId")
         val origin = data["origin_address"] ?: data["origin"] ?: "-"
         val dest = data["destination_address"] ?: data["destination"] ?: "-"

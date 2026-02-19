@@ -14,8 +14,9 @@ Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
     final t = v?.toString() ?? '';
     return t.isEmpty ? '-' : t;
   }
-  final deliveryId = (data['delivery_id'] ?? data['deliveryId'])?.toString() ?? '';
+  var deliveryId = (data['delivery_id'] ?? data['deliveryId'])?.toString() ?? '';
   final orderId = (data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
+  if (deliveryId.isEmpty && orderId.isNotEmpty) deliveryId = orderId;
   final origin = s(data['origin_address'] ?? data['origin']);
   final dest = s(data['destination_address'] ?? data['destination']);
   final fee = s(data['fee'] ?? data['price']);
@@ -41,6 +42,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
     final data = message.data;
+    print('전체 수신 데이터: ${message.data}');
     print('🚨🚨🚨 [FCM 백그라운드] 신호 포착!!! 🚨🚨🚨');
     print('데이터: $data');
     for (final e in data.entries) {
@@ -49,14 +51,21 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
     if (!Platform.isAndroid) return;
 
-    // 테스트: type/delivery_id/배송가능 등 어떤 조건도 검사하지 않고, 데이터 오자마자 바로 오버레이 표시
+    // message.data만 있어도 동작 (notification 없음). delivery_id, order_id, type 등 있으면 오버레이 표시
     try {
       final dataMap = Map<String, dynamic>.from(data);
+      final deliveryIdRaw = (data['delivery_id'] ?? data['deliveryId'] ?? data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
+      final typeRaw = (data['type'] ?? '').toString();
+      final isDelivery = typeRaw == 'new_delivery_request' || typeRaw == 'new_delivery' || deliveryIdRaw.isNotEmpty;
+      if (!isDelivery || dataMap.isEmpty) {
+        print('[FCM 백그라운드] 오버레이 스킵: 배송 관련 키 없음 (type=$typeRaw delivery_id/order_id=$deliveryIdRaw)');
+        return;
+      }
       final overlayPayload = buildOverlayPayloadFromFcmData(dataMap);
       for (final e in overlayPayload.entries) {
         print('[FCM]   파싱결과["${e.key}"] = ${e.value}');
       }
-      final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? '';
+      final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? overlayPayload['order_id'] ?? overlayPayload['orderId'] ?? '';
       if (deliveryId.isEmpty) {
         final id = 'fcm-${DateTime.now().millisecondsSinceEpoch}';
         overlayPayload['delivery_id'] = id;
