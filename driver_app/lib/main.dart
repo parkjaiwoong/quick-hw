@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:vibration/vibration.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'app_config.dart';
 import 'app_version_service.dart';
@@ -499,7 +501,9 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
 
   WebViewController _createController() {
     final c = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+    _setupAndroidGeolocation(c);
+    c
       ..addJavaScriptChannel(
         'AvailabilityChannel',
         onMessageReceived: (JavaScriptMessage message) async {
@@ -564,6 +568,28 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
       )
       ..loadRequest(Uri.parse(driverWebUrl));
     return c;
+  }
+
+  /// Android WebView에서 navigator.geolocation 사용 시 앱 위치 권한과 연동
+  void _setupAndroidGeolocation(WebViewController controller) {
+    if (!Platform.isAndroid) return;
+    final android = controller.platform;
+    if (android is! AndroidWebViewController) return;
+    // WebView geolocation 활성화 및 콜백: 앱 위치 권한 요청 후 허용 시 retain=true로 전체 화면 공통 사용
+    android.setGeolocationEnabled(true);
+    android.setGeolocationPermissionsPromptCallbacks(
+      onShowPrompt: (GeolocationPermissionsRequestParams request) async {
+        var status = await Permission.location.status;
+        if (!status.isGranted) {
+          status = await Permission.location.request();
+        }
+        final allow = status.isGranted;
+        if (kDebugMode) {
+          debugPrint('[기사앱] 위치 권한 WebView origin=${request.origin} → ${allow ? "허용" : "거부"}');
+        }
+        return GeolocationPermissionsResponse(allow: allow, retain: allow);
+      },
+    );
   }
 
   /// 오버레이/배차 수락으로 진입 시: open_url 있으면 해당 URL 로드, 없으면 accept_delivery_id로 쿼리 로드
