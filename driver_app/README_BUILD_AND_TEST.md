@@ -18,6 +18,20 @@ flutter run
 
 ---
 
+## 디버그 모드에서 "Lost connection to device" (연결 끊김)
+
+**증상**: `flutter run --debug` 실행 중 오버레이가 뜨면 곧바로 연결이 끊어짐.
+
+**원인**: 오버레이가 별도 Flutter 엔진에서 실행되어, 메인 앱과의 디버그 연결이 불안정해짐.
+
+**대응**:
+- **디버그 시 오버레이 FAB 비활성화**: `kDebugMode`일 때 우측 하단 오버레이 테스트 버튼을 숨김. WebView/메인 플로우는 그대로 디버깅 가능.
+- **연결 끊긴 뒤 복구**: 앱이 종료되지 않았다면 `flutter attach` 로 재연결 시도.
+- **USB 권장**: 무선 디버깅보다 USB 연결이 안정적.
+- **오버레이 테스트**: `flutter run --release` 또는 APK로 설치 후 테스트.
+
+---
+
 ## '다른 앱 위에 표시' 권한 호출 위치
 
 - **호출**: `requestOverlayPermissionWithDialog(context)` (main.dart)
