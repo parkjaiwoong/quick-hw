@@ -563,6 +563,12 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
         },
       )
       ..addJavaScriptChannel(
+        'RequestFcmTokenSync',
+        onMessageReceived: (_) async {
+          await _injectFcmTokenToWeb(forceResend: true);
+        },
+      )
+      ..addJavaScriptChannel(
         'FlutterOverlayChannel',
         onMessageReceived: (JavaScriptMessage message) async {
           if (!Platform.isAndroid) return;
@@ -607,10 +613,11 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
           onPageFinished: (_) {
             if (mounted) setState(() => _isLoading = false);
             _injectFcmTokenToWeb();
-            // React 마운트 지연 대비: 1.5초 후 토큰 재전달 (FCM 토큰 DB 등록 확실히)
-            Future.delayed(const Duration(milliseconds: 1500), () {
-              if (mounted) _injectFcmTokenToWeb();
-            });
+            for (final delay in [800, 2000, 4000, 7000]) {
+              Future.delayed(Duration(milliseconds: delay), () {
+                if (mounted) _injectFcmTokenToWeb(forceResend: true);
+              });
+            }
             _handleLaunchUrl();
           },
           onWebResourceError: (e) {
@@ -707,17 +714,18 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     });
   }
 
-  /// 토큰이 변경되었을 때만 웹에 1회 전달. 플래그를 먼저 세워 동시 호출 시 메인 스레드 점유·중복 전달 방지.
-  Future<void> _injectFcmTokenToWeb() async {
+  /// 토큰이 변경되었을 때만 웹에 1회 전달. forceResend=true면 React 마운트 지연 대비 재전달.
+  Future<void> _injectFcmTokenToWeb({bool forceResend = false}) async {
     final t = await FcmService.getToken();
     if (t == null || !mounted) return;
-    if (_lastSentFcmToken == t) return;
-    _lastSentFcmToken = t;
+    if (!forceResend && _lastSentFcmToken == t) return;
+    if (!forceResend) _lastSentFcmToken = t;
     if (kDebugMode) {
       debugPrint('[기사앱] FCM 토큰 웹 전달(서버 DB 대조용) 끝 24자: ${t.length >= 24 ? t.substring(t.length - 24) : t}');
     }
     final escaped = t.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
-    final js = "window.dispatchEvent(new CustomEvent('driverFcmToken', { detail: '$escaped' }));";
+    // window에 저장 + 이벤트: React 마운트 전 전달돼도 마운트 시 window에서 읽어 등록 가능
+    final js = "window.__driverFcmToken='$escaped';window.dispatchEvent(new CustomEvent('driverFcmToken',{detail:'$escaped'}));";
     try {
       await _controller.runJavaScript(js);
       if (kDebugMode) debugPrint('[기사앱] FCM 토큰 웹 전달 완료 (토큰 변경 시 1회)');

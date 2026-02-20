@@ -177,27 +177,47 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   }, [])
 
   // Flutter 앱에서 FCM 토큰 전달 시 서버에 등록 (앱 백그라운드/종료 시에도 푸시 수신)
+  const registerFcmToken = useCallback((token: string) => {
+    if (!token) return
+    const suffix = token.length >= 24 ? token.slice(-24) : token
+    console.log("[기사앱-웹] FCM 토큰 서버 등록 요청, 토큰 끝 24자(DB 대조용):", suffix)
+    fetch("/api/driver/fcm-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      credentials: "same-origin",
+    })
+      .then(async (res) => {
+        if (res.ok) console.log("[기사앱-웹] FCM 토큰 서버 등록 성공 (끝 24자:", suffix + ")")
+        else console.warn("[기사앱-웹] FCM 토큰 서버 등록 실패:", res.status, await res.text())
+      })
+      .catch((err) => console.warn("[기사앱-웹] FCM 토큰 서버 등록 오류:", err))
+  }, [])
+
   useEffect(() => {
+    const win = window as Window & { __driverFcmToken?: string }
+    const tryRegisterFromWindow = () => {
+      if (win.__driverFcmToken) {
+        registerFcmToken(win.__driverFcmToken)
+        delete win.__driverFcmToken
+      }
+    }
+    tryRegisterFromWindow()
     const handler = (e: Event) => {
       const token = (e as CustomEvent<string>).detail
-      if (!token) return
-      const suffix = token.length >= 24 ? token.slice(-24) : token
-      console.log("[기사앱-웹] FCM 토큰 서버 등록 요청, 토큰 끝 24자(DB 대조용):", suffix)
-      fetch("/api/driver/fcm-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-        credentials: "same-origin",
-      })
-        .then(async (res) => {
-          if (res.ok) console.log("[기사앱-웹] FCM 토큰 서버 등록 성공 (끝 24자:", suffix + ")")
-          else console.warn("[기사앱-웹] FCM 토큰 서버 등록 실패:", res.status, await res.text())
-        })
-        .catch((err) => console.warn("[기사앱-웹] FCM 토큰 서버 등록 오류:", err))
+      registerFcmToken(token)
     }
     window.addEventListener("driverFcmToken", handler)
-    return () => window.removeEventListener("driverFcmToken", handler)
-  }, [])
+    const t1 = setTimeout(tryRegisterFromWindow, 500)
+    const t2 = setTimeout(tryRegisterFromWindow, 2000)
+    const t3 = setTimeout(tryRegisterFromWindow, 5000)
+    return () => {
+      window.removeEventListener("driverFcmToken", handler)
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+    }
+  }, [registerFcmToken])
 
   // Web Push 구독: 탭을 완전히 닫아도 배송 요청 시 시스템 알림 수신
   useEffect(() => {
@@ -612,27 +632,48 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
             알림 {eventReceiveCount}건 수신 {lastEventAt != null ? "(방금)" : ""}
           </span>
         )}
-        {typeof window !== "undefined" && process.env.NODE_ENV === "development" && (
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="pointer-events-auto mt-1 text-xs"
-            disabled={testNotifyLoading || realtimeStatus !== "subscribed"}
-            onClick={async () => {
-              setTestNotifyLoading(true)
-              try {
-                const res = await fetch("/api/driver/test-notification", { method: "POST", credentials: "same-origin" })
-                const json = await res.json().catch(() => ({}))
-                if (!res.ok) toast({ title: "테스트 알림 실패", description: json?.error ?? String(res.status), variant: "destructive" })
-                else toast({ title: "테스트 알림 발송됨", description: "곧 UI/진동/소리가 나와야 합니다." })
-              } finally {
-                setTestNotifyLoading(false)
-              }
-            }}
-          >
-            {testNotifyLoading ? "발송 중…" : "테스트 알림 (개발)"}
-          </Button>
+        {typeof window !== "undefined" && (
+          <div className="pointer-events-auto mt-1 flex gap-1 flex-wrap">
+            {process.env.NODE_ENV === "development" && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="text-xs"
+                disabled={testNotifyLoading || realtimeStatus !== "subscribed"}
+                onClick={async () => {
+                  setTestNotifyLoading(true)
+                  try {
+                    const res = await fetch("/api/driver/test-notification", { method: "POST", credentials: "same-origin" })
+                    const json = await res.json().catch(() => ({}))
+                    if (!res.ok) toast({ title: "테스트 알림 실패", description: json?.error ?? String(res.status), variant: "destructive" })
+                    else toast({ title: "테스트 알림 발송됨", description: "곧 UI/진동/소리가 나와야 합니다." })
+                  } finally {
+                    setTestNotifyLoading(false)
+                  }
+                }}
+              >
+                {testNotifyLoading ? "발송 중…" : "테스트 알림 (개발)"}
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="text-xs"
+              onClick={() => {
+                const w = window as Window & { RequestFcmTokenSync?: { postMessage: (s: string) => void } }
+                if (w.RequestFcmTokenSync) {
+                  w.RequestFcmTokenSync.postMessage("")
+                  toast({ title: "FCM 토큰 동기화", description: "서버에 등록 중입니다." })
+                } else {
+                  toast({ title: "기사 앱에서만 가능", description: "웹에서는 FCM 토큰이 없습니다.", variant: "destructive" })
+                }
+              }}
+            >
+              FCM 토큰 동기화
+            </Button>
+          </div>
         )}
       </div>
       {realtimeStatus === "error" && (
