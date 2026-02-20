@@ -12,7 +12,8 @@ export function AcceptDeliveryFromUrl({ deliveryId }: { deliveryId: string | nul
     if (!deliveryId) return
     let cancelled = false
     acceptDelivery(deliveryId).then(() => {
-      if (!cancelled) router.replace("/driver")
+      // 배송상세와 동일: 수락 후 배송상세 페이지로 이동
+      if (!cancelled) router.replace(`/driver/delivery/${deliveryId}`)
     }).catch(() => {
       if (!cancelled) router.replace("/driver")
     })

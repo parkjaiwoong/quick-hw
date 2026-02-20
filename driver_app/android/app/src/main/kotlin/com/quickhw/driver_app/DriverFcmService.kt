@@ -42,12 +42,12 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         }
         // data만 있어도 동작 (notification 불필요)
         Log.i(TAG, "Dispatch FCM: type=$type delivery_id=$deliveryId")
-        val origin = data["origin_address"] ?: data["origin"] ?: "-"
-        val dest = data["destination_address"] ?: data["destination"] ?: "-"
-        val fee = data["fee"] ?: data["price"] ?: "-"
+        val pickup = data["pickup"] ?: data["origin_address"] ?: data["origin"] ?: "-"
+        val destination = data["destination"] ?: data["destination_address"] ?: data["dest"] ?: "-"
+        val price = data["price"] ?: data["fee"] ?: "-"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
             Log.i(TAG, "Dispatch FCM: starting DispatchOverlayActivity (overlay permitted)")
-            startDispatchOverlayActivity(deliveryId, origin, dest, fee)
+            startDispatchOverlayActivity(deliveryId, pickup, destination, price)
         } else {
             Log.i(TAG, "Dispatch FCM: showing FullScreenIntent (overlay not permitted)")
             // data만 보낸 경우 notification이 null이므로 기본 문구 사용

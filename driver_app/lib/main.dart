@@ -174,7 +174,8 @@ Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context)
 }
 
 /// 포그라운드 FCM: message.data만 있어도 동작 (notification 불필요). 배송 관련 키 있으면 진동 + 오버레이
-void _onForegroundMessage(RemoteMessage message) {
+/// 앱 화면 위에 모달처럼 오버레이 표시 (앱은 그대로 둔 채 위에 띄움)
+Future<void> _onForegroundMessage(RemoteMessage message) async {
   try {
     developer.log('===== FCM 포그라운드 수신 =====', name: 'FCM_FG');
     logFcmReceiptToDb(Map<String, dynamic>.from(message.data), 'foreground');
@@ -188,6 +189,12 @@ void _onForegroundMessage(RemoteMessage message) {
     final deliveryIdRaw = (data['delivery_id'] ?? data['deliveryId'] ?? data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
     final isNewDelivery = typeRaw == 'new_delivery_request' || typeRaw == 'new_delivery' || deliveryIdRaw.isNotEmpty;
     if (isNewDelivery) {
+      // 배송가능 체크: 배송가능 누른 기사에게만 오버레이 표시
+      final isAvailable = await DriverAvailabilityStorage.load();
+      if (!isAvailable) {
+        if (kDebugMode) debugPrint('[FCM 포그라운드] 배송가능 OFF — 오버레이 스킵');
+        return;
+      }
       try { Vibration.vibrate(duration: 200); } catch (_) {}
       Future.delayed(const Duration(milliseconds: 250), () {
         try { Vibration.vibrate(duration: 200); } catch (_) {}
@@ -214,7 +221,7 @@ Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
     await FlutterOverlayWindow.shareData(overlayPayload);
     await FlutterOverlayWindow.showOverlay(
       overlayTitle: '신규 배차 요청',
-      overlayContent: '출발: ${overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination_address'] ?? '-'}',
+      overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
       alignment: OverlayAlignment.center,
       width: 400,
       height: 520,
@@ -315,8 +322,8 @@ class _OverlayPayloadLoaderState extends State<_OverlayPayloadLoader> {
   }
 }
 
-/// 기사님이 볼 배차 알림 위젯 (오버레이 전용). 배경 투명 + 카드만 표시.
-/// UI 구성: 상단 '신규 배차 요청' 타이틀 / 중간 출발지·도착지·요금 / 하단 슬라이드 수락 버튼 + 거절 버튼.
+/// 심플 다크모드 오버레이: message.data의 price, pickup, destination 연결.
+/// 배경 85% 불투명 짙은 네이비 / 금액 상단 중앙 형광노랑 / 경로 수직점선+화살표 / 하단 수락·거절 버튼
 class DispatchAcceptOverlayWidget extends StatefulWidget {
   const DispatchAcceptOverlayWidget({super.key, required this.payload});
 
@@ -326,22 +333,48 @@ class DispatchAcceptOverlayWidget extends StatefulWidget {
   State<DispatchAcceptOverlayWidget> createState() => _DispatchAcceptOverlayWidgetState();
 }
 
-class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidget> {
-  double _slideValue = 0;
-  final GlobalKey _slideKey = GlobalKey();
+class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidget>
+    with SingleTickerProviderStateMixin {
   bool _acceptSent = false;
+  bool _showSuccess = false;
+  late AnimationController _successController;
+  late Animation<double> _successScale;
 
   String get _deliveryId => widget.payload['delivery_id'] ?? widget.payload['deliveryId'] ?? '';
-  String get _origin => widget.payload['origin_address'] ?? widget.payload['origin'] ?? '-';
-  String get _dest => widget.payload['destination_address'] ?? widget.payload['destination'] ?? '-';
-  String get _fee => widget.payload['fee'] ?? widget.payload['price'] ?? '-';
+  String get _price => widget.payload['price'] ?? widget.payload['fee'] ?? '-';
+  String get _pickup => widget.payload['pickup'] ?? widget.payload['origin_address'] ?? widget.payload['origin'] ?? '-';
+  String get _destination =>
+      widget.payload['destination'] ?? widget.payload['destination_address'] ?? widget.payload['dest'] ?? '-';
+
+  @override
+  void initState() {
+    super.initState();
+    _successController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _successScale = Tween<double>(begin: 0.5, end: 1.15)
+        .chain(CurveTween(curve: Curves.elasticOut))
+        .animate(_successController);
+  }
+
+  @override
+  void dispose() {
+    _successController.dispose();
+    super.dispose();
+  }
 
   Future<void> _accept() async {
     if (_deliveryId.isEmpty || _acceptSent) return;
     _acceptSent = true;
+    setState(() => _showSuccess = true);
+    _successController.forward();
+
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    // 배송상세와 동일: accept_delivery 파라미터로 AcceptDeliveryFromUrl에서 acceptDelivery 호출 후 배송상세로 이동
     const openPath = '/driver?accept_delivery=';
     final openUrl = '$openPath$_deliveryId';
-    // 플러그인 오버레이(OverlayService) 사용 시에도 overlay를 반드시 먼저 닫음
     try {
       await FlutterOverlayWindow.closeOverlay();
     } catch (_) {}
@@ -362,9 +395,12 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
     } catch (_) {}
   }
 
+  static const Color _bgNavy = Color(0xD90D1B2A); // 짙은 네이비 85% 불투명 (0xD9 ≈ 85%)
+  static const Color _priceColor = Color(0xFFD4FF00); // 형광 노랑
+  static const Color _acceptBtnColor = Color(0xFF42A5F5); // 밝은 파란색
+
   @override
   Widget build(BuildContext context) {
-    // 배경 투명: 다른 앱 위에 카드만 보이도록 함. 카드 뒤만 살짝 딤 처리.
     return Material(
       color: Colors.transparent,
       child: Stack(
@@ -372,134 +408,207 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
           Positioned.fill(
             child: GestureDetector(
               onTap: _dismiss,
-              child: Container(color: Colors.black26),
+              child: Container(color: Colors.black54),
             ),
           ),
           SafeArea(
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: Card(
-                    elevation: 8,
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            '신규 배차 요청',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _bgNavy,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                          child: Column(
+                            children: [
+                              // 금액: 상단 중앙, 32sp+, 형광노랑
+                              if (_price != '-')
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 24),
+                                  child: Text(
+                                    _price,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 36,
+                                      fontWeight: FontWeight.bold,
+                                      color: _priceColor,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                              // 경로: 출발 — 수직점선/화살표 — 도착
+                              _buildRouteSection(),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          _infoRow('출발지', _origin),
-                          const SizedBox(height: 10),
-                          _infoRow('도착지', _dest),
-                          if (_fee != '-') ...[
-                            const SizedBox(height: 10),
-                            _infoRow('요금', _fee),
-                          ],
-                          const SizedBox(height: 20),
-                          _slideAcceptButton(context),
-                          const SizedBox(height: 10),
-                          TextButton(
-                            onPressed: _acceptSent ? null : _dismiss,
-                            child: const Text('거절'),
+                        ),
+                        // 버튼: 하단 가로 배치, 수락=밝은파랑+흰글자
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 48,
+                                  child: TextButton(
+                                    onPressed: _acceptSent ? null : _dismiss,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                    ),
+                                    child: const Text('넘기기(거절하기)'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: SizedBox(
+                                  height: 48,
+                                  child: ElevatedButton(
+                                    onPressed: _acceptSent ? null : _accept,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _acceptBtnColor,
+                                      foregroundColor: Colors.white,
+                                      disabledBackgroundColor: Colors.grey.shade700,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: Text(
+                                      _acceptSent ? '처리 중…' : '배송 수락하기',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
           ),
+          if (_showSuccess) _buildSuccessOverlay(),
         ],
       ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _buildRouteSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        Text('출발', style: TextStyle(fontSize: 12, color: Colors.white54)),
+        const SizedBox(height: 4),
         Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value.isEmpty ? '-' : value,
-          style: const TextStyle(fontSize: 15),
+          _pickup,
+          style: const TextStyle(
+            fontSize: 15,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        // 수직 점선 + 화살표 (이동 방향 명확)
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildVerticalDottedLine(),
+            Icon(Icons.arrow_downward, size: 24, color: Colors.white54),
+            _buildVerticalDottedLine(),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text('도착', style: TextStyle(fontSize: 12, color: Colors.white54)),
+        const SizedBox(height: 4),
+        Text(
+          _destination,
+          style: const TextStyle(
+            fontSize: 15,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  Widget _slideAcceptButton(BuildContext context) {
-    return GestureDetector(
-      key: _slideKey,
-      onHorizontalDragUpdate: (d) {
-        if (_acceptSent) return;
-        final box = _slideKey.currentContext?.findRenderObject() as RenderBox?;
-        final w = box?.size.width ?? 0;
-        if (w <= 0) return;
-        setState(() {
-          _slideValue = (_slideValue * w + d.delta.dx).clamp(0.0, w) / w;
-          if (_slideValue >= 0.95) _accept();
-        });
-      },
-      child: Container(
-        height: 48,
+  Widget _buildVerticalDottedLine() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(4, (_) => Container(
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        width: 2,
+        height: 4,
         decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(24),
+          color: Colors.white38,
+          borderRadius: BorderRadius.circular(1),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            FractionallySizedBox(
-              widthFactor: _slideValue,
-              child: Container(color: Theme.of(context).colorScheme.primary),
-            ),
-            Text(
-              _slideValue >= 0.95 ? '수락됨' : '슬라이드하여 수락하기 →',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
+      )),
     );
   }
-}
 
-/// widthFactor만 적용하는 SizedBox (Stack 내 레이아웃용).
-class FractionallySizedBox extends StatelessWidget {
-  const FractionallySizedBox({super.key, required this.widthFactor, required this.child});
-
-  final double widthFactor;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SizedBox(
-          width: constraints.maxWidth * widthFactor,
-          child: child,
-        );
-      },
+  Widget _buildSuccessOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: _bgNavy,
+        child: Center(
+          child: ScaleTransition(
+            scale: _successScale,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _priceColor.withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.check, size: 56, color: Colors.white),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  '배차 성공',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -743,8 +852,9 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
         'delivery_id': 'test-overlay-1',
         'deliveryId': 'test-overlay-1',
         'order_id': 'test-order',
-        'origin_address': '테스트 출발지',
-        'destination_address': '테스트 도착지',
+        'pickup': '테스트 출발지',
+        'destination': '테스트 도착지',
+        'price': '15,000원',
         'fee': '0원',
       };
       await FlutterOverlayWindow.shareData(testPayload);

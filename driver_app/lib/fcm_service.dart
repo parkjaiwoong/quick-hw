@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 import 'app_config.dart';
+import 'availability_storage.dart';
 import 'overlay_alert_service.dart';
 
 /// FCM 수신 즉시 DB에 로그 저장 (수신 확인용). 실패해도 무시.
@@ -33,8 +34,8 @@ void logFcmReceiptToDb(Map<String, dynamic> data, String source) {
   });
 }
 
-/// 서버(push/send) FCM data 키: type, delivery_id, title, body, url (snake_case).
-/// 앱 파싱: delivery_id/deliveryId, order_id/orderId/order_number, origin_address/origin, destination_address/destination, fee/price 모두 대응.
+/// 서버(push/send) FCM data 키: type, delivery_id, title, body, url, price, pickup, destination.
+/// 앱 파싱: price/fee, pickup/origin_address/origin, destination/destination_address 모두 대응.
 Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
   String s(dynamic v) {
     final t = v?.toString() ?? '';
@@ -43,21 +44,22 @@ Map<String, String> buildOverlayPayloadFromFcmData(Map<String, dynamic> data) {
   var deliveryId = (data['delivery_id'] ?? data['deliveryId'])?.toString() ?? '';
   final orderId = (data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
   if (deliveryId.isEmpty && orderId.isNotEmpty) deliveryId = orderId;
-  final origin = s(data['origin_address'] ?? data['origin']);
-  final dest = s(data['destination_address'] ?? data['destination']);
-  final fee = s(data['fee'] ?? data['price']);
+  final pickup = s(data['pickup'] ?? data['origin_address'] ?? data['origin']);
+  final destination = s(data['destination'] ?? data['destination_address'] ?? data['dest']);
+  final price = s(data['price'] ?? data['fee']);
   return {
     'delivery_id': deliveryId,
     'deliveryId': deliveryId,
     'order_id': orderId,
     'orderId': orderId,
     'order_number': orderId,
-    'origin_address': origin,
-    'origin': origin,
-    'destination_address': dest,
-    'destination': dest,
-    'fee': fee,
-    'price': fee,
+    'pickup': pickup,
+    'origin_address': pickup,
+    'origin': pickup,
+    'destination': destination,
+    'destination_address': destination,
+    'price': price,
+    'fee': price,
   };
 }
 
@@ -77,6 +79,13 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     }
 
     if (!Platform.isAndroid) return;
+
+    // 배송가능 체크: 배송가능 누른 기사에게만 오버레이 표시 (앱 백그라운드/종료 시)
+    final isAvailable = await DriverAvailabilityStorage.load();
+    if (!isAvailable) {
+      developer.log('오버레이 스킵: 배송가능 OFF', name: 'FCM_BG');
+      return;
+    }
 
     // message.data만 있어도 동작 (notification 없음). delivery_id, order_id, type 등 있으면 오버레이 표시
     try {

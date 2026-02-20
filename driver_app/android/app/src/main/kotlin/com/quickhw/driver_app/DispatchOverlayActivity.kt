@@ -20,11 +20,17 @@ class DispatchOverlayActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getPayload" -> {
+                    val origin = intent?.getStringExtra(EXTRA_ORIGIN) ?: "-"
+                    val dest = intent?.getStringExtra(EXTRA_DEST) ?: "-"
+                    val fee = intent?.getStringExtra(EXTRA_FEE) ?: "-"
                     val map = mapOf(
                         "delivery_id" to (intent?.getStringExtra(EXTRA_DELIVERY_ID) ?: ""),
-                        "origin_address" to (intent?.getStringExtra(EXTRA_ORIGIN) ?: "-"),
-                        "destination_address" to (intent?.getStringExtra(EXTRA_DEST) ?: "-"),
-                        "fee" to (intent?.getStringExtra(EXTRA_FEE) ?: "-"),
+                        "pickup" to origin,
+                        "destination" to dest,
+                        "price" to fee,
+                        "origin_address" to origin,
+                        "destination_address" to dest,
+                        "fee" to fee,
                     )
                     result.success(map)
                 }

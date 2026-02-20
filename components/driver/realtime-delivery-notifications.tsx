@@ -92,7 +92,6 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   const [retryKey, setRetryKey] = useState(0)
   const [lastEventAt, setLastEventAt] = useState<number | null>(null)
   const [eventReceiveCount, setEventReceiveCount] = useState(0)
-  const [testNotifyLoading, setTestNotifyLoading] = useState(false)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
   const routerRef = useRef(router)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -469,14 +468,14 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     detail: { payloadData, hasDelivery: !!delivery },
                   })
                 )
-                // Flutter WebView 브릿지: 네이티브 오버레이 띄우기 (기사앱에서만 동작)
+                // Flutter WebView 브릿지: 배송가능 기사에게만 네이티브 오버레이 띄우기 (기사앱에서만 동작)
                 const win = window as Window & { FlutterOverlayChannel?: { postMessage: (s: string) => void } }
-                if (win.FlutterOverlayChannel) {
+                if (win.FlutterOverlayChannel && isAvailable) {
                   const overlayData = {
                     delivery_id: payloadData.delivery.id,
-                    origin_address: payloadData.delivery.pickup_address ?? "",
-                    destination_address: payloadData.delivery.delivery_address ?? "",
-                    fee: payloadData.delivery.driver_fee != null ? `${payloadData.delivery.driver_fee}원` : payloadData.delivery.total_fee != null ? `${payloadData.delivery.total_fee}원` : "",
+                    pickup: payloadData.delivery.pickup_address ?? "",
+                    destination: payloadData.delivery.delivery_address ?? "",
+                    price: payloadData.delivery.driver_fee != null ? `${payloadData.delivery.driver_fee.toLocaleString()}원` : payloadData.delivery.total_fee != null ? `${payloadData.delivery.total_fee.toLocaleString()}원` : "",
                     title: "신규 배차 요청",
                     body: `${payloadData.delivery.pickup_address ?? ""} → ${payloadData.delivery.delivery_address ?? ""}`,
                   }
@@ -599,83 +598,6 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   // 모바일에서 F12 없이 상태 확인: 화면에 항상 "실시간 알림" 상태 표시
   return (
     <>
-      {/* 실시간 알림 상태 (모바일에서 그냥 화면만 보면 됨, F12 불필요) */}
-      <div
-        className="fixed top-14 left-2 right-2 z-[89] flex flex-col items-center gap-1 pointer-events-none"
-        aria-live="polite"
-      >
-        <div className="flex justify-center">
-          {realtimeStatus === "subscribed" && (
-            <span
-              className={
-                isAvailable
-                  ? "inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1.5 text-xs font-medium shadow-sm"
-                  : "inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs shadow-sm"
-              }
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${isAvailable ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
-                aria-hidden
-              />
-              {isAvailable ? "실시간 알림 연결됨" : "실시간 알림 연결됨 (배송 불가 — 새 요청 알림 없음)"}
-            </span>
-          )}
-          {realtimeStatus === "idle" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 px-3 py-1.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-gray-400" aria-hidden />
-              실시간 알림 연결 중…
-            </span>
-          )}
-        </div>
-        {(lastEventAt != null || eventReceiveCount > 0) && (
-          <span className="text-[10px] text-green-700 bg-green-50/90 px-2 py-0.5 rounded">
-            알림 {eventReceiveCount}건 수신 {lastEventAt != null ? "(방금)" : ""}
-          </span>
-        )}
-        {typeof window !== "undefined" && (
-          <div className="pointer-events-auto mt-1 flex gap-1 flex-wrap">
-            {process.env.NODE_ENV === "development" && (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="text-xs"
-                disabled={testNotifyLoading || realtimeStatus !== "subscribed"}
-                onClick={async () => {
-                  setTestNotifyLoading(true)
-                  try {
-                    const res = await fetch("/api/driver/test-notification", { method: "POST", credentials: "same-origin" })
-                    const json = await res.json().catch(() => ({}))
-                    if (!res.ok) toast({ title: "테스트 알림 실패", description: json?.error ?? String(res.status), variant: "destructive" })
-                    else toast({ title: "테스트 알림 발송됨", description: "곧 UI/진동/소리가 나와야 합니다." })
-                  } finally {
-                    setTestNotifyLoading(false)
-                  }
-                }}
-              >
-                {testNotifyLoading ? "발송 중…" : "테스트 알림 (개발)"}
-              </Button>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="text-xs"
-              onClick={() => {
-                const w = window as Window & { RequestFcmTokenSync?: { postMessage: (s: string) => void } }
-                if (w.RequestFcmTokenSync) {
-                  w.RequestFcmTokenSync.postMessage("")
-                  toast({ title: "FCM 토큰 동기화", description: "서버에 등록 중입니다." })
-                } else {
-                  toast({ title: "기사 앱에서만 가능", description: "웹에서는 FCM 토큰이 없습니다.", variant: "destructive" })
-                }
-              }}
-            >
-              FCM 토큰 동기화
-            </Button>
-          </div>
-        )}
-      </div>
       {realtimeStatus === "error" && (
         <div className="fixed top-16 left-2 right-2 z-[90] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
           <strong>실시간 알림 연결 실패.</strong> 새 배송 요청 시 띵동/진동이 올 수 없습니다. PC에서 Supabase SQL 또는 관리자에게 문의하세요.

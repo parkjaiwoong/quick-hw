@@ -54,6 +54,24 @@ export async function POST(request: Request) {
     "https://quick-hw.vercel.app"
   const openUrl = deliveryId ? `${baseUrl}/driver/delivery/${deliveryId}` : `${baseUrl}${url}`
 
+  // FCM 오버레이용: delivery_id가 있으면 주소·요금 조회
+  let originAddress = ""
+  let destinationAddress = ""
+  let fee = ""
+  if (deliveryId) {
+    const { data: delivery } = await supabase
+      .from("deliveries")
+      .select("pickup_address, delivery_address, driver_fee, total_fee")
+      .eq("id", deliveryId)
+      .single()
+    if (delivery) {
+      originAddress = delivery.pickup_address ?? ""
+      destinationAddress = delivery.delivery_address ?? ""
+      const amount = Number(delivery.driver_fee ?? delivery.total_fee ?? 0)
+      fee = amount > 0 ? `${amount.toLocaleString()}원` : ""
+    }
+  }
+
   const payload = JSON.stringify({
     title,
     body: message,
@@ -131,6 +149,12 @@ export async function POST(request: Request) {
             title,
             body: message,
             url: openUrl,
+            price: fee,
+            pickup: originAddress,
+            destination: destinationAddress,
+            origin_address: originAddress,
+            destination_address: destinationAddress,
+            fee,
           },
           android: {
             priority: "high" as const,

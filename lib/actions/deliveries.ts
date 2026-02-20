@@ -642,6 +642,17 @@ export async function requestDriverConnection(deliveryId: string, driverId: stri
     return { error: error.message }
   }
 
+  // 배송가능(is_available) 체크: 배송가능 누른 기사에게만 FCM/오버레이 전송
+  const { data: driverInfo } = await supabase
+    .from("driver_info")
+    .select("is_available")
+    .eq("id", driverId)
+    .single()
+
+  if (!driverInfo?.is_available) {
+    console.log("[고객→기사연결] 해당 기사 배송가능 OFF — FCM/오버레이 스킵 (알림만 INSERT)")
+  }
+
   // 기사에게 알림 전송 (notifications 테이블에 추가)
   const title = "새로운 배송 연결 요청"
   const message = `고객으로부터 배송 연결 요청이 들어왔습니다. 거리: ${delivery.distance_km?.toFixed(1) || 0}km`
@@ -664,7 +675,7 @@ export async function requestDriverConnection(deliveryId: string, driverId: stri
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
     "https://quick-hw.vercel.app"
-  if (pushSecret && baseUrl) {
+  if (pushSecret && baseUrl && driverInfo?.is_available) {
     try {
       const pushUrl = `${baseUrl}/api/push/send`
       const res = await fetch(pushUrl, {
