@@ -545,22 +545,70 @@ function parsePickupLatLng(location: unknown): { lat: number; lng: number } | nu
   return null
 }
 
-/** 추천 기사 목록 (DriverRecommendationList용 포맷). 배송의 pickup_location에서 좌표 추출 후 근처 기사 조회 */
+/** 추천 기사 목록 (DriverRecommendationList용 포맷). notifyDriversForDelivery와 동일하게,
+ * 근처 기사(위치 있음) + 배송가능 전원(위치 없음 포함)을 합쳐서 표시 */
 export async function getRecommendedDriversForDelivery(delivery: { pickup_location?: unknown }) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
+  if (!serviceRoleKey || !supabaseUrl) return { drivers: [] }
+
+  const { createClient } = await import("@supabase/supabase-js")
+  const service = createClient(supabaseUrl, serviceRoleKey)
+
   const coords = parsePickupLatLng(delivery.pickup_location)
-  if (!coords) return { drivers: [] }
 
-  const { drivers: raw, error } = await getNearbyDrivers(coords.lat, coords.lng)
-  if (error || !raw) return { drivers: [] }
+  // 1) 근처 기사 (위치 있음, 반경 10km 이내)
+  let nearbyList: { id: string; full_name: string; vehicle_type: string; rating: number; total_deliveries: number; distance_km: number }[] = []
+  if (coords) {
+    const { data: raw } = await service.rpc("find_nearby_drivers", {
+      pickup_lat: coords.lat,
+      pickup_lng: coords.lng,
+      max_distance_km: 10.0,
+      limit_count: 10,
+    })
+    nearbyList = (raw ?? []).map((r: { driver_id?: string; driver_name?: string; distance_km?: number; rating?: number; total_deliveries?: number; vehicle_type?: string }) => ({
+      id: r.driver_id ?? "",
+      full_name: r.driver_name ?? "기사",
+      vehicle_type: r.vehicle_type ?? "일반",
+      rating: Number(r.rating ?? 5),
+      total_deliveries: Number(r.total_deliveries ?? 0),
+      distance_km: Number(r.distance_km ?? 0),
+    }))
+  }
 
-  const drivers = (raw as { driver_id?: string; driver_name?: string; distance_km?: number; rating?: number; total_deliveries?: number; vehicle_type?: string }[]).map((r) => ({
-    id: r.driver_id ?? "",
-    full_name: r.driver_name ?? "기사",
-    vehicle_type: r.vehicle_type ?? "일반",
-    rating: Number(r.rating ?? 5),
-    total_deliveries: Number(r.total_deliveries ?? 0),
+  // 2) 배송가능 전원 (위치 없음 포함) - RLS 우회를 위해 service role 사용
+  const { data: availableRows } = await service
+    .from("driver_info")
+    .select("id, rating, total_deliveries, vehicle_type")
+    .eq("is_available", true)
+  const availableIds = (availableRows ?? []).map((r) => r.id)
+  if (availableIds.length === 0) {
+    return { drivers: nearbyList.map((r) => ({ ...r, is_available: true, has_insurance: false })) }
+  }
+
+  const { data: profiles } = await service.from("profiles").select("id, full_name").in("id", availableIds)
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? "기사"]))
+
+  const nearbyIds = new Set(nearbyList.map((r) => r.id))
+  const alreadyIncluded = new Set<string>(nearbyIds)
+
+  // 3) 근처에 없는 배송가능 기사 추가 (거리 0 = 위치 정보 없음)
+  for (const row of availableRows ?? []) {
+    if (alreadyIncluded.has(row.id)) continue
+    alreadyIncluded.add(row.id)
+    nearbyList.push({
+      id: row.id,
+      full_name: profileMap.get(row.id) ?? "기사",
+      vehicle_type: row.vehicle_type ?? "일반",
+      rating: Number(row.rating ?? 5),
+      total_deliveries: Number(row.total_deliveries ?? 0),
+      distance_km: 0, // 위치 없음
+    })
+  }
+
+  const drivers = nearbyList.map((r) => ({
+    ...r,
     is_available: true,
-    distance_km: Number(r.distance_km ?? 0),
     has_insurance: false,
   }))
 

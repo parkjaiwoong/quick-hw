@@ -147,7 +147,7 @@ export function DriverRecommendationList({
                   )}
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  거리: {driver.distance_km?.toFixed(1) || "0"}km
+                  거리: {driver.distance_km != null && driver.distance_km > 0 ? `${driver.distance_km.toFixed(1)}km` : "위치 정보 없음"}
                 </CardDescription>
               </div>
               <div className="text-right">
