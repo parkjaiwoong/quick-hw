@@ -177,6 +177,7 @@ Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context)
 void _onForegroundMessage(RemoteMessage message) {
   try {
     developer.log('===== FCM 포그라운드 수신 =====', name: 'FCM_FG');
+    logFcmReceiptToDb(Map<String, dynamic>.from(message.data), 'foreground');
     developer.log('전체 수신 데이터: ${message.data}', name: 'FCM_FG');
     if (kDebugMode) {
       developer.log('notification: ${message.notification?.title}', name: 'FCM_FG');

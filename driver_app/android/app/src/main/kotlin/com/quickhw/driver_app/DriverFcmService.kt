@@ -10,6 +10,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.RemoteMessage
 import io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
 
 /**
  * FCM 수신 시 새 배송 요청이면:
@@ -24,6 +28,7 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.i(TAG, "========== FCM onMessageReceived 진입 ==========")
         val data = remoteMessage.data ?: emptyMap()
+        logFcmReceiptToDb(data, "native")
         Log.i(TAG, "전체 수신 데이터: $data")
         val type = data["type"] ?: ""
         val deliveryId = data["delivery_id"] ?: data["deliveryId"]
@@ -123,8 +128,36 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
     }
 
+    private fun logFcmReceiptToDb(data: Map<String, String>, source: String) {
+        val driverId = data["driver_id"] ?: data["driverId"] ?: return
+        Thread {
+            try {
+                val url = URL("$API_BASE_URL/api/driver/fcm-receipt-log")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                val body = JSONObject().apply {
+                    put("driver_id", driverId)
+                    put("delivery_id", data["delivery_id"] ?: data["deliveryId"] ?: "")
+                    put("source", source)
+                    put("raw_data", JSONObject(data))
+                }
+                OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
+                val code = conn.responseCode
+                if (code in 200..299) Log.i(TAG, "FCM 수신 DB 로그 저장 완료")
+                else Log.w(TAG, "FCM 수신 DB 로그 실패: $code")
+            } catch (e: Exception) {
+                Log.w(TAG, "FCM 수신 DB 로그 오류: ${e.message}")
+            }
+        }.start()
+    }
+
     companion object {
         private const val TAG = "DriverFcmService"
         private const val NOTIFICATION_ID = 9001
+        private const val API_BASE_URL = "https://quick-hw.vercel.app"
     }
 }

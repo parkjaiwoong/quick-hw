@@ -118,6 +118,7 @@ export async function POST(request: Request) {
           data: {
             type: notifType || "new_delivery_request",
             delivery_id: deliveryId || "",
+            driver_id: userId, // 수신 확인 로그용 (앱에서 DB 저장)
             title,
             body: message,
             url: openUrl,

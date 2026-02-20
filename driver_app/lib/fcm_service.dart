@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
@@ -6,7 +7,31 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
+import 'app_config.dart';
 import 'overlay_alert_service.dart';
+
+/// FCM 수신 즉시 DB에 로그 저장 (수신 확인용). 실패해도 무시.
+void logFcmReceiptToDb(Map<String, dynamic> data, String source) {
+  if (!Platform.isAndroid) return;
+  final driverId = (data['driver_id'] ?? data['driverId'])?.toString();
+  if (driverId == null || driverId.isEmpty) return;
+  final deliveryId = (data['delivery_id'] ?? data['deliveryId'])?.toString() ?? '';
+  final uri = Uri.parse('${apiBaseUrl}/api/driver/fcm-receipt-log');
+  HttpClient().postUrl(uri).then((req) {
+    req.headers.set('Content-Type', 'application/json');
+    req.write(jsonEncode({
+      'driver_id': driverId,
+      'delivery_id': deliveryId.isEmpty ? null : deliveryId,
+      'source': source,
+      'raw_data': data,
+    }));
+    return req.close();
+  }).then((_) {
+    developer.log('FCM 수신 DB 로그 저장 완료', name: 'FCM_RECEIPT');
+  }).catchError((e) {
+    developer.log('FCM 수신 DB 로그 실패: $e', name: 'FCM_RECEIPT');
+  });
+}
 
 /// 서버(push/send) FCM data 키: type, delivery_id, title, body, url (snake_case).
 /// 앱 파싱: delivery_id/deliveryId, order_id/orderId/order_number, origin_address/origin, destination_address/destination, fee/price 모두 대응.
@@ -44,6 +69,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     developer.log('===== FCM 백그라운드 핸들러 진입 =====', name: 'FCM_BG');
     await Firebase.initializeApp();
     final data = message.data;
+    logFcmReceiptToDb(Map<String, dynamic>.from(data), 'background');
     developer.log('전체 수신 데이터: ${message.data}', name: 'FCM_BG');
     developer.log('🚨 [FCM_BG] 신호 포착 data=$data', name: 'FCM_BG');
     for (final e in data.entries) {

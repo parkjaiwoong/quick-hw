@@ -9,3 +9,10 @@ const String driverWebBaseUrl = String.fromEnvironment(
 String get driverWebUrl => driverWebBaseUrl.endsWith('/driver')
     ? driverWebBaseUrl
     : '$driverWebBaseUrl/driver';
+
+/// API 베이스 URL (FCM 수신 로그 등)
+String get apiBaseUrl {
+  final u = driverWebBaseUrl;
+  if (u.contains('/driver')) return u.replaceAll(RegExp(r'/driver.*'), '');
+  return u;
+}
