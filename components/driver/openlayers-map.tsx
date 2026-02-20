@@ -59,29 +59,45 @@ export function OpenLayersMap({
   const [locationError, setLocationError] = useState<string | null>(null)
   const [locationLoading, setLocationLoading] = useState(false)
 
-  const fetchMyLocation = useCallback(() => {
+  const fetchMyLocation = useCallback((retryCount = 0) => {
     if (!showMyLocation || typeof navigator === "undefined" || !navigator.geolocation) return
     setLocationError(null)
     setLocationLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setMyLocation({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        })
-        setLocationError(null)
-        setLocationLoading(false)
-      },
-      (err: GeolocationPositionError) => {
-        setLocationLoading(false)
-        const code = err?.code
-        if (code === 1) setLocationError("위치 권한이 거부되었습니다. 브라우저 설정에서 위치를 허용해 주세요.")
-        else if (code === 2) setLocationError("위치를 사용할 수 없습니다. 네트워크/GPS를 확인해 주세요.")
-        else if (code === 3) setLocationError("위치 조회 시간이 초과되었습니다. 아래 버튼으로 다시 시도해 주세요.")
-        else setLocationError("위치를 불러올 수 없습니다.")
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    )
+
+    // 기사앱 WebView: Flutter에 위치 권한 사전 요청 (앱 권한과 연동)
+    const reqChannel = typeof window !== "undefined" && (window as unknown as { RequestLocationPermission?: { postMessage: (m: string) => void } }).RequestLocationPermission
+    if (reqChannel) reqChannel.postMessage("")
+
+    const attempt = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setMyLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          })
+          setLocationError(null)
+          setLocationLoading(false)
+        },
+        (err: GeolocationPositionError) => {
+          const code = err?.code
+          if (code === 1 && retryCount < 1) {
+            // 권한 거부: 기사앱에서 방금 허용했을 수 있음 → 800ms 후 1회 재시도
+            setTimeout(() => fetchMyLocation(retryCount + 1), 800)
+          } else {
+            setLocationLoading(false)
+            if (code === 1) setLocationError("위치 권한이 거부되었습니다. 브라우저 설정에서 위치를 허용해 주세요.")
+            else if (code === 2) setLocationError("위치를 사용할 수 없습니다. 네트워크/GPS를 확인해 주세요.")
+            else if (code === 3) setLocationError("위치 조회 시간이 초과되었습니다. 아래 버튼으로 다시 시도해 주세요.")
+            else setLocationError("위치를 불러올 수 없습니다.")
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      )
+    }
+
+    // 기사앱 WebView: 권한 요청 다이얼로그 표시 시간 확보
+    if (reqChannel) setTimeout(attempt, 500)
+    else attempt()
   }, [showMyLocation])
 
   useEffect(() => {

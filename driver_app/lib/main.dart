@@ -678,6 +678,15 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
         },
       )
       ..addJavaScriptChannel(
+        'RequestLocationPermission',
+        onMessageReceived: (_) async {
+          if (!Platform.isAndroid) return;
+          final status = await Permission.location.status;
+          if (!status.isGranted) await Permission.location.request();
+          if (kDebugMode) debugPrint('[기사앱] RequestLocationPermission → ${status.isGranted ? "허용됨" : "거부됨"}');
+        },
+      )
+      ..addJavaScriptChannel(
         'FlutterOverlayChannel',
         onMessageReceived: (JavaScriptMessage message) async {
           if (!Platform.isAndroid) return;
@@ -719,7 +728,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
             debugPrint('[기사앱] 페이지 로딩 시작: $url');
             if (mounted) setState(() { _isLoading = true; _error = null; });
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) async {
             if (mounted) setState(() => _isLoading = false);
             _injectFcmTokenToWeb();
             for (final delay in [800, 2000, 4000, 7000]) {
@@ -728,6 +737,14 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
               });
             }
             _handleLaunchUrl();
+            // 배송상세 페이지: 위치 권한 사전 요청 (내 위치 지도 표시를 위해)
+            if (Platform.isAndroid && (url.contains('/driver/delivery/') || url.contains('/driver/delivery'))) {
+              var status = await Permission.location.status;
+              if (!status.isGranted) {
+                status = await Permission.location.request();
+                if (kDebugMode) debugPrint('[기사앱] 배송상세 진입 → 위치 권한 사전 요청: ${status.isGranted ? "허용" : "거부"}');
+              }
+            }
           },
           onWebResourceError: (e) {
             debugPrint('[기사앱] 에러: ${e.description}');
@@ -843,34 +860,6 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     }
   }
 
-  /// 테스트: 오버레이가 뜨면 FCM 연결 문제, 안 뜨면 OverlayApp 렌더링 문제.
-  Future<void> _testOverlay() async {
-    if (!Platform.isAndroid) return;
-    try {
-      await OverlayAlertService.triggerOverlayVibration();
-      const testPayload = <String, String>{
-        'delivery_id': 'test-overlay-1',
-        'deliveryId': 'test-overlay-1',
-        'order_id': 'test-order',
-        'pickup': '테스트 출발지',
-        'destination': '테스트 도착지',
-        'price': '15,000원',
-        'fee': '0원',
-      };
-      await FlutterOverlayWindow.shareData(testPayload);
-      await FlutterOverlayWindow.showOverlay(
-        overlayTitle: '신규 배차 요청',
-        overlayContent: '테스트 출발지',
-        alignment: OverlayAlignment.center,
-        width: 400,
-        height: 520,
-      );
-      debugPrint('[기사앱] 오버레이 테스트: showOverlay 호출 완료');
-    } catch (e) {
-      debugPrint('[기사앱] 오버레이 테스트 실패: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -886,13 +875,6 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
           ],
         ),
       ),
-      floatingActionButton: Platform.isAndroid
-          ? FloatingActionButton.small(
-              onPressed: _testOverlay,
-              tooltip: '배차 오버레이 테스트 (신규 배송 건)',
-              child: const Icon(Icons.notifications_active),
-            )
-          : null,
     );
   }
 

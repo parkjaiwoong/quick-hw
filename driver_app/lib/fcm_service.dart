@@ -5,11 +5,8 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 import 'app_config.dart';
-import 'availability_storage.dart';
-import 'overlay_alert_service.dart';
 
 /// FCM 수신 즉시 DB에 로그 저장 (수신 확인용). 실패해도 무시.
 void logFcmReceiptToDb(Map<String, dynamic> data, String source) {
@@ -80,56 +77,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
     if (!Platform.isAndroid) return;
 
-    // 배송가능 체크: 배송가능 누른 기사에게만 오버레이 표시 (앱 백그라운드/종료 시)
-    final isAvailable = await DriverAvailabilityStorage.load();
-    if (!isAvailable) {
-      developer.log('오버레이 스킵: 배송가능 OFF', name: 'FCM_BG');
-      return;
-    }
-
-    // message.data만 있어도 동작 (notification 없음). delivery_id, order_id, type 등 있으면 오버레이 표시
-    try {
-      final dataMap = Map<String, dynamic>.from(data);
-      final deliveryIdRaw = (data['delivery_id'] ?? data['deliveryId'] ?? data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
-      final typeRaw = (data['type'] ?? '').toString();
-      final isDelivery = typeRaw == 'new_delivery_request' || typeRaw == 'new_delivery' || deliveryIdRaw.isNotEmpty;
-      if (!isDelivery || dataMap.isEmpty) {
-        developer.log('오버레이 스킵: 배송 관련 키 없음 type=$typeRaw delivery_id/order_id=$deliveryIdRaw', name: 'FCM_BG');
-        return;
-      }
-      final overlayPayload = buildOverlayPayloadFromFcmData(dataMap);
-      for (final e in overlayPayload.entries) {
-        developer.log('  파싱["${e.key}"] = ${e.value}', name: 'FCM_BG');
-      }
-      final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? overlayPayload['order_id'] ?? overlayPayload['orderId'] ?? '';
-      if (deliveryId.isEmpty) {
-        final id = 'fcm-${DateTime.now().millisecondsSinceEpoch}';
-        overlayPayload['delivery_id'] = id;
-        overlayPayload['deliveryId'] = id;
-      }
-      developer.log('shareData 후 showOverlay 호출: $overlayPayload', name: 'FCM_BG');
-      await OverlayAlertService.triggerOverlayVibration();
-      try {
-        await FlutterOverlayWindow.shareData(overlayPayload);
-      } catch (e, st) {
-        developer.log('shareData 오류: $e\n$st', name: 'FCM_BG');
-        return;
-      }
-      try {
-        await FlutterOverlayWindow.showOverlay(
-          overlayTitle: '신규 배차 요청',
-          overlayContent: '출발: ${overlayPayload['origin_address'] ?? '-'}',
-          alignment: OverlayAlignment.center,
-          width: 400,
-          height: 520,
-        );
-        developer.log('🚨 showOverlay 완료', name: 'FCM_BG');
-      } catch (e, st) {
-        developer.log('showOverlay 오류: $e\n$st', name: 'FCM_BG');
-      }
-    } catch (e, st) {
-      developer.log('shareData/showOverlay 오류: $e\n$st', name: 'FCM_BG');
-    }
+    // 오버레이는 네이티브 DriverFcmService에서만 처리 (DispatchOverlayActivity).
+    // Flutter 백그라운드 핸들러에서 showOverlay 호출 시 네이티브 오버레이와 중첩되므로 스킵.
+    developer.log('오버레이: 네이티브 DriverFcmService에서 처리 (중복 방지)', name: 'FCM_BG');
   } catch (e, st) {
     developer.log('백그라운드 핸들러 전체 오류: $e\n$st', name: 'FCM_BG');
   }
