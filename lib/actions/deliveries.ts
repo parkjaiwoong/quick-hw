@@ -528,6 +528,45 @@ export async function getNearbyDrivers(pickupLat: number, pickupLng: number) {
   return { drivers: data }
 }
 
+function parsePickupLatLng(location: unknown): { lat: number; lng: number } | null {
+  if (!location) return null
+  if (typeof location === "string") {
+    const m = location.match(/\(([^,]+),([^)]+)\)/)
+    if (!m) return null
+    const lng = Number(m[1])
+    const lat = Number(m[2])
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+    return null
+  }
+  const o = location as { x?: number; y?: number; 0?: number; 1?: number }
+  const lng = o?.x ?? o?.[0]
+  const lat = o?.y ?? o?.[1]
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+  return null
+}
+
+/** 추천 기사 목록 (DriverRecommendationList용 포맷). 배송의 pickup_location에서 좌표 추출 후 근처 기사 조회 */
+export async function getRecommendedDriversForDelivery(delivery: { pickup_location?: unknown }) {
+  const coords = parsePickupLatLng(delivery.pickup_location)
+  if (!coords) return { drivers: [] }
+
+  const { drivers: raw, error } = await getNearbyDrivers(coords.lat, coords.lng)
+  if (error || !raw) return { drivers: [] }
+
+  const drivers = (raw as { driver_id?: string; driver_name?: string; distance_km?: number; rating?: number; total_deliveries?: number; vehicle_type?: string }[]).map((r) => ({
+    id: r.driver_id ?? "",
+    full_name: r.driver_name ?? "기사",
+    vehicle_type: r.vehicle_type ?? "일반",
+    rating: Number(r.rating ?? 5),
+    total_deliveries: Number(r.total_deliveries ?? 0),
+    is_available: true,
+    distance_km: Number(r.distance_km ?? 0),
+    has_insurance: false,
+  }))
+
+  return { drivers }
+}
+
 export async function requestDriverConnection(deliveryId: string, driverId: string) {
   const supabase = await getSupabaseServerClient()
 

@@ -2,9 +2,11 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getDeliveryForCustomer } from "@/lib/actions/tracking"
+import { getRecommendedDriversForDelivery } from "@/lib/actions/deliveries"
 import { DeliveryStatusTimeline } from "@/components/tracking/delivery-status-timeline"
+import { DriverRecommendationList } from "@/components/customer/driver-recommendation-list"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Phone, Package } from "lucide-react"
+import { MapPin, Phone, Package, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
@@ -72,6 +74,11 @@ export default async function DeliveryDetailPage({
     redirect("/customer")
   }
 
+  const showDriverRecommendations = delivery.status === "pending" && !delivery.driver_id
+  const { drivers: recommendedDrivers } = showDriverRecommendations
+    ? await getRecommendedDriversForDelivery(delivery)
+    : { drivers: [] }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <DeliveryStatusRealtime deliveryId={id} />
@@ -89,9 +96,33 @@ export default async function DeliveryDetailPage({
           </Badge>
         </div>
 
-        {delivery.status === "pending" && (
+        {delivery.status === "pending" && !delivery.driver_id && recommendedDrivers.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                추천 기사
+              </CardTitle>
+              <CardDescription>
+                출발지 근처 배송 가능 기사입니다. 연결을 원하는 기사를 선택하세요.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DriverRecommendationList
+                drivers={recommendedDrivers}
+                deliveryId={id}
+                openTossAfterConnect={isCardPayment && canPay}
+                orderId={order?.id}
+                paymentAmount={paymentAmount}
+              />
+            </CardContent>
+          </Card>
+        )}
+        {delivery.status === "pending" && (recommendedDrivers.length === 0 || delivery.driver_id) && (
           <p className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
-            기사가 배송 요청을 수락하면 배정됩니다. 잠시만 기다려 주세요.
+            {!delivery.driver_id
+              ? "근처에 배송 가능한 기사가 없거나 기사가 배송 요청을 수락하면 배정됩니다. 잠시만 기다려 주세요."
+              : "기사가 배송 요청을 수락하면 배정됩니다. 잠시만 기다려 주세요."}
           </p>
         )}
 
