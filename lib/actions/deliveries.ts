@@ -556,17 +556,53 @@ export async function requestDriverConnection(deliveryId: string, driverId: stri
   }
 
   // 기사에게 알림 전송 (notifications 테이블에 추가)
+  const title = "새로운 배송 연결 요청"
+  const message = `고객으로부터 배송 연결 요청이 들어왔습니다. 거리: ${delivery.distance_km?.toFixed(1) || 0}km`
   const { error: notificationError } = await supabase.from("notifications").insert({
     user_id: driverId,
     delivery_id: deliveryId,
-    title: "새로운 배송 연결 요청",
-    message: `고객으로부터 배송 연결 요청이 들어왔습니다. 거리: ${delivery.distance_km?.toFixed(1) || 0}km`,
+    title,
+    message,
     type: "new_delivery_request",
   })
-  
+
   if (notificationError) {
     console.error("알림 생성 오류:", notificationError)
     // 알림 실패해도 요청은 성공으로 처리
+  }
+
+  // 웹훅 없이도 FCM 전송: 서버에서 /api/push/send 직접 호출 (고객이 기사 선택 시 즉시 푸시 보장)
+  const pushSecret = process.env.PUSH_WEBHOOK_SECRET
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    "https://quick-hw.vercel.app"
+  if (pushSecret && baseUrl) {
+    try {
+      const pushUrl = `${baseUrl}/api/push/send`
+      const res = await fetch(pushUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-webhook-secret": pushSecret,
+        },
+        body: JSON.stringify({
+          record: {
+            user_id: driverId,
+            delivery_id: deliveryId,
+            title,
+            message,
+            type: "new_delivery_request",
+          },
+        }),
+      })
+      const text = await res.text()
+      console.log("[고객→기사연결] push/send 호출", { driverId, status: res.status, body: text })
+    } catch (e) {
+      console.error("[고객→기사연결] push/send 호출 실패", { driverId, error: (e as Error).message })
+    }
+  } else {
+    console.warn("[고객→기사연결] PUSH_WEBHOOK_SECRET 또는 baseUrl 없음 — FCM 전송 스킵")
   }
 
   revalidatePath("/customer")

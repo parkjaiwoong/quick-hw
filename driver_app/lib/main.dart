@@ -607,6 +607,10 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
           onPageFinished: (_) {
             if (mounted) setState(() => _isLoading = false);
             _injectFcmTokenToWeb();
+            // React 마운트 지연 대비: 1.5초 후 토큰 재전달 (FCM 토큰 DB 등록 확실히)
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              if (mounted) _injectFcmTokenToWeb();
+            });
             _handleLaunchUrl();
           },
           onWebResourceError: (e) {
