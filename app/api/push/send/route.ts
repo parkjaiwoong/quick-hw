@@ -100,8 +100,17 @@ export async function POST(request: Request) {
       const { getMessaging } = await import("firebase-admin/messaging")
       const { getApps, initializeApp, cert } = await import("firebase-admin/app")
       if (getApps().length === 0) {
-        const jsonStr = serviceAccountJson.replace(/\\n/g, "\n")
-        const cred = JSON.parse(jsonStr)
+        let cred: { private_key?: string; [k: string]: unknown }
+        try {
+          cred = JSON.parse(serviceAccountJson) as { private_key?: string }
+        } catch {
+          // .env에서 \n이 실제 줄바꿈으로 해석되면 "Bad control character" 발생. 전체 newline을 이스케이프 시퀀스로 치환
+          const normalized = serviceAccountJson.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n/g, "\\n")
+          cred = JSON.parse(normalized) as { private_key?: string }
+        }
+        if (typeof cred.private_key === "string") {
+          cred.private_key = cred.private_key.replace(/\\n/g, "\n")
+        }
         initializeApp({ credential: cert(cred) })
       }
       const { data: tokens } = await supabase
@@ -157,12 +166,15 @@ export async function POST(request: Request) {
           }
         }
       } else {
+        results.fcm = "token_count=0 (해당 기사 FCM 토큰 없음 — 기사 앱에서 로그인 후 대시보드 로드 필요)"
         console.log("[push/send] FCM 토큰 없음 — 전송 생략", { userId })
       }
     } catch (e) {
       results.fcm = `error: ${(e as Error).message}`
       console.error("[push/send] FCM 오류", { userId, deliveryId, error: (e as Error).message })
     }
+  } else {
+    results.fcm = "firebase_skip (FIREBASE_SERVICE_ACCOUNT_JSON 미설정)"
   }
 
   return NextResponse.json({ success: true, ...results })

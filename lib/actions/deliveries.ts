@@ -684,12 +684,28 @@ export async function requestDriverConnection(deliveryId: string, driverId: stri
         }),
       })
       const text = await res.text()
-      console.log("[고객→기사연결] push/send 호출", { driverId, status: res.status, body: text })
+      if (res.status !== 200) {
+        console.error("[고객→기사연결] push/send 실패", { driverId, status: res.status, body: text })
+      } else {
+        let fcmStatus = "?"
+        try {
+          const json = JSON.parse(text) as { fcm?: string }
+          fcmStatus = json.fcm ?? "응답에 fcm 없음"
+        } catch {
+          fcmStatus = text
+        }
+        console.log("[고객→기사연결] push/send 성공", { driverId, fcm: fcmStatus })
+      }
     } catch (e) {
       console.error("[고객→기사연결] push/send 호출 실패", { driverId, error: (e as Error).message })
     }
   } else {
-    console.warn("[고객→기사연결] PUSH_WEBHOOK_SECRET 또는 baseUrl 없음 — FCM 전송 스킵")
+    if (!pushSecret) {
+      console.warn("[고객→기사연결] PUSH_WEBHOOK_SECRET 없음 — FCM 전송 스킵 (Vercel/.env.local에 설정 필요)")
+    }
+    if (!baseUrl) {
+      console.warn("[고객→기사연결] baseUrl 없음 — FCM 전송 스킵")
+    }
   }
 
   revalidatePath("/customer")
