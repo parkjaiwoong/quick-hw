@@ -10,6 +10,7 @@ import Link from "next/link"
 import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
 import { TossPaymentButton } from "@/components/customer/toss-payment-button"
 import { DeliveryStatusRealtime } from "@/components/customer/delivery-status-realtime"
+import { CancelDeliveryButton } from "@/components/customer/cancel-delivery-button"
 
 export const dynamic = "force-dynamic"
 
@@ -93,6 +94,22 @@ export default async function DeliveryDetailPage({
           <p className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
             기사가 배송 요청을 수락하면 배정됩니다. 잠시만 기다려 주세요.
           </p>
+        )}
+
+        {["pending", "accepted"].includes(delivery.status) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-4 space-y-2">
+            <p className="text-sm font-medium text-red-700">배송 취소</p>
+            <p className="text-xs text-red-600">
+              {delivery.status === "pending"
+                ? "기사 배정 전 단계입니다. 지금 취소하면 추가 비용 없이 취소됩니다."
+                : "기사가 배정된 상태입니다. 취소 시 결제 수단에 따라 환불 처리됩니다."}
+            </p>
+            <CancelDeliveryButton
+              deliveryId={id}
+              paymentMethod={payment?.payment_method || order?.payment_method}
+              paymentStatus={payment?.status}
+            />
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

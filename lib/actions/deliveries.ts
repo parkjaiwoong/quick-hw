@@ -452,9 +452,17 @@ export async function getDeliveriesByCustomerId(customerId: string) {
 export async function cancelDelivery(deliveryId: string) {
   const supabase = await getSupabaseServerClient()
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "로그인이 필요합니다" }
+  }
+
   const { data: delivery } = await supabase
     .from("deliveries")
-    .select("id, status")
+    .select("id, status, customer_id")
     .eq("id", deliveryId)
     .single()
 
@@ -462,7 +470,15 @@ export async function cancelDelivery(deliveryId: string) {
     return { error: "배송 정보를 찾을 수 없습니다" }
   }
 
-  const isStarted = ["picked_up", "in_transit", "delivered"].includes(delivery.status)
+  if (delivery.customer_id !== user.id) {
+    return { error: "취소 권한이 없습니다" }
+  }
+
+  if (["delivered", "cancelled"].includes(delivery.status)) {
+    return { error: "이미 완료되었거나 취소된 배송입니다" }
+  }
+
+  const isStarted = ["picked_up", "in_transit"].includes(delivery.status)
   const { cancelPaymentForDelivery, refundPaymentForDelivery, excludeSettlementForDelivery } = await import(
     "@/lib/actions/finance"
   )

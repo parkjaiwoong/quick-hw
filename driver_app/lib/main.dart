@@ -220,16 +220,16 @@ Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
     overlayPayload['deliveryId'] = deliveryId;
     await OverlayAlertService.triggerOverlayVibration();
     await FlutterOverlayWindow.shareData(overlayPayload);
-    // 화면 하단에 작은 팝업으로 표시 (현재 화면을 가리지 않도록)
+    // 화면 중앙에 팝업으로 표시
     await FlutterOverlayWindow.showOverlay(
       overlayTitle: '신규 배차 요청',
       overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
-      alignment: OverlayAlignment.bottomCenter,
+      alignment: OverlayAlignment.center,
       width: WindowSize.matchParent,
-      height: 280,
+      height: 320,
       positionGravity: PositionGravity.none,
     );
-    if (kDebugMode) debugPrint('[FCM 포그라운드] 오버레이 표시 완료 (하단 팝업)');
+    if (kDebugMode) debugPrint('[FCM 포그라운드] 오버레이 표시 완료 (중앙 팝업)');
   } catch (e, st) {
     debugPrint('[FCM 포그라운드] 오버레이 오류: $e');
     debugPrint('$st');
@@ -409,172 +409,157 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
 
   @override
   Widget build(BuildContext context) {
-    // 하단 팝업 카드 스타일 — 현재 화면 위에 작게 올라옴
-    // FlutterOverlayWindow height=280에 맞춰 컴팩트하게 구성
+    // 중앙 팝업 카드 스타일 — FlutterOverlayWindow height=320에 맞춰 구성
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
-          // 배경 터치 → 넘기기
+          // 배경 딤 처리
           Positioned.fill(
-            child: GestureDetector(
-              onTap: _acceptSent ? null : _dismiss,
-              child: Container(color: Colors.transparent),
-            ),
+            child: Container(color: Colors.black.withOpacity(0.45)),
           ),
-          // 하단 카드
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: _bgNavy,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 드래그 핸들
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 8),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
+          // 중앙 카드
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _bgNavy,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.6),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 헤더: 타이틀 + 금액
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.local_shipping, color: Color(0xFF42A5F5), size: 22),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '신규 배차 요청',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (_price != '-')
+                            Text(
+                              _price,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _priceColor,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                  // 헤더: 타이틀 + 금액
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.local_shipping, color: Color(0xFF42A5F5), size: 20),
-                        const SizedBox(width: 8),
-                        const Text(
-                          '신규 배차 요청',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (_price != '-')
-                          Text(
-                            _price,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: _priceColor,
-                              letterSpacing: -0.5,
+                    // 구분선
+                    Container(height: 1, color: Colors.white12),
+                    // 경로
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.circle, size: 9, color: Color(0xFF66BB6A)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _pickup,
+                              style: const TextStyle(fontSize: 13, color: Colors.white70),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  // 경로: 한 줄 요약
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.circle, size: 8, color: Color(0xFF66BB6A)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _pickup,
-                            style: const TextStyle(fontSize: 13, color: Colors.white70),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.only(left: 24, top: 2, bottom: 2),
+                      child: Container(width: 2, height: 12, color: Colors.white24),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 23, top: 2, bottom: 2),
-                    child: Container(width: 2, height: 10, color: Colors.white24),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 10, color: Color(0xFFEF5350)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _destination,
-                            style: const TextStyle(fontSize: 13, color: Colors.white70),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // 버튼
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: OutlinedButton(
-                              onPressed: _acceptSent ? null : _dismiss,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                                side: const BorderSide(color: Colors.white24),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text('넘기기'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 11, color: Color(0xFFEF5350)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _destination,
+                              style: const TextStyle(fontSize: 13, color: Colors.white70),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: SizedBox(
-                            height: 46,
-                            child: ElevatedButton(
-                              onPressed: _acceptSent ? null : _accept,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _acceptBtnColor,
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor: Colors.grey.shade700,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                        ],
+                      ),
+                    ),
+                    // 버튼
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: _acceptSent ? null : _dismiss,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white70,
+                                  side: const BorderSide(color: Colors.white24),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
-                                elevation: 0,
+                                child: const Text('넘기기'),
                               ),
-                              child: Text(
-                                _acceptSent ? '처리 중…' : '수락하기',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: _acceptSent ? null : _accept,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _acceptBtnColor,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: Colors.grey.shade700,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  _acceptSent ? '처리 중…' : '수락하기',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -729,16 +714,16 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
             final dest = overlayPayload['destination_address'] ?? overlayPayload['destination'] ?? '-';
             await OverlayAlertService.triggerOverlayVibration();
             await FlutterOverlayWindow.shareData(overlayPayload);
-            // 화면 하단에 작은 팝업으로 표시 (현재 화면을 가리지 않도록)
+            // 화면 중앙에 팝업으로 표시
             await FlutterOverlayWindow.showOverlay(
               overlayTitle: '신규 배차 요청',
               overlayContent: '출발: $origin\n도착: $dest',
-              alignment: OverlayAlignment.bottomCenter,
+              alignment: OverlayAlignment.center,
               width: WindowSize.matchParent,
-              height: 280,
+              height: 320,
               positionGravity: PositionGravity.none,
             );
-            if (kDebugMode) debugPrint('[기사앱] FlutterOverlayChannel: 오버레이 표시 완료 (하단 팝업)');
+            if (kDebugMode) debugPrint('[기사앱] FlutterOverlayChannel: 오버레이 표시 완료 (중앙 팝업)');
           } catch (e, st) {
             debugPrint('[기사앱] FlutterOverlayChannel 오류: $e');
             debugPrint('$st');
