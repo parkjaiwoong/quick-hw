@@ -147,28 +147,49 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
     }
 
     private fun logFcmReceiptToDb(data: Map<String, String>, source: String) {
-        val driverId = data["driver_id"] ?: data["driverId"] ?: return
+        val driverId = data["driver_id"] ?: data["driverId"] ?: ""
+        if (driverId.isEmpty()) {
+            Log.w(TAG, "FCM 로그 중단: driver_id가 데이터에 없습니다. (수신 데이터: $data)")
+            return
+        }
+
         Thread {
             try {
-                val url = URL("$API_BASE_URL/api/driver/fcm-receipt-log")
+                val targetUrl = "$API_BASE_URL/api/driver/fcm-receipt-log"
+                Log.d(TAG, "FCM 로그 시도 (source=$source, url=$targetUrl)")
+                
+                val url = URL(targetUrl)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Accept", "application/json")
                 conn.doOutput = true
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+
                 val body = JSONObject().apply {
                     put("driver_id", driverId)
                     put("delivery_id", data["delivery_id"] ?: data["deliveryId"] ?: "")
                     put("source", source)
-                    put("raw_data", JSONObject(data))
+                    put("raw_data", JSONObject(data as Map<*, *>))
                 }
+
                 OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
+                
                 val code = conn.responseCode
-                if (code in 200..299) Log.i(TAG, "FCM 수신 DB 로그 저장 완료")
-                else Log.w(TAG, "FCM 수신 DB 로그 실패: $code")
+                val responseMessage = conn.responseMessage
+                
+                if (code in 200..299) {
+                    Log.i(TAG, "FCM 수신 DB 로그 저장 완료 (driver=$driverId, code=$code)")
+                } else {
+                    Log.w(TAG, "FCM 수신 DB 로그 실패: HTTP $code ($responseMessage)")
+                    // 실패 시 응답 바디 확인 (디버깅용)
+                    val errorBody = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                    Log.w(TAG, "Error Response Body: $errorBody")
+                }
+                conn.disconnect()
             } catch (e: Exception) {
-                Log.w(TAG, "FCM 수신 DB 로그 오류: ${e.message}")
+                Log.e(TAG, "FCM 수신 DB 로그 네트워크 오류: ${e.message}", e)
             }
         }.start()
     }
