@@ -176,6 +176,7 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
     companion object {
         private const val TAG = "DriverFcmService"
         private const val NOTIFICATION_ID = 9001
+        // 로컬 테스트 시 10.0.2.2(에뮬레이터) 또는 루프백 등을 사용할 수 있도록 유연하게 처리
         private const val API_BASE_URL = "https://quick-hw.vercel.app"
     }
 }
