@@ -1,5 +1,6 @@
 package com.quickhw.driver_app
 
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -17,9 +18,10 @@ import org.json.JSONObject
 
 /**
  * FCM 수신 시 새 배송 요청이면:
- * - 오버레이 권한이 있으면 → DispatchOverlayActivity(Flutter overlayMain) 시작. (WindowManager로 뷰 직접 추가하지 않음.)
- * - 없으면 → Full Screen Intent로 DispatchAcceptActivity(Kotlin) 표시.
- * 수락 시 MainActivity를 띄우고 open_url(또는 accept_delivery_id) 전달 → Flutter WebView가 해당 URL 로드.
+ * - 앱이 포그라운드 상태 → Flutter _onForegroundMessage가 처리하므로 네이티브에서 스킵.
+ * - 앱이 백그라운드/종료 상태:
+ *   - 오버레이 권한 있음 → DispatchOverlayActivity(Flutter overlayMain) 시작.
+ *   - 오버레이 권한 없음 → Full Screen Intent로 DispatchAcceptActivity(Kotlin) 표시.
  *
  * 중요: notification 필드 없이 data 필드만 보내야 백그라운드/앱 종료 시에도 onMessageReceived가 호출됨.
  */
@@ -40,8 +42,16 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             super.onMessageReceived(remoteMessage)
             return
         }
+
+        // 앱이 포그라운드 상태면 Flutter _onForegroundMessage가 이미 처리 → 네이티브 중복 실행 방지
+        if (isAppInForeground()) {
+            Log.i(TAG, "Dispatch FCM: app is FOREGROUND — skipping native overlay (Flutter handles it)")
+            super.onMessageReceived(remoteMessage)
+            return
+        }
+
         // data만 있어도 동작 (notification 불필요)
-        Log.i(TAG, "Dispatch FCM: type=$type delivery_id=$deliveryId")
+        Log.i(TAG, "Dispatch FCM: app is BACKGROUND/KILLED — type=$type delivery_id=$deliveryId")
         val pickup = data["pickup"] ?: data["origin_address"] ?: data["origin"] ?: "-"
         val destination = data["destination"] ?: data["destination_address"] ?: data["dest"] ?: "-"
         val price = data["price"] ?: data["fee"] ?: "-"
@@ -50,7 +60,6 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             startDispatchOverlayActivity(deliveryId, pickup, destination, price)
         } else {
             Log.i(TAG, "Dispatch FCM: showing FullScreenIntent (overlay not permitted)")
-            // data만 보낸 경우 notification이 null이므로 기본 문구 사용
             createFullScreenIntentNotification(
                 title = remoteMessage.notification?.title ?: "신규 배차 요청",
                 body = remoteMessage.notification?.body ?: "배송 요청이 도착했습니다.",
@@ -58,6 +67,15 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             )
         }
         super.onMessageReceived(remoteMessage)
+    }
+
+    /** 앱(패키지)이 현재 포그라운드(화면에 보임)인지 확인 */
+    private fun isAppInForeground(): Boolean {
+        val am = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
+        val tasks = am.getRunningTasks(1)
+        if (tasks.isNullOrEmpty()) return false
+        val topActivity = tasks[0].topActivity ?: return false
+        return topActivity.packageName == packageName
     }
 
     override fun onNewToken(token: String) {

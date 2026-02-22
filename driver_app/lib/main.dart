@@ -204,7 +204,8 @@ Future<void> _onForegroundMessage(RemoteMessage message) async {
   } catch (_) {}
 }
 
-/// FCM data로 오버레이 표시 (포그라운드/백그라운드 공통 로직)
+/// FCM data로 오버레이 표시 (포그라운드 전용 — FlutterOverlayWindow 시스템 팝업)
+/// 앱이 켜져 있든 다른 앱을 쓰고 있든 현재 화면 위에 작은 팝업으로 표시됨.
 Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
   if (!Platform.isAndroid) return;
   try {
@@ -219,14 +220,16 @@ Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
     overlayPayload['deliveryId'] = deliveryId;
     await OverlayAlertService.triggerOverlayVibration();
     await FlutterOverlayWindow.shareData(overlayPayload);
+    // 화면 하단에 작은 팝업으로 표시 (현재 화면을 가리지 않도록)
     await FlutterOverlayWindow.showOverlay(
       overlayTitle: '신규 배차 요청',
       overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
-      alignment: OverlayAlignment.center,
-      width: 400,
-      height: 520,
+      alignment: OverlayAlignment.bottomCenter,
+      width: WindowSize.matchParent,
+      height: 280,
+      positionGravity: PositionGravity.none,
     );
-    if (kDebugMode) debugPrint('[FCM 포그라운드] 오버레이 표시 완료');
+    if (kDebugMode) debugPrint('[FCM 포그라운드] 오버레이 표시 완료 (하단 팝업)');
   } catch (e, st) {
     debugPrint('[FCM 포그라운드] 오버레이 오류: $e');
     debugPrint('$st');
@@ -372,13 +375,16 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
 
     await Future.delayed(const Duration(milliseconds: 600));
 
-    // 배송상세와 동일: accept_delivery 파라미터로 AcceptDeliveryFromUrl에서 acceptDelivery 호출 후 배송상세로 이동
-    const openPath = '/driver?accept_delivery=';
-    final openUrl = '$openPath$_deliveryId';
+    // 오버레이 닫기 (FlutterOverlayWindow 방식 — 포그라운드 팝업)
     try {
       await FlutterOverlayWindow.closeOverlay();
     } catch (_) {}
+
+    // DispatchOverlayActivity 방식(백그라운드)에서 실행된 경우 MethodChannel로도 닫기
+    // (포그라운드에서는 _overlayChannel이 없으므로 예외 무시)
     try {
+      const openPath = '/driver?accept_delivery=';
+      final openUrl = '$openPath$_deliveryId';
       await _overlayChannel.invokeMethod('accept', {
         'deliveryId': _deliveryId,
         'openUrl': openUrl,
@@ -387,120 +393,188 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
   }
 
   Future<void> _dismiss() async {
+    // FlutterOverlayWindow 방식 닫기 (포그라운드)
     try {
       await FlutterOverlayWindow.closeOverlay();
     } catch (_) {}
+    // DispatchOverlayActivity 방식 닫기 (백그라운드) — 예외 무시
     try {
       await _overlayChannel.invokeMethod('dismiss');
     } catch (_) {}
   }
 
-  static const Color _bgNavy = Color(0xD90D1B2A); // 짙은 네이비 85% 불투명 (0xD9 ≈ 85%)
+  static const Color _bgNavy = Color(0xF20D1B2A); // 짙은 네이비 95% 불투명
   static const Color _priceColor = Color(0xFFD4FF00); // 형광 노랑
   static const Color _acceptBtnColor = Color(0xFF42A5F5); // 밝은 파란색
 
   @override
   Widget build(BuildContext context) {
+    // 하단 팝업 카드 스타일 — 현재 화면 위에 작게 올라옴
+    // FlutterOverlayWindow height=280에 맞춰 컴팩트하게 구성
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
+          // 배경 터치 → 넘기기
           Positioned.fill(
             child: GestureDetector(
-              onTap: _dismiss,
-              child: Container(color: Colors.black54),
+              onTap: _acceptSent ? null : _dismiss,
+              child: Container(color: Colors.transparent),
             ),
           ),
-          SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 360),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _bgNavy,
-                      borderRadius: BorderRadius.circular(20),
+          // 하단 카드
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: _bgNavy,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 16,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 드래그 핸들
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  ),
+                  // 헤더: 타이틀 + 금액
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Row(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                          child: Column(
-                            children: [
-                              // 금액: 상단 중앙, 32sp+, 형광노랑
-                              if (_price != '-')
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 24),
-                                  child: Text(
-                                    _price,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.bold,
-                                      color: _priceColor,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                ),
-                              // 경로: 출발 — 수직점선/화살표 — 도착
-                              _buildRouteSection(),
-                            ],
+                        const Icon(Icons.local_shipping, color: Color(0xFF42A5F5), size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          '신규 배차 요청',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                        // 버튼: 하단 가로 배치, 수락=밝은파랑+흰글자
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 48,
-                                  child: TextButton(
-                                    onPressed: _acceptSent ? null : _dismiss,
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white70,
-                                    ),
-                                    child: const Text('넘기기(거절하기)'),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: SizedBox(
-                                  height: 48,
-                                  child: ElevatedButton(
-                                    onPressed: _acceptSent ? null : _accept,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _acceptBtnColor,
-                                      foregroundColor: Colors.white,
-                                      disabledBackgroundColor: Colors.grey.shade700,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child: Text(
-                                      _acceptSent ? '처리 중…' : '배송 수락하기',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                        const Spacer(),
+                        if (_price != '-')
+                          Text(
+                            _price,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _priceColor,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // 경로: 한 줄 요약
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle, size: 8, color: Color(0xFF66BB6A)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _pickup,
+                            style: const TextStyle(fontSize: 13, color: Colors.white70),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 23, top: 2, bottom: 2),
+                    child: Container(width: 2, height: 10, color: Colors.white24),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 10, color: Color(0xFFEF5350)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _destination,
+                            style: const TextStyle(fontSize: 13, color: Colors.white70),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // 버튼
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 46,
+                            child: OutlinedButton(
+                              onPressed: _acceptSent ? null : _dismiss,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white70,
+                                side: const BorderSide(color: Colors.white24),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text('넘기기'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: SizedBox(
+                            height: 46,
+                            child: ElevatedButton(
+                              onPressed: _acceptSent ? null : _accept,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _acceptBtnColor,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor: Colors.grey.shade700,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: Text(
+                                _acceptSent ? '처리 중…' : '수락하기',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -510,70 +584,17 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
     );
   }
 
-  Widget _buildRouteSection() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('출발', style: TextStyle(fontSize: 12, color: Colors.white54)),
-        const SizedBox(height: 4),
-        Text(
-          _pickup,
-          style: const TextStyle(
-            fontSize: 15,
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        // 수직 점선 + 화살표 (이동 방향 명확)
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildVerticalDottedLine(),
-            Icon(Icons.arrow_downward, size: 24, color: Colors.white54),
-            _buildVerticalDottedLine(),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text('도착', style: TextStyle(fontSize: 12, color: Colors.white54)),
-        const SizedBox(height: 4),
-        Text(
-          _destination,
-          style: const TextStyle(
-            fontSize: 15,
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVerticalDottedLine() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(4, (_) => Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        width: 2,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Colors.white38,
-          borderRadius: BorderRadius.circular(1),
-        ),
-      )),
-    );
-  }
-
   Widget _buildSuccessOverlay() {
-    return Positioned.fill(
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
       child: Container(
-        color: _bgNavy,
+        height: 280,
+        decoration: const BoxDecoration(
+          color: _bgNavy,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         child: Center(
           child: ScaleTransition(
             scale: _successScale,
@@ -581,25 +602,25 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2E7D32),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
                         color: _priceColor.withOpacity(0.4),
-                        blurRadius: 20,
+                        blurRadius: 16,
                         spreadRadius: 2,
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.check, size: 56, color: Colors.white),
+                  child: const Icon(Icons.check, size: 40, color: Colors.white),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
                 const Text(
-                  '배차 성공',
+                  '배차 수락 완료',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -708,14 +729,16 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
             final dest = overlayPayload['destination_address'] ?? overlayPayload['destination'] ?? '-';
             await OverlayAlertService.triggerOverlayVibration();
             await FlutterOverlayWindow.shareData(overlayPayload);
+            // 화면 하단에 작은 팝업으로 표시 (현재 화면을 가리지 않도록)
             await FlutterOverlayWindow.showOverlay(
               overlayTitle: '신규 배차 요청',
               overlayContent: '출발: $origin\n도착: $dest',
-              alignment: OverlayAlignment.center,
-              width: 400,
-              height: 520,
+              alignment: OverlayAlignment.bottomCenter,
+              width: WindowSize.matchParent,
+              height: 280,
+              positionGravity: PositionGravity.none,
             );
-            if (kDebugMode) debugPrint('[기사앱] FlutterOverlayChannel: 오버레이 표시 완료');
+            if (kDebugMode) debugPrint('[기사앱] FlutterOverlayChannel: 오버레이 표시 완료 (하단 팝업)');
           } catch (e, st) {
             debugPrint('[기사앱] FlutterOverlayChannel 오류: $e');
             debugPrint('$st');
