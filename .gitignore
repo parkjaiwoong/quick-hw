@@ -28,6 +28,9 @@ driver_app/dist
 driver_app/android/.kotlin
 driver_app/android/app/google-services.json
 
+# APK 바이너리 (용량 초과로 git 제외 — 배포 시 public/downloads/driver-app.apk 수동 배치)
+public/downloads/*.apk
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

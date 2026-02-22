@@ -25,7 +25,6 @@ flutter run
 **원인**: 오버레이가 별도 Flutter 엔진에서 실행되어, 메인 앱과의 디버그 연결이 불안정해짐.
 
 **대응**:
-- **디버그 시 오버레이 FAB 비활성화**: `kDebugMode`일 때 우측 하단 오버레이 테스트 버튼을 숨김. WebView/메인 플로우는 그대로 디버깅 가능.
 - **연결 끊긴 뒤 복구**: 앱이 종료되지 않았다면 `flutter attach` 로 재연결 시도.
 - **USB 권장**: 무선 디버깅보다 USB 연결이 안정적.
 - **오버레이 테스트**: `flutter run --release` 또는 APK로 설치 후 테스트.
@@ -135,7 +134,7 @@ flutter build appbundle --release
 
 - **FCM 백그라운드 로그**: 앱 종료/백그라운드 상태에서 FCM 수신 시 `adb logcat` 에서 `[FCM] 백그라운드 데이터 수신 성공`, `[FCM]   data["키"] = 값`, `[FCM]   파싱결과["키"] = 값` 확인. 서버 키와 앱 파싱 키 대조용.
 - **에러 시에도 앱 유지**: `shareData`/`showOverlay` 예외 시 `[FCM] shareData 오류` 또는 `[FCM] showOverlay 오류` + stackTrace 가 로그에만 찍히고 앱이 죽지 않는지 확인.
-- **오버레이 테스트 버튼**: 메인 웹뷰 화면 FAB으로 오버레이만 먼저 띄워 보는 동작 확인.
+- **오버레이 테스트**: 실제 배송 요청 또는 서버/ cURL로 FCM(data-only) 전송 후 확인.
 
 ---
 
