@@ -204,8 +204,51 @@ Future<void> _onForegroundMessage(RemoteMessage message) async {
   } catch (_) {}
 }
 
+/// 오버레이 디듀프: 동일 delivery_id에 대해 짧은 시간 내 중복 표시 방지 (FCM+Realtime 동시 수신 시)
+String? _lastOverlayDeliveryId;
+int _lastOverlayShownAt = 0;
+const _overlayDedupeMs = 2500;
+
+/// FlutterOverlayWindow 오버레이 표시 — 중앙 팝업, 중첩 방지, 디듀프 적용
+Future<void> _showFlutterOverlay(Map<String, String> overlayPayload, {String source = 'fcm'}) async {
+  if (!Platform.isAndroid) return;
+  try {
+    final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? '';
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // 동일 배차에 대한 중복 표시 방지 (FCM과 Realtime이 동시에 올 때)
+    if (deliveryId.isNotEmpty && deliveryId == _lastOverlayDeliveryId && (now - _lastOverlayShownAt) < _overlayDedupeMs) {
+      if (kDebugMode) debugPrint('[$source] 오버레이 디듀프 스킵: delivery_id=$deliveryId');
+      return;
+    }
+
+    await OverlayAlertService.triggerOverlayVibration();
+    // 기존 오버레이 먼저 닫기 (중첩 방지)
+    try {
+      await FlutterOverlayWindow.closeOverlay();
+      await Future.delayed(const Duration(milliseconds: 100));
+    } catch (_) {}
+
+    await FlutterOverlayWindow.shareData(overlayPayload);
+    await FlutterOverlayWindow.showOverlay(
+      overlayTitle: '신규 배차 요청',
+      overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
+      alignment: OverlayAlignment.center,
+      width: WindowSize.matchParent,
+      height: 320,
+      positionGravity: PositionGravity.none,
+    );
+    _lastOverlayDeliveryId = deliveryId;
+    _lastOverlayShownAt = now;
+    if (kDebugMode) debugPrint('[$source] 오버레이 표시 완료 (중앙 팝업)');
+  } catch (e, st) {
+    debugPrint('[$source] 오버레이 오류: $e');
+    debugPrint('$st');
+  }
+}
+
 /// FCM data로 오버레이 표시 (포그라운드 전용 — FlutterOverlayWindow 시스템 팝업)
-/// 앱이 켜져 있든 다른 앱을 쓰고 있든 현재 화면 위에 작은 팝업으로 표시됨.
+/// 앱이나 다른 화면 위에 중앙에 필요한 카드만 표시 (전체 덮지 않음)
 Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
   if (!Platform.isAndroid) return;
   try {
@@ -218,18 +261,7 @@ Future<void> _showOverlayForFcmData(Map<String, dynamic> data) async {
     }
     overlayPayload['delivery_id'] = deliveryId;
     overlayPayload['deliveryId'] = deliveryId;
-    await OverlayAlertService.triggerOverlayVibration();
-    await FlutterOverlayWindow.shareData(overlayPayload);
-    // 화면 중앙에 팝업으로 표시
-    await FlutterOverlayWindow.showOverlay(
-      overlayTitle: '신규 배차 요청',
-      overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
-      alignment: OverlayAlignment.center,
-      width: WindowSize.matchParent,
-      height: 320,
-      positionGravity: PositionGravity.none,
-    );
-    if (kDebugMode) debugPrint('[FCM 포그라운드] 오버레이 표시 완료 (중앙 팝업)');
+    await _showFlutterOverlay(overlayPayload, source: 'FCM');
   } catch (e, st) {
     debugPrint('[FCM 포그라운드] 오버레이 오류: $e');
     debugPrint('$st');
@@ -409,156 +441,162 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
 
   @override
   Widget build(BuildContext context) {
-    // 중앙 팝업 카드 스타일 — FlutterOverlayWindow height=320에 맞춰 구성
+    // 중앙 팝업 카드 스타일 — 화면 전체 덮지 않고 필요한 카드만 중앙에 표시 (이전 버전 디자인)
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
-          // 배경 딤 처리
+          // 배경 딤 — 터치 시 넘기기 (반투명, 카드 영역 외부만)
           Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.45)),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _acceptSent ? null : _dismiss,
+              child: Container(color: Colors.black.withOpacity(0.45)),
+            ),
           ),
           // 중앙 카드
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _bgNavy,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.6),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 헤더: 타이틀 + 금액
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.local_shipping, color: Color(0xFF42A5F5), size: 22),
-                          const SizedBox(width: 8),
-                          const Text(
-                            '신규 배차 요청',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (_price != '-')
-                            Text(
-                              _price,
-                              style: const TextStyle(
-                                fontSize: 18,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _bgNavy,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.6),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 헤더: 타이틀 + 금액
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_shipping, color: Color(0xFF42A5F5), size: 22),
+                            const SizedBox(width: 8),
+                            const Text(
+                              '신규 배차 요청',
+                              style: TextStyle(
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: _priceColor,
-                                letterSpacing: -0.5,
+                                color: Colors.white,
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                    // 구분선
-                    Container(height: 1, color: Colors.white12),
-                    // 경로
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.circle, size: 9, color: Color(0xFF66BB6A)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _pickup,
-                              style: const TextStyle(fontSize: 13, color: Colors.white70),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 24, top: 2, bottom: 2),
-                      child: Container(width: 2, height: 12, color: Colors.white24),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.location_on, size: 11, color: Color(0xFFEF5350)),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _destination,
-                              style: const TextStyle(fontSize: 13, color: Colors.white70),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 버튼
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: OutlinedButton(
-                                onPressed: _acceptSent ? null : _dismiss,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white70,
-                                  side: const BorderSide(color: Colors.white24),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                            const Spacer(),
+                            if (_price != '-')
+                              Text(
+                                _price,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: _priceColor,
+                                  letterSpacing: -0.5,
                                 ),
-                                child: const Text('넘기기'),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Container(height: 1, color: Colors.white12),
+                      // 경로
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.circle, size: 9, color: Color(0xFF66BB6A)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _pickup,
+                                style: const TextStyle(fontSize: 13, color: Colors.white70),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: SizedBox(
-                              height: 48,
-                              child: ElevatedButton(
-                                onPressed: _acceptSent ? null : _accept,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _acceptBtnColor,
-                                  foregroundColor: Colors.white,
-                                  disabledBackgroundColor: Colors.grey.shade700,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 24, top: 2, bottom: 2),
+                        child: Container(width: 2, height: 12, color: Colors.white24),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 11, color: Color(0xFFEF5350)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _destination,
+                                style: const TextStyle(fontSize: 13, color: Colors.white70),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 버튼
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 48,
+                                child: OutlinedButton(
+                                  onPressed: _acceptSent ? null : _dismiss,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    side: const BorderSide(color: Colors.white24),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                  elevation: 0,
-                                ),
-                                child: Text(
-                                  _acceptSent ? '처리 중…' : '수락하기',
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  child: const Text('넘기기'),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: SizedBox(
+                                height: 48,
+                                child: ElevatedButton(
+                                  onPressed: _acceptSent ? null : _accept,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _acceptBtnColor,
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor: Colors.grey.shade700,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: Text(
+                                    _acceptSent ? '처리 중…' : '수락하기',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -570,47 +608,54 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
   }
 
   Widget _buildSuccessOverlay() {
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
+    return Positioned.fill(
       child: Container(
-        height: 280,
-        decoration: const BoxDecoration(
-          color: _bgNavy,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
+        color: Colors.black.withOpacity(0.45),
         child: Center(
           child: ScaleTransition(
             scale: _successScale,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _priceColor.withOpacity(0.4),
-                        blurRadius: 16,
-                        spreadRadius: 2,
-                      ),
-                    ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+              decoration: BoxDecoration(
+                color: _bgNavy,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
-                  child: const Icon(Icons.check, size: 40, color: Colors.white),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  '배차 수락 완료',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _priceColor.withOpacity(0.4),
+                          blurRadius: 16,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.check, size: 40, color: Colors.white),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  const Text(
+                    '배차 수락 완료',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -710,20 +755,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
               overlayPayload['delivery_id'] = 'web-${DateTime.now().millisecondsSinceEpoch}';
               overlayPayload['deliveryId'] = overlayPayload['delivery_id']!;
             }
-            final origin = overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-';
-            final dest = overlayPayload['destination_address'] ?? overlayPayload['destination'] ?? '-';
-            await OverlayAlertService.triggerOverlayVibration();
-            await FlutterOverlayWindow.shareData(overlayPayload);
-            // 화면 중앙에 팝업으로 표시
-            await FlutterOverlayWindow.showOverlay(
-              overlayTitle: '신규 배차 요청',
-              overlayContent: '출발: $origin\n도착: $dest',
-              alignment: OverlayAlignment.center,
-              width: WindowSize.matchParent,
-              height: 320,
-              positionGravity: PositionGravity.none,
-            );
-            if (kDebugMode) debugPrint('[기사앱] FlutterOverlayChannel: 오버레이 표시 완료 (중앙 팝업)');
+            await _showFlutterOverlay(overlayPayload, source: 'Realtime');
           } catch (e, st) {
             debugPrint('[기사앱] FlutterOverlayChannel 오류: $e');
             debugPrint('$st');
