@@ -15,6 +15,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'app_config.dart';
 import 'app_version_service.dart';
 import 'availability_storage.dart';
@@ -209,8 +211,8 @@ String? _lastOverlayDeliveryId;
 int _lastOverlayShownAt = 0;
 const _overlayDedupeMs = 2500;
 
-/// 신규 배차 오버레이 표시 — DispatchOverlayActivity(Flutter overlayMain) 사용.
-/// 포그라운드: MethodChannel으로 Activity 시작. 백그라운드: DriverFcmService Full Screen Intent.
+/// 신규 배차 오버레이 표시.
+/// 포그라운드: FlutterOverlayWindow (앱 위에 플로팅 팝업). 백그라운드: Full Screen Intent → DispatchOverlayActivity.
 Future<void> _showFlutterOverlay(Map<String, String> overlayPayload, {String source = 'fcm'}) async {
   if (!Platform.isAndroid) return;
   try {
@@ -224,24 +226,23 @@ Future<void> _showFlutterOverlay(Map<String, String> overlayPayload, {String sou
     }
 
     await OverlayAlertService.triggerOverlayVibration();
+    try {
+      await FlutterOverlayWindow.closeOverlay();
+      await Future.delayed(const Duration(milliseconds: 100));
+    } catch (_) {}
 
-    // 포그라운드: FlutterOverlayWindow 대신 DispatchOverlayActivity 직접 시작 (안정적 동작)
-    final map = <String, dynamic>{
-      'delivery_id': deliveryId,
-      'deliveryId': deliveryId,
-      'pickup': overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-',
-      'origin_address': overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-',
-      'origin': overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-',
-      'destination': overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? overlayPayload['dest'] ?? '-',
-      'destination_address': overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? overlayPayload['dest'] ?? '-',
-      'dest': overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? overlayPayload['dest'] ?? '-',
-      'price': overlayPayload['price'] ?? overlayPayload['fee'] ?? '-',
-      'fee': overlayPayload['price'] ?? overlayPayload['fee'] ?? '-',
-    };
-    await _launchChannel.invokeMethod('showDispatchOverlay', map);
+    await FlutterOverlayWindow.shareData(overlayPayload);
+    await FlutterOverlayWindow.showOverlay(
+      overlayTitle: '신규 배차 요청',
+      overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
+      alignment: OverlayAlignment.center,
+      width: WindowSize.matchParent,
+      height: 380,
+      positionGravity: PositionGravity.none,
+    );
     _lastOverlayDeliveryId = deliveryId;
     _lastOverlayShownAt = now;
-    if (kDebugMode) debugPrint('[$source] 오버레이 표시 완료 (DispatchOverlayActivity)');
+    if (kDebugMode) debugPrint('[$source] 오버레이 표시 완료 (FlutterOverlayWindow)');
   } catch (e, st) {
     debugPrint('[$source] 오버레이 오류: $e');
     debugPrint('$st');
@@ -358,6 +359,9 @@ class _OverlayPayloadLoaderState extends State<_OverlayPayloadLoader> {
   }
 }
 
+/// 배차 수락 오버레이: SharedPreferences에 저장할 키
+const _kPendingAcceptPath = 'driver_pending_accept_path';
+
 /// 카카오픽 스타일 오버레이: 흰색 카드, [퀵 배송] 태그, 경로(출발→도착), 금액, 넘기기/수락하기 버튼.
 /// 앱 열림(FlutterOverlayWindow) / 앱 닫힘(DispatchOverlayActivity) 공통 UI.
 class DispatchAcceptOverlayWidget extends StatefulWidget {
@@ -408,32 +412,38 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
 
     await Future.delayed(const Duration(milliseconds: 600));
 
-    // 오버레이 닫기 (FlutterOverlayWindow 방식 — 포그라운드 팝업)
+    const openPath = '/driver?accept_delivery=';
+    final openUrl = '$openPath$_deliveryId';
+
+    // FlutterOverlayWindow: SharedPreferences에 URL 저장 후 close (앱 복귀 시 WebView 로드)
     try {
-      await FlutterOverlayWindow.closeOverlay();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kPendingAcceptPath, openUrl);
     } catch (_) {}
 
-    // DispatchOverlayActivity 방식(백그라운드)에서 실행된 경우 MethodChannel로도 닫기
-    // (포그라운드에서는 _overlayChannel이 없으므로 예외 무시)
+    // DispatchOverlayActivity: MethodChannel으로 MainActivity 시작 및 finish
     try {
-      const openPath = '/driver?accept_delivery=';
-      final openUrl = '$openPath$_deliveryId';
       await _overlayChannel.invokeMethod('accept', {
         'deliveryId': _deliveryId,
         'openUrl': openUrl,
       });
-    } catch (_) {}
+    } catch (_) {
+      // FlutterOverlayWindow: MethodChannel 없음 → closeOverlay로 닫기
+      try {
+        await FlutterOverlayWindow.closeOverlay();
+      } catch (_) {}
+    }
   }
 
   Future<void> _dismiss() async {
-    // FlutterOverlayWindow 방식 닫기 (포그라운드)
-    try {
-      await FlutterOverlayWindow.closeOverlay();
-    } catch (_) {}
-    // DispatchOverlayActivity 방식 닫기 (백그라운드) — 예외 무시
     try {
       await _overlayChannel.invokeMethod('dismiss');
-    } catch (_) {}
+    } catch (_) {
+      // FlutterOverlayWindow: MethodChannel 없음 → closeOverlay로 닫기
+      try {
+        await FlutterOverlayWindow.closeOverlay();
+      } catch (_) {}
+    }
   }
 
   // 카카오픽 스타일 색상
@@ -910,12 +920,24 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
         return;
       }
       final id = await _launchChannel.invokeMethod<String>('getLaunchAcceptDeliveryId');
-      if (id == null || id.isEmpty || !mounted) return;
-      final uri = driverWebUrl.contains('?')
-          ? '$driverWebUrl&accept_delivery=$id'
-          : '$driverWebUrl?accept_delivery=$id';
-      await _controller.loadRequest(Uri.parse(uri));
-      debugPrint('[기사앱] 배차 수락으로 진입: accept_delivery=$id');
+      if (id != null && id.isNotEmpty && mounted) {
+        final uri = driverWebUrl.contains('?')
+            ? '$driverWebUrl&accept_delivery=$id'
+            : '$driverWebUrl?accept_delivery=$id';
+        await _controller.loadRequest(Uri.parse(uri));
+        debugPrint('[기사앱] 배차 수락으로 진입: accept_delivery=$id');
+        return;
+      }
+      // FlutterOverlayWindow 수락 시 SharedPreferences에 저장된 경로 로드
+      final prefs = await SharedPreferences.getInstance();
+      final pendingPath = prefs.getString(_kPendingAcceptPath);
+      if (pendingPath != null && pendingPath.isNotEmpty && mounted) {
+        await prefs.remove(_kPendingAcceptPath);
+        final base = Uri.parse(driverWebUrl).origin;
+        final url = pendingPath.startsWith('http') ? pendingPath : '$base$pendingPath';
+        await _controller.loadRequest(Uri.parse(url));
+        debugPrint('[기사앱] FlutterOverlayWindow 수락으로 진입: $url');
+      }
     } catch (_) {}
   }
 

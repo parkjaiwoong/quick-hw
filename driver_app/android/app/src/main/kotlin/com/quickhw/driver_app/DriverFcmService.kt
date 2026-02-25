@@ -158,7 +158,7 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setContentIntent(contentPendingIntent)
