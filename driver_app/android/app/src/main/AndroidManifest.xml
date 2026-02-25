@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
     <!-- 다른 앱 위에 오버레이(배차 수락 팝업) 표시 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -60,6 +61,7 @@
             android:exported="true"
             android:showOnLockScreen="true"
             android:turnScreenOn="true"
+            android:showForAllUsers="true"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/DispatchAcceptTheme"
@@ -71,6 +73,7 @@
             android:exported="false"
             android:showOnLockScreen="true"
             android:turnScreenOn="true"
+            android:showForAllUsers="true"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/DispatchOverlayTheme"

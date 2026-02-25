@@ -1,11 +1,13 @@
 package com.quickhw.driver_app
 
 import android.app.ActivityManager
+import android.app.ActivityOptions
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -19,9 +21,10 @@ import org.json.JSONObject
 /**
  * FCM 수신 시 새 배송 요청이면:
  * - 앱이 포그라운드 상태 → Flutter _onForegroundMessage가 처리하므로 네이티브에서 스킵.
- * - 앱이 백그라운드/종료 상태:
- *   - 오버레이 권한 있음 → DispatchOverlayActivity(Flutter overlayMain) 시작.
- *   - 오버레이 권한 없음 → Full Screen Intent로 DispatchAcceptActivity(Kotlin) 표시.
+ * - 앱이 백그라운드/종료 상태 → 항상 Full Screen Intent로 Activity 실행.
+ *   (Android 10+ 백그라운드에서 startActivity 직접 호출 시 조용히 실패하므로 Full Screen Intent 필수)
+ *   - 오버레이 권한 있음 → DispatchOverlayActivity(Flutter overlayMain) 표시.
+ *   - 오버레이 권한 없음 → DispatchAcceptActivity(Kotlin 기본 UI) 표시.
  *
  * 중요: notification 필드 없이 data 필드만 보내야 백그라운드/앱 종료 시에도 onMessageReceived가 호출됨.
  */
@@ -51,21 +54,24 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         }
 
         // data만 있어도 동작 (notification 불필요)
-        Log.i(TAG, "Dispatch FCM: app is BACKGROUND/KILLED — type=$type delivery_id=$deliveryId")
+        // Android 10+ 백그라운드에서 startActivity 직접 호출 시 조용히 실패함.
+        // 반드시 Full Screen Intent로 Activity 실행해야 함.
+        Log.i(TAG, "Dispatch FCM: app is BACKGROUND/KILLED — using Full Screen Intent")
         val pickup = data["pickup"] ?: data["origin_address"] ?: data["origin"] ?: "-"
         val destination = data["destination"] ?: data["destination_address"] ?: data["dest"] ?: "-"
         val price = data["price"] ?: data["fee"] ?: "-"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-            Log.i(TAG, "Dispatch FCM: starting DispatchOverlayActivity (overlay permitted)")
-            startDispatchOverlayActivity(deliveryId, pickup, destination, price)
-        } else {
-            Log.i(TAG, "Dispatch FCM: showing FullScreenIntent (overlay not permitted)")
-            createFullScreenIntentNotification(
-                title = remoteMessage.notification?.title ?: "신규 배차 요청",
-                body = remoteMessage.notification?.body ?: "배송 요청이 도착했습니다.",
-                deliveryId = deliveryId
-            )
-        }
+        val title = remoteMessage.notification?.title ?: "신규 배차 요청"
+        val body = remoteMessage.notification?.body ?: "배송 요청이 도착했습니다."
+        val overlayPermitted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)
+        createFullScreenIntentNotification(
+            title = title,
+            body = body,
+            deliveryId = deliveryId,
+            origin = pickup,
+            dest = destination,
+            fee = price,
+            useFlutterOverlay = overlayPermitted
+        )
         super.onMessageReceived(remoteMessage)
     }
 
@@ -83,37 +89,64 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         Log.d(TAG, "FCM onNewToken: ${token.take(50)}...")
     }
 
-    private fun startDispatchOverlayActivity(deliveryId: String, origin: String, dest: String, fee: String) {
-        val intent = Intent(this, DispatchOverlayActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
-            putExtra(DispatchOverlayActivity.EXTRA_DELIVERY_ID, deliveryId)
-            putExtra(DispatchOverlayActivity.EXTRA_ORIGIN, origin)
-            putExtra(DispatchOverlayActivity.EXTRA_DEST, dest)
-            putExtra(DispatchOverlayActivity.EXTRA_FEE, fee)
-        }
-        startActivity(intent)
-    }
-
     private fun createFullScreenIntentNotification(
         title: String,
         body: String,
-        deliveryId: String
+        deliveryId: String,
+        origin: String,
+        dest: String,
+        fee: String,
+        useFlutterOverlay: Boolean
     ) {
         val channelId = "delivery_dispatch_full"
         createChannel(channelId)
-        val fullScreenIntent = Intent(this, DispatchAcceptActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
-            putExtra(DispatchAcceptActivity.EXTRA_DELIVERY_ID, deliveryId)
-            putExtra(DispatchAcceptActivity.EXTRA_TITLE, title)
-            putExtra(DispatchAcceptActivity.EXTRA_BODY, body)
+        val fullScreenIntent = if (useFlutterOverlay) {
+            Intent(this, DispatchOverlayActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                putExtra(DispatchOverlayActivity.EXTRA_DELIVERY_ID, deliveryId)
+                putExtra(DispatchOverlayActivity.EXTRA_ORIGIN, origin)
+                putExtra(DispatchOverlayActivity.EXTRA_DEST, dest)
+                putExtra(DispatchOverlayActivity.EXTRA_FEE, fee)
+            }
+        } else {
+            Intent(this, DispatchAcceptActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                putExtra(DispatchAcceptActivity.EXTRA_DELIVERY_ID, deliveryId)
+                putExtra(DispatchAcceptActivity.EXTRA_TITLE, title)
+                putExtra(DispatchAcceptActivity.EXTRA_BODY, body)
+            }
+        }
+        // Android 14+: 백그라운드에서 PendingIntent 실행 허용
+        val options = if (Build.VERSION.SDK_INT >= 34) {
+            ActivityOptions.makeBasic().setPendingIntentCreatorBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            ).toBundle()
+        } else {
+            null
         }
         val fullScreenPendingIntent = android.app.PendingIntent.getActivity(
             this,
             deliveryId.hashCode(),
             fullScreenIntent,
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            options
         )
+        val contentPendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            deliveryId.hashCode() + 1,
+            fullScreenIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            options
+        )
+        // 화면 꺼진 상태에서 Full Screen Intent 표시를 위해 WakeLock 사용
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val wakeLock = pm?.newWakeLock(
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE or PowerManager.SCREEN_BRIGHT_WAKE_LOCK,
+            "DriverFcmService:FullScreen"
+        )
+        wakeLock?.acquire(10_000L)
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
@@ -122,10 +155,14 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
             .setTimeoutAfter(60_000)
             .build()
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification)
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try { wakeLock?.release() } catch (_: Exception) {}
+        }, 3000)
     }
 
     private fun createChannel(channelId: String) {
