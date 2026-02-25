@@ -67,7 +67,7 @@
             android:theme="@style/DispatchAcceptTheme"
             android:launchMode="singleInstance" />
 
-        <!-- Flutter 위젯 방식 배차 오버레이 (overlayMain 엔트리 포인트) — 투명 배경, 하단 팝업 -->
+        <!-- Flutter 위젯 방식 배차 오버레이 (overlayMain 엔트리 포인트) — MainActivity 위에 스택됨 -->
         <activity
             android:name=".DispatchOverlayActivity"
             android:exported="false"
@@ -75,9 +75,8 @@
             android:turnScreenOn="true"
             android:showForAllUsers="true"
             android:excludeFromRecents="true"
-            android:taskAffinity=""
             android:theme="@style/DispatchOverlayTheme"
-            android:launchMode="singleInstance" />
+            android:launchMode="standard" />
 
         <!-- FCM 수신 시 Full Screen Intent로 배차 수락 Activity 띄움 (기본 Flutter FCM 서비스 대체) -->
         <service

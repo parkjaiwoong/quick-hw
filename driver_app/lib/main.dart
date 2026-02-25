@@ -212,7 +212,7 @@ int _lastOverlayShownAt = 0;
 const _overlayDedupeMs = 2500;
 
 /// 신규 배차 오버레이 표시.
-/// 포그라운드: FlutterOverlayWindow (앱 위에 플로팅 팝업). 백그라운드: Full Screen Intent → DispatchOverlayActivity.
+/// 포그라운드: DispatchOverlayActivity (MainActivity 위에 스택). 백그라운드: Full Screen Intent → DispatchOverlayActivity.
 Future<void> _showFlutterOverlay(Map<String, String> overlayPayload, {String source = 'fcm'}) async {
   if (!Platform.isAndroid) return;
   try {
@@ -226,23 +226,24 @@ Future<void> _showFlutterOverlay(Map<String, String> overlayPayload, {String sou
     }
 
     await OverlayAlertService.triggerOverlayVibration();
-    try {
-      await FlutterOverlayWindow.closeOverlay();
-      await Future.delayed(const Duration(milliseconds: 100));
-    } catch (_) {}
 
-    await FlutterOverlayWindow.shareData(overlayPayload);
-    await FlutterOverlayWindow.showOverlay(
-      overlayTitle: '신규 배차 요청',
-      overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
-      alignment: OverlayAlignment.center,
-      width: WindowSize.matchParent,
-      height: 380,
-      positionGravity: PositionGravity.none,
-    );
+    // 포그라운드: DispatchOverlayActivity 사용 (앱 위에 스택됨, FlutterOverlayWindow는 일부 기기에서 미표시)
+    final map = <String, dynamic>{
+      'delivery_id': deliveryId,
+      'deliveryId': deliveryId,
+      'pickup': overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-',
+      'origin_address': overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-',
+      'origin': overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? overlayPayload['origin'] ?? '-',
+      'destination': overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? overlayPayload['dest'] ?? '-',
+      'destination_address': overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? overlayPayload['dest'] ?? '-',
+      'dest': overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? overlayPayload['dest'] ?? '-',
+      'price': overlayPayload['price'] ?? overlayPayload['fee'] ?? '-',
+      'fee': overlayPayload['price'] ?? overlayPayload['fee'] ?? '-',
+    };
+    await _launchChannel.invokeMethod('showDispatchOverlay', map);
     _lastOverlayDeliveryId = deliveryId;
     _lastOverlayShownAt = now;
-    if (kDebugMode) debugPrint('[$source] 오버레이 표시 완료 (FlutterOverlayWindow)');
+    if (kDebugMode) debugPrint('[$source] 오버레이 표시 완료 (DispatchOverlayActivity)');
   } catch (e, st) {
     debugPrint('[$source] 오버레이 오류: $e');
     debugPrint('$st');
