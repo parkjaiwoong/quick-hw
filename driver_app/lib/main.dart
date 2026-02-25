@@ -235,7 +235,7 @@ Future<void> _showFlutterOverlay(Map<String, String> overlayPayload, {String sou
       overlayContent: '출발: ${overlayPayload['pickup'] ?? overlayPayload['origin_address'] ?? '-'}\n도착: ${overlayPayload['destination'] ?? overlayPayload['destination_address'] ?? '-'}',
       alignment: OverlayAlignment.center,
       width: WindowSize.matchParent,
-      height: 320,
+      height: 380,
       positionGravity: PositionGravity.none,
     );
     _lastOverlayDeliveryId = deliveryId;
@@ -357,8 +357,8 @@ class _OverlayPayloadLoaderState extends State<_OverlayPayloadLoader> {
   }
 }
 
-/// 심플 다크모드 오버레이: message.data의 price, pickup, destination 연결.
-/// 배경 85% 불투명 짙은 네이비 / 금액 상단 중앙 형광노랑 / 경로 수직점선+화살표 / 하단 수락·거절 버튼
+/// 카카오픽 스타일 오버레이: 흰색 카드, [퀵 배송] 태그, 경로(출발→도착), 금액, 넘기기/수락하기 버튼.
+/// 앱 열림(FlutterOverlayWindow) / 앱 닫힘(DispatchOverlayActivity) 공통 UI.
 class DispatchAcceptOverlayWidget extends StatefulWidget {
   const DispatchAcceptOverlayWidget({super.key, required this.payload});
 
@@ -435,40 +435,43 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
     } catch (_) {}
   }
 
-  static const Color _bgNavy = Color(0xF20D1B2A); // 짙은 네이비 95% 불투명
-  static const Color _priceColor = Color(0xFFD4FF00); // 형광 노랑
-  static const Color _acceptBtnColor = Color(0xFF42A5F5); // 밝은 파란색
+  // 카카오픽 스타일 색상
+  static const Color _teal = Color(0xFF00C7BE); // 틸(녹청) — 태그, 수락 버튼
+  static const Color _originBullet = Color(0xFF5AC8FA); // 출발 (연한 블루)
+  static const Color _destBullet = Color(0xFFAF52DE); // 도착 (퍼플)
+  static const Color _skipBtnGray = Color(0xFF9E9E9E);
+  static const Color _infoBoxGray = Color(0xFFF5F5F5);
 
   @override
   Widget build(BuildContext context) {
-    // 중앙 팝업 카드 스타일 — 화면 전체 덮지 않고 필요한 카드만 중앙에 표시 (이전 버전 디자인)
+    // 카카오픽 스타일 — 흰색 카드, 중앙 배치, 앱 열림/닫힘 공통
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
-          // 배경 딤 — 터치 시 넘기기 (반투명, 카드 영역 외부만)
+          // 배경 딤 — 터치 시 넘기기
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _acceptSent ? null : _dismiss,
-              child: Container(color: Colors.black.withOpacity(0.45)),
+              child: Container(color: Colors.black.withOpacity(0.35)),
             ),
           ),
-          // 중앙 카드
+          // 중앙 흰색 카드 (카카오픽 스타일)
           Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Material(
                 color: Colors.transparent,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _bgNavy,
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.6),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
@@ -476,107 +479,192 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // 헤더: 타이틀 + 금액
+                      // 헤더: [퀵 배송] 태그 | 작게 보기 v
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 12, 0),
                         child: Row(
                           children: [
-                            const Icon(Icons.local_shipping, color: Color(0xFF42A5F5), size: 22),
-                            const SizedBox(width: 8),
-                            const Text(
-                              '신규 배차 요청',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _teal,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                '퀵 배송',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                             const Spacer(),
-                            if (_price != '-')
+                            GestureDetector(
+                              onTap: _acceptSent ? null : _dismiss,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '작게 보기',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.keyboard_arrow_down, size: 20, color: Colors.grey.shade600),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // 경로: 출발 → 도착 (불릿 + 텍스트)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Column(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: _originBullet,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                Container(
+                                  width: 2,
+                                  height: 14,
+                                  margin: const EdgeInsets.symmetric(vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade300,
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: _destBullet,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _pickup,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _destination,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // 배송 정보 박스 (회색)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _infoBoxGray,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            '퀵 배송',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // 금액 (큰 숫자 + 아이콘)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            if (_price != '-') ...[
                               Text(
                                 _price,
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: _priceColor,
+                                  color: Colors.black87,
                                   letterSpacing: -0.5,
                                 ),
                               ),
+                              const SizedBox(width: 6),
+                              Icon(Icons.monetization_on_outlined, size: 22, color: Colors.amber.shade700),
+                            ],
                           ],
                         ),
                       ),
-                      Container(height: 1, color: Colors.white12),
-                      // 경로
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.circle, size: 9, color: Color(0xFF66BB6A)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _pickup,
-                                style: const TextStyle(fontSize: 13, color: Colors.white70),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 24, top: 2, bottom: 2),
-                        child: Container(width: 2, height: 12, color: Colors.white24),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.location_on, size: 11, color: Color(0xFFEF5350)),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                _destination,
-                                style: const TextStyle(fontSize: 13, color: Colors.white70),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // 버튼
+                      const SizedBox(height: 20),
+                      // 버튼: 넘기기(회색) | 수락하기(틸)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                         child: Row(
                           children: [
                             Expanded(
                               child: SizedBox(
-                                height: 48,
-                                child: OutlinedButton(
+                                height: 50,
+                                child: TextButton(
                                   onPressed: _acceptSent ? null : _dismiss,
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white70,
-                                    side: const BorderSide(color: Colors.white24),
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: _skipBtnGray,
+                                    foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  child: const Text('넘기기'),
+                                  child: const Text('넘기기', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               flex: 2,
                               child: SizedBox(
-                                height: 48,
+                                height: 50,
                                 child: ElevatedButton(
                                   onPressed: _acceptSent ? null : _accept,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: _acceptBtnColor,
+                                    backgroundColor: _teal,
                                     foregroundColor: Colors.white,
-                                    disabledBackgroundColor: Colors.grey.shade700,
+                                    disabledBackgroundColor: Colors.grey.shade400,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -584,10 +672,7 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
                                   ),
                                   child: Text(
                                     _acceptSent ? '처리 중…' : '수락하기',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               ),
@@ -610,20 +695,20 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
   Widget _buildSuccessOverlay() {
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.black.withOpacity(0.35),
         child: Center(
           child: ScaleTransition(
             scale: _successScale,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 32),
               decoration: BoxDecoration(
-                color: _bgNavy,
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
@@ -632,26 +717,19 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
                 children: [
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2E7D32),
+                    decoration: const BoxDecoration(
+                      color: _teal,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: _priceColor.withOpacity(0.4),
-                          blurRadius: 16,
-                          spreadRadius: 2,
-                        ),
-                      ],
                     ),
                     child: const Icon(Icons.check, size: 40, color: Colors.white),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   const Text(
                     '배차 수락 완료',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: Colors.black87,
                     ),
                   ),
                 ],
