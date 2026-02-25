@@ -12,23 +12,38 @@ import 'app_config.dart';
 void logFcmReceiptToDb(Map<String, dynamic> data, String source) {
   if (!Platform.isAndroid) return;
   final driverId = (data['driver_id'] ?? data['driverId'])?.toString();
-  if (driverId == null || driverId.isEmpty) return;
+  if (driverId == null || driverId.isEmpty) {
+    developer.log('FCM 로그 스킵: driver_id 없음 (data=$data)', name: 'FCM_RECEIPT');
+    if (kDebugMode) {
+      debugPrint('[FCM_RECEIPT] driver_id 없음 → fcm_receipt_log 저장 스킵. 수신 data: $data');
+    }
+    return;
+  }
   final deliveryId = (data['delivery_id'] ?? data['deliveryId'])?.toString() ?? '';
-  final uri = Uri.parse('${apiBaseUrl}/api/driver/fcm-receipt-log');
-  HttpClient().postUrl(uri).then((req) {
-    req.headers.set('Content-Type', 'application/json');
-    req.write(jsonEncode({
-      'driver_id': driverId,
-      'delivery_id': deliveryId.isEmpty ? null : deliveryId,
-      'source': source,
-      'raw_data': data,
-    }));
-    return req.close();
-  }).then((_) {
-    developer.log('FCM 수신 DB 로그 저장 완료', name: 'FCM_RECEIPT');
-  }).catchError((e) {
-    developer.log('FCM 수신 DB 로그 실패: $e', name: 'FCM_RECEIPT');
-  });
+  final uri = Uri.parse('$apiBaseUrl/api/driver/fcm-receipt-log');
+  HttpClient()
+      .postUrl(uri)
+      .then((req) {
+        req.headers.set('Content-Type', 'application/json');
+        req.write(jsonEncode({
+          'driver_id': driverId,
+          'delivery_id': deliveryId.isEmpty ? null : deliveryId,
+          'source': source,
+          'raw_data': data,
+        }));
+        return req.close();
+      })
+      .then((res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          developer.log('FCM 수신 DB 로그 저장 완료', name: 'FCM_RECEIPT');
+        } else {
+          developer.log('FCM 수신 DB 로그 HTTP $res', name: 'FCM_RECEIPT');
+        }
+      })
+      .catchError((e) {
+        developer.log('FCM 수신 DB 로그 실패: $e', name: 'FCM_RECEIPT');
+        if (kDebugMode) debugPrint('[FCM_RECEIPT] 실패: $e');
+      });
 }
 
 /// 서버(push/send) FCM data 키: type, delivery_id, title, body, url, price, pickup, destination.

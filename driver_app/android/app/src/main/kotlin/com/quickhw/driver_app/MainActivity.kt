@@ -60,6 +60,23 @@ class MainActivity : FlutterActivity() {
                     openBatteryOptimizationSettings()
                     result.success(null)
                 }
+                "showDispatchOverlay" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val args = call.arguments as? Map<String, Any?> ?: emptyMap()
+                    val deliveryId = (args["delivery_id"] ?: args["deliveryId"])?.toString() ?: ""
+                    val origin = (args["pickup"] ?: args["origin_address"] ?: args["origin"])?.toString() ?: "-"
+                    val dest = (args["destination"] ?: args["destination_address"] ?: args["dest"])?.toString() ?: "-"
+                    val fee = (args["price"] ?: args["fee"])?.toString() ?: "-"
+                    val intent = Intent(this, DispatchOverlayActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                        putExtra(DispatchOverlayActivity.EXTRA_DELIVERY_ID, deliveryId)
+                        putExtra(DispatchOverlayActivity.EXTRA_ORIGIN, origin)
+                        putExtra(DispatchOverlayActivity.EXTRA_DEST, dest)
+                        putExtra(DispatchOverlayActivity.EXTRA_FEE, fee)
+                    }
+                    startActivity(intent)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

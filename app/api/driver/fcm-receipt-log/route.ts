@@ -34,10 +34,11 @@ export async function POST(request: Request) {
     })
 
     if (error) {
-      console.error("[fcm-receipt-log] INSERT 실패:", error.message)
+      console.error("[fcm-receipt-log] INSERT 실패:", error.message, { driverId, deliveryId, source })
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    console.log("[fcm-receipt-log] 저장 완료", { driverId, deliveryId, source })
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error("[fcm-receipt-log] 오류:", (e as Error).message)

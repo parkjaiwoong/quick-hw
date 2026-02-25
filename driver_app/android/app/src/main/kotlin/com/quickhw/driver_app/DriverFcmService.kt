@@ -75,13 +75,19 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
     }
 
-    /** 앱(패키지)이 현재 포그라운드(화면에 보임)인지 확인 */
+    /** 앱(패키지)이 현재 포그라운드(화면에 보임)인지 확인. 불확실하면 false(백그라운드로 처리) */
     private fun isAppInForeground(): Boolean {
-        val am = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
-        val tasks = am.getRunningTasks(1)
-        if (tasks.isNullOrEmpty()) return false
-        val topActivity = tasks[0].topActivity ?: return false
-        return topActivity.packageName == packageName
+        return try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
+            val tasks = am.getRunningTasks(1)
+            if (tasks.isNullOrEmpty()) false
+            else {
+                val top = tasks[0].topActivity ?: return false
+                top.packageName == packageName
+            }
+        } catch (_: Exception) {
+            false
+        }
     }
 
     override fun onNewToken(token: String) {
@@ -186,15 +192,15 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
     private fun logFcmReceiptToDb(data: Map<String, String>, source: String) {
         val driverId = data["driver_id"] ?: data["driverId"] ?: ""
         if (driverId.isEmpty()) {
-            Log.w(TAG, "FCM 로그 중단: driver_id가 데이터에 없습니다. (수신 데이터: $data)")
+            Log.w(TAG, "FCM 로그 중단: driver_id가 FCM data에 없습니다. push/send API에서 driver_id(user_id) 포함 여부 확인. 수신 data=$data")
             return
         }
 
         Thread {
             try {
                 val targetUrl = "$API_BASE_URL/api/driver/fcm-receipt-log"
-                Log.d(TAG, "FCM 로그 시도 (source=$source, url=$targetUrl)")
-                
+                Log.d(TAG, "FCM 로그 시도 (source=$source, driverId=$driverId, url=$targetUrl)")
+
                 val url = URL(targetUrl)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
@@ -204,25 +210,28 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
                 conn.connectTimeout = 10000
                 conn.readTimeout = 10000
 
+                val deliveryId = data["delivery_id"] ?: data["deliveryId"] ?: ""
                 val body = JSONObject().apply {
                     put("driver_id", driverId)
-                    put("delivery_id", data["delivery_id"] ?: data["deliveryId"] ?: "")
+                    put("delivery_id", deliveryId)
                     put("source", source)
                     put("raw_data", JSONObject(data as Map<*, *>))
                 }
 
                 OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
-                
+
                 val code = conn.responseCode
                 val responseMessage = conn.responseMessage
-                
-                if (code in 200..299) {
-                    Log.i(TAG, "FCM 수신 DB 로그 저장 완료 (driver=$driverId, code=$code)")
+                val responseBody = if (code in 200..299) {
+                    conn.inputStream?.bufferedReader()?.use { it.readText() } ?: ""
                 } else {
-                    Log.w(TAG, "FCM 수신 DB 로그 실패: HTTP $code ($responseMessage)")
-                    // 실패 시 응답 바디 확인 (디버깅용)
-                    val errorBody = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-                    Log.w(TAG, "Error Response Body: $errorBody")
+                    conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                }
+
+                if (code in 200..299) {
+                    Log.i(TAG, "FCM 수신 DB 로그 저장 완료 (driver=$driverId, delivery=$deliveryId, source=$source, code=$code)")
+                } else {
+                    Log.w(TAG, "FCM 수신 DB 로그 실패: HTTP $code $responseMessage | body=$responseBody")
                 }
                 conn.disconnect()
             } catch (e: Exception) {

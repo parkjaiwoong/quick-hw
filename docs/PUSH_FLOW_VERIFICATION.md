@@ -170,3 +170,14 @@ ORDER BY created_at DESC;
 
 - `source`: `foreground`(포그라운드 Dart), `background`(백그라운드 Dart), `native`(Kotlin)
 - 이 테이블에 row가 있으면 **해당 기기에서 FCM을 실제로 수신**한 것입니다.
+
+**fcm_receipt_log에 데이터가 안 들어올 때 점검:**
+
+| 단계 | 확인 항목 | 조치 |
+|------|-----------|------|
+| 1 | push/send 호출 여부 | Vercel 로그에서 `[push/send] 요청 수신`, `[push/send] FCM 발송 결과` 확인 |
+| 2 | FCM data에 driver_id | push/send는 `driver_id: userId` 포함 전송. driver_id 없으면 앱에서 로그 스킵 |
+| 3 | 앱 onMessageReceived | logcat 필터 `DriverFcmService` — "FCM 로그 시도" 또는 "driver_id가 FCM data에 없습니다" 확인 |
+| 4 | fcm-receipt-log API | Vercel 로그에서 `[fcm-receipt-log] 저장 완료` 또는 `INSERT 실패` 확인 |
+| 5 | fcm_receipt_log 테이블 | Supabase에서 `scripts/057_fcm_receipt_log.sql` 실행 여부 확인 |
+| 6 | driver_id FK | driver_id가 profiles(id)에 존재해야 함. 기사가 profiles에 없으면 INSERT 실패 |
