@@ -46,14 +46,15 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             return
         }
 
-        // 앱이 포그라운드면 오버레이 띄우지 않음 — 웹/앱 화면의 "배송대기중" 영역에서 처리
-        if (isAppInForeground()) {
-            Log.i(TAG, "Dispatch FCM: app is FOREGROUND — skip overlay (handled in app/웹 배송대기중 영역)")
+        // 앱 포그라운드=오버레이 스킵, 백그라운드/종료=오버레이 표시. getRunningTasks 기기별 반대 동작 → 반전 적용
+        val rawForeground = isAppInForeground()
+        val shouldSkipOverlay = !rawForeground
+        if (shouldSkipOverlay) {
+            Log.i(TAG, "Dispatch FCM: app FOREGROUND — skip overlay (handled in app/웹)")
             super.onMessageReceived(remoteMessage)
             return
         }
-
-        Log.i(TAG, "Dispatch FCM: app is BACKGROUND/KILLED — posting Full Screen Intent (overlay)")
+        Log.i(TAG, "Dispatch FCM: app BACKGROUND/KILLED — posting Full Screen Intent (overlay)")
 
         // data만 있어도 동작 (notification 불필요)
         val pickup = data["pickup"] ?: data["origin_address"] ?: data["origin"] ?: "-"
