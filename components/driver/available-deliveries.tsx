@@ -5,11 +5,7 @@ import { useRouter } from "next/navigation"
 import { AlertCircle, Bike, Clock, Calendar, Zap, MapPin } from "lucide-react"
 import { useDriverDeliveryRequest } from "@/lib/contexts/driver-delivery-request"
 import { Button } from "@/components/ui/button"
-
-function shortenAddress(addr: string, maxLen: number) {
-  if (!addr || addr.length <= maxLen) return addr
-  return addr.slice(0, maxLen) + "…"
-}
+import { toAddressAbbrev } from "@/lib/address-abbrev"
 
 interface AvailableDeliveriesProps {
   deliveries: Delivery[]
@@ -41,11 +37,15 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           <div className="px-4 py-3 space-y-2 bg-white/70">
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 shrink-0 text-green-600" />
-              <span className="text-muted-foreground truncate">{shortenAddress(latestNew.delivery.pickup_address, 32)}</span>
+              <span className="text-muted-foreground truncate" title={latestNew.delivery.pickup_address}>
+                {toAddressAbbrev(latestNew.delivery.pickup_address)}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 shrink-0 text-red-600" />
-              <span className="text-muted-foreground truncate">{shortenAddress(latestNew.delivery.delivery_address, 32)}</span>
+              <span className="text-muted-foreground truncate" title={latestNew.delivery.delivery_address}>
+                {toAddressAbbrev(latestNew.delivery.delivery_address)}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm pt-1">
               <span className="text-muted-foreground">
@@ -116,8 +116,12 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
                 )}
               </div>
               <div className="col-span-2 font-semibold">{delivery.distance_km?.toFixed(1) || "0"}km</div>
-              <div className="col-span-3 truncate">{delivery.pickup_address}</div>
-              <div className="col-span-3 truncate">{delivery.delivery_address}</div>
+              <div className="col-span-3 truncate" title={delivery.pickup_address}>
+                {toAddressAbbrev(delivery.pickup_address)}
+              </div>
+              <div className="col-span-3 truncate" title={delivery.delivery_address}>
+                {toAddressAbbrev(delivery.delivery_address)}
+              </div>
               <div className="col-span-2 text-right font-semibold">{priceLabel}</div>
             </div>
           )

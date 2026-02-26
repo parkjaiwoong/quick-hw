@@ -146,7 +146,14 @@ void setFcmForegroundInjector(FcmForegroundInjectFn? fn) {
   _fcmForegroundInject = fn;
 }
 
-/// 포그라운드 FCM: 배송 요청이면 오버레이 대신 WebView 배송대기중 영역에 데이터 주입
+/// 현재 WebView 화면: main(메인) / available(배송대기중). 배송대기중에서만 FCM 처리.
+String _currentDriverScreen = 'main';
+void setCurrentDriverScreen(String screen) {
+  _currentDriverScreen = screen;
+  if (kDebugMode) debugPrint('[기사앱] 현재 화면: $_currentDriverScreen');
+}
+
+/// 포그라운드 FCM: 배송대기중 화면에서만 오버레이 표시 + WebView 배송대기중 영역 주입
 Future<void> _onForegroundMessage(RemoteMessage message) async {
   try {
     developer.log('===== FCM 포그라운드 수신 =====', name: 'FCM_FG');
@@ -160,19 +167,26 @@ Future<void> _onForegroundMessage(RemoteMessage message) async {
     final typeRaw = (data['type'] ?? '').toString();
     final deliveryIdRaw = (data['delivery_id'] ?? data['deliveryId'] ?? data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
     final isNewDelivery = typeRaw == 'new_delivery_request' || typeRaw == 'new_delivery' || deliveryIdRaw.isNotEmpty;
-    if (isNewDelivery) {
-      final isAvailable = await DriverAvailabilityStorage.load();
-      if (!isAvailable) {
-        if (kDebugMode) debugPrint('[FCM 포그라운드] 배송가능 OFF — 스킵');
-        return;
-      }
-      try { Vibration.vibrate(duration: 200); } catch (_) {}
-      Future.delayed(const Duration(milliseconds: 250), () {
-        try { Vibration.vibrate(duration: 200); } catch (_) {}
-      });
-      // 포그라운드: 오버레이 대신 WebView 배송대기중 영역에 주입
-      await _fcmForegroundInject?.call(Map<String, dynamic>.from(data));
+    if (!isNewDelivery) return;
+
+    // 메인 화면에서는 FCM 무시 (배송대기중에서만 처리)
+    if (_currentDriverScreen != 'available') {
+      if (kDebugMode) debugPrint('[FCM 포그라운드] 메인 화면 — 스킵 (배송대기중에서만 수신)');
+      return;
     }
+    final isAvailable = await DriverAvailabilityStorage.load();
+    if (!isAvailable) {
+      if (kDebugMode) debugPrint('[FCM 포그라운드] 배송가능 OFF — 스킵');
+      return;
+    }
+    try { Vibration.vibrate(duration: 200); } catch (_) {}
+    Future.delayed(const Duration(milliseconds: 250), () {
+      try { Vibration.vibrate(duration: 200); } catch (_) {}
+    });
+    // 오버레이 표시
+    await _showOverlayForFcmData(Map<String, dynamic>.from(data));
+    // WebView 배송대기중 영역에 데이터 주입 (신규 배송 카드 표시)
+    await _fcmForegroundInject?.call(Map<String, dynamic>.from(data));
   } catch (_) {}
 }
 
@@ -804,6 +818,13 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
       ..setJavaScriptMode(JavaScriptMode.unrestricted);
     _setupAndroidGeolocation(c);
     c
+      ..addJavaScriptChannel(
+        'DriverScreenChannel',
+        onMessageReceived: (JavaScriptMessage message) async {
+          final screen = message.message == 'available' ? 'available' : 'main';
+          setCurrentDriverScreen(screen);
+        },
+      )
       ..addJavaScriptChannel(
         'AvailabilityChannel',
         onMessageReceived: (JavaScriptMessage message) async {

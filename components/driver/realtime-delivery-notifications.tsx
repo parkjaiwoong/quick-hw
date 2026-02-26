@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { MapPin, Package, X } from "lucide-react"
 import { useDriverDeliveryRequest } from "@/lib/contexts/driver-delivery-request"
+import { toAddressAbbrev } from "@/lib/address-abbrev"
 
 interface DeliveryNotification {
   id: string
@@ -493,9 +494,9 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     detail: { payloadData, hasDelivery: !!delivery },
                   })
                 )
-                // Flutter WebView 브릿지: ctx 있으면 드라이버 페이지 → 배송대기중 인라인만 사용, 오버레이 호출 X
+                // Flutter WebView 브릿지: 기사앱에서 수신 시 오버레이 표시 (대기중인 배송 페이지 포함)
                 const win = window as Window & { FlutterOverlayChannel?: { postMessage: (s: string) => void } }
-                if (!ctx && win.FlutterOverlayChannel && isAvailable) {
+                if (win.FlutterOverlayChannel && isAvailable) {
                   const overlayData = {
                     delivery_id: payloadData.delivery.id,
                     pickup: payloadData.delivery.pickup_address ?? "",
@@ -669,11 +670,15 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
             <div className="px-4 py-3 space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="h-4 w-4 shrink-0 text-green-600" />
-                <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.pickup_address, 28)}</span>
+                <span className="text-muted-foreground truncate" title={latestNewDelivery.delivery.pickup_address}>
+                  {toAddressAbbrev(latestNewDelivery.delivery.pickup_address)}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="h-4 w-4 shrink-0 text-red-600" />
-                <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.delivery_address, 28)}</span>
+                <span className="text-muted-foreground truncate" title={latestNewDelivery.delivery.delivery_address}>
+                  {toAddressAbbrev(latestNewDelivery.delivery.delivery_address)}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm pt-1">
                 <span className="text-muted-foreground">

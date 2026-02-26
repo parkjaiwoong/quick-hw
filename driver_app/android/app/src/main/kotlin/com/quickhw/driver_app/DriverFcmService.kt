@@ -46,10 +46,10 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             return
         }
 
-        // 앱 포그라운드=오버레이 스킵(배송대기중 영역에서 처리), 백그라운드/종료=오버레이 표시
+        // 앱 포그라운드: Flutter _onForegroundMessage가 오버레이 표시. 백그라운드/종료: 네이티브 오버레이 표시
         val shouldSkipOverlay = isAppInForeground()
         if (shouldSkipOverlay) {
-            Log.i(TAG, "Dispatch FCM: app FOREGROUND — skip overlay (handled in app/웹)")
+            Log.i(TAG, "Dispatch FCM: app FOREGROUND — delegate overlay to Flutter")
             super.onMessageReceived(remoteMessage)
             return
         }
