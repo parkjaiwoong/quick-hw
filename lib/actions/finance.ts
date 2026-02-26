@@ -170,7 +170,7 @@ export async function cancelPaymentForDelivery(deliveryId: string) {
     .eq("delivery_id", deliveryId)
     .maybeSingle()
 
-  if (!order) return { success: false }
+  if (!order) return { success: true }
 
   const { data: payment } = await supabase
     .from("payments")
@@ -180,7 +180,7 @@ export async function cancelPaymentForDelivery(deliveryId: string) {
     .limit(1)
     .maybeSingle()
 
-  if (!payment?.id) return { success: false }
+  if (!payment?.id) return { success: true }
 
   if (payment.pg_provider === "TOSS" && payment.status === "PAID" && payment.payment_key) {
     const tossErr = await cancelTossPayment(payment.payment_key, "고객 변심 (배송 전 취소)")

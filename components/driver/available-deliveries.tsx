@@ -3,7 +3,6 @@
 import type { Delivery } from "@/lib/types/database"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Bike, Clock, Calendar, Zap } from "lucide-react"
 
 interface AvailableDeliveriesProps {
@@ -23,12 +22,10 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
 
   return (
     <div className="space-y-4">
-      <Alert className="border-blue-200 bg-blue-50">
-        <AlertCircle className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-blue-800">
-          배송을 수락하면 고객 연락처가 공개됩니다. 요금은 카카오픽 기준으로 자동 산정됩니다.
-        </AlertDescription>
-      </Alert>
+      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-2">
+        <AlertCircle className="h-4 w-4 shrink-0 text-blue-600" />
+        <span className="text-blue-800 font-medium">배송대기중</span>
+      </div>
 
       <div className="space-y-2">
         <div className="grid grid-cols-12 text-xs font-semibold text-muted-foreground px-3">

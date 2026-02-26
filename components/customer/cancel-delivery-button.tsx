@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -74,6 +73,7 @@ export function CancelDeliveryButton({
 }: CancelDeliveryButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
   const router = useRouter()
 
   const info = getCancelInfo(paymentMethod, paymentStatus)
@@ -86,7 +86,9 @@ export function CancelDeliveryButton({
       if (result.error) {
         setError(result.error)
       } else {
+        setOpen(false)
         router.refresh()
+        router.push("/customer")
       }
     } catch {
       setError("취소 처리 중 오류가 발생했습니다")
@@ -97,10 +99,7 @@ export function CancelDeliveryButton({
 
   return (
     <div className="space-y-2">
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>
-      )}
-      <AlertDialog>
+      <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogTrigger asChild>
           <Button variant="destructive" size="sm" className="w-full" disabled={loading}>
             <XCircle className="h-4 w-4 mr-2" />
@@ -117,14 +116,21 @@ export function CancelDeliveryButton({
               {info.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              {error}
+            </p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>돌아가기</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogCancel disabled={loading}>돌아가기</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={loading}
               onClick={handleCancel}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {info.confirmLabel}
-            </AlertDialogAction>
+              {loading ? "처리 중…" : info.confirmLabel}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

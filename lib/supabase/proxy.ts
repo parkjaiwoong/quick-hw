@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
+import { fetchWithRetry } from "@/lib/supabase/server"
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -10,6 +12,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!,
     process.env.NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY!,
     {
+      global: { fetch: fetchWithRetry as typeof fetch },
       cookies: {
         getAll() {
           return request.cookies.getAll()

@@ -9,7 +9,11 @@
     "start": "next start",
     "driver-app:build": "cd driver_app && flutter build apk --release",
     "driver-app:copy": "node -e \"const fs=require('fs');const p='driver_app/build/app/outputs/flutter-apk/app-release.apk';const out='public/downloads/driver-app.apk';if(!fs.existsSync(p)){console.error('APK not found. Run: npm run driver-app:build');process.exit(1);}fs.mkdirSync('public/downloads',{recursive:true});fs.copyFileSync(p,out);console.log('Copied to public/downloads/driver-app.apk');\"",
-    "driver-app:release": "npm run driver-app:build && npm run driver-app:copy"
+    "driver-app:release": "npm run driver-app:build && npm run driver-app:copy",
+    "test:local": "npm run dev",
+    "test:local:run": "powershell -ExecutionPolicy Bypass -File ./test-local.ps1",
+    "driver-app:run-emu": "cd driver_app && flutter run --dart-define=DRIVER_WEB_URL=http://10.0.2.2:3000/driver",
+    "driver-app:run-dev": "cd driver_app && flutter run --dart-define=DRIVER_WEB_URL=http://localhost:3000/driver"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -2,6 +2,7 @@ package com.quickhw.driver_app
 
 import android.content.Intent
 import android.os.Build
+import android.view.Gravity
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -14,6 +15,19 @@ import io.flutter.plugin.common.MethodChannel
 class DispatchOverlayActivity : FlutterActivity() {
 
     override fun getDartEntrypointFunctionName(): String = "overlayMain"
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 콘텐츠 크기에 맞춰 중앙 정렬 (전체 화면 아님, 첫 번째 캡처처럼 플로팅 카드)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            val dm = resources.displayMetrics
+            val w = (dm.widthPixels * 0.88).toInt().coerceAtLeast(280)
+            val h = (dm.heightPixels * 0.65).toInt().coerceAtLeast(320)
+            window?.setLayout(w, h)
+            window?.setGravity(Gravity.CENTER)
+            window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

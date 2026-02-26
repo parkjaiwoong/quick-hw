@@ -615,16 +615,16 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
         <div
           role="alertdialog"
           aria-labelledby="delivery-popup-title"
-          className="fixed inset-0 z-[99999] flex flex-col justify-end bg-black/20"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/35"
+          onClick={handleDecline}
         >
-          <div className="flex-1 min-h-0" onClick={handleDecline} aria-hidden />
           <div
-            className="flex flex-col rounded-t-2xl bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom duration-300"
+            className="w-full max-w-md rounded-xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.15)] overflow-hidden animate-in zoom-in-95 duration-200"
             onPointerDown={onPopupInteraction}
             onTouchStart={onPopupInteraction}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 bg-muted/30">
               <div className="flex items-center gap-2 text-blue-600">
                 <Package className="h-5 w-5 shrink-0" />
                 <span id="delivery-popup-title" className="font-semibold">새 배송 요청</span>
@@ -641,11 +641,11 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
             <div className="px-4 py-3 space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="h-4 w-4 shrink-0 text-green-600" />
-                <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.pickup_address, 24)}</span>
+                <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.pickup_address, 28)}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="h-4 w-4 shrink-0 text-red-600" />
-                <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.delivery_address, 24)}</span>
+                <span className="text-muted-foreground truncate">{shortenAddress(latestNewDelivery.delivery.delivery_address, 28)}</span>
               </div>
               <div className="flex items-center justify-between text-sm pt-1">
                 <span className="text-muted-foreground">
@@ -658,24 +658,23 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 </span>
               </div>
             </div>
-            <div className="flex gap-2 px-4 pb-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex gap-2 px-4 pb-4 pt-1">
               <Button
                 variant="outline"
                 className="flex-1"
                 onClick={handleDecline}
                 disabled={acceptLoading}
               >
-                거절
+                넘기기
               </Button>
               <Button
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
                 onClick={handleAccept}
                 disabled={acceptLoading}
               >
-                {acceptLoading ? "처리 중…" : "수락"}
+                {acceptLoading ? "처리 중…" : "수락하기"}
               </Button>
             </div>
-            <div className="h-1 w-16 mx-auto rounded-full bg-gray-200 mb-1" aria-hidden />
           </div>
         </div>
       )}
