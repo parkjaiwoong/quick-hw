@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { RealtimeDeliveryNotifications } from "@/components/driver/realtime-delivery-notifications"
 import { DriverDashboardPoller } from "@/components/driver/driver-dashboard-poller"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
+import { DriverDeliveryRequestProvider } from "@/lib/contexts/driver-delivery-request"
 
 type PageProps = { searchParams?: Promise<{ accept_delivery?: string }> }
 
@@ -74,10 +75,11 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     .eq("driver_id", user.id)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
-      <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId} />
-      <RealtimeDeliveryNotifications userId={user.id} isAvailable={driverInfo?.is_available ?? false} />
-      <DriverDashboardPoller />
+    <DriverDeliveryRequestProvider>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+        <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId} />
+        <RealtimeDeliveryNotifications userId={user.id} isAvailable={driverInfo?.is_available ?? false} />
+        <DriverDashboardPoller />
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -275,5 +277,6 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
         </Tabs>
       </div>
     </div>
+    </DriverDeliveryRequestProvider>
   )
 }

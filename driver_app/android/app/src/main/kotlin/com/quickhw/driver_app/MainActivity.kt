@@ -7,7 +7,6 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
-import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -53,13 +52,6 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(null)
                 }
-                "getBatteryOptimizationExcluded" -> {
-                    result.success(isIgnoringBatteryOptimizations())
-                }
-                "openBatteryOptimizationSettings" -> {
-                    openBatteryOptimizationSettings()
-                    result.success(null)
-                }
                 "showDispatchOverlay" -> {
                     @Suppress("UNCHECKED_CAST")
                     val args = call.arguments as? Map<String, Any?> ?: emptyMap()
@@ -88,34 +80,6 @@ class MainActivity : FlutterActivity() {
     }
 
     private val CHANNEL = "com.quickhw.driver_app/launch"
-
-    /** 배터리 최적화 제외 여부 (Android 6.0+) */
-    private fun isIgnoringBatteryOptimizations(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
-        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return true
-        return pm.isIgnoringBatteryOptimizations(packageName)
-    }
-
-    /** 배터리 최적화 제외 요청: 시스템 다이얼로그 또는 앱 배터리 설정 화면으로 이동 */
-    private fun openBatteryOptimizationSettings() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
-        if (isIgnoringBatteryOptimizations()) return
-        try {
-            val intent = Intent().apply {
-                action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                data = Uri.parse("package:$packageName")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
-        } catch (_: Exception) {
-            try {
-                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-            } catch (_: Exception) {}
-        }
-    }
 
     /** FCM 백그라운드 알림 소리/진동용 채널 (push/send의 channelId: delivery_request 와 동일) */
     private fun createDeliveryNotificationChannel() {

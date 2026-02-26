@@ -46,13 +46,14 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             return
         }
 
-        // 앱이 포그라운드면 Flutter도 처리. 백그라운드 판별이 불안정할 수 있어
-        // 항상 Full Screen Intent 알림 생성 (포그라운드에서는 heads-up만 뜨고, 백그라운드에서 전체화면 표시)
+        // 앱이 포그라운드면 오버레이 띄우지 않음 — 웹/앱 화면의 "배송대기중" 영역에서 처리
         if (isAppInForeground()) {
-            Log.i(TAG, "Dispatch FCM: app is FOREGROUND — posting Full Screen Intent anyway (Flutter also handles)")
-        } else {
-            Log.i(TAG, "Dispatch FCM: app is BACKGROUND/KILLED — posting Full Screen Intent")
+            Log.i(TAG, "Dispatch FCM: app is FOREGROUND — skip overlay (handled in app/웹 배송대기중 영역)")
+            super.onMessageReceived(remoteMessage)
+            return
         }
+
+        Log.i(TAG, "Dispatch FCM: app is BACKGROUND/KILLED — posting Full Screen Intent (overlay)")
 
         // data만 있어도 동작 (notification 불필요)
         val pickup = data["pickup"] ?: data["origin_address"] ?: data["origin"] ?: "-"

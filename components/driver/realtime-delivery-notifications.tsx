@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState, startTransition } from "react
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
-import { acceptDelivery } from "@/lib/actions/driver"
 import { useRouter } from "next/navigation"
 import { MapPin, Package, X } from "lucide-react"
+import { useDriverDeliveryRequest } from "@/lib/contexts/driver-delivery-request"
 
 interface DeliveryNotification {
   id: string
@@ -85,8 +85,11 @@ interface RealtimeDeliveryNotificationsProps {
 export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: RealtimeDeliveryNotificationsProps) {
   const { toast } = useToast()
   const router = useRouter()
+  const ctx = useDriverDeliveryRequest()
   const [latestNewDelivery, setLatestNewDelivery] = useState<LatestNewDelivery | null>(null)
   const [acceptLoading, setAcceptLoading] = useState(false)
+  const setDeliveryState = ctx?.setLatestNewDelivery ?? setLatestNewDelivery
+  const showPopup = !ctx && latestNewDelivery
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default")
   const [realtimeStatus, setRealtimeStatus] = useState<"idle" | "subscribed" | "error">("idle")
   const [retryKey, setRetryKey] = useState(0)
@@ -97,11 +100,11 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundPlayedForCurrentRef = useRef(false)
   const audioUnlockedRef = useRef(false)
-  const setLatestNewDeliveryRef = useRef(setLatestNewDelivery)
+  const setLatestNewDeliveryRef = useRef(setDeliveryState)
   const setEventReceiveCountRef = useRef(setEventReceiveCount)
   const setLastEventAtRef = useRef(setLastEventAt)
   const lastShownNotificationIdRef = useRef<string | null>(null)
-  setLatestNewDeliveryRef.current = setLatestNewDelivery
+  setLatestNewDeliveryRef.current = setDeliveryState
   setEventReceiveCountRef.current = setEventReceiveCount
   setLastEventAtRef.current = setLastEventAt
 
@@ -265,7 +268,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
       if (!payloadData) return
       setEventReceiveCount((c) => c + 1)
       setLastEventAt(Date.now())
-      setLatestNewDelivery(payloadData)
+      setDeliveryState(payloadData)
       // 수락 가능한 배송 목록 갱신 (컴포넌트 컨텍스트에서 호출해 확실히 반영)
       startTransition(() => routerRef.current?.refresh())
     }
@@ -554,10 +557,12 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     }
   }, [userId, retryKey])
 
-  const handleAccept = async () => {
-    if (!latestNewDelivery || acceptLoading) return
+  const deliveryForActions = ctx?.latestNewDelivery ?? latestNewDelivery
+  const handleAccept = ctx?.handleAccept ?? (async () => {
+    if (!deliveryForActions || acceptLoading) return
     setAcceptLoading(true)
-    const result = await acceptDelivery(latestNewDelivery.delivery.id)
+    const { acceptDelivery } = await import("@/lib/actions/driver")
+    const result = await acceptDelivery(deliveryForActions.delivery.id)
     if (result.error) {
       toast({ title: "오류", description: result.error, variant: "destructive" })
       setAcceptLoading(false)
@@ -567,25 +572,25 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
       await supabaseRef.current
         .from("notifications")
         .update({ is_read: true })
-        .eq("id", latestNewDelivery.notificationId)
+        .eq("id", deliveryForActions.notificationId)
     }
     toast({ title: "✅ 배송 수락 완료", description: "배송을 수락했습니다." })
-    setLatestNewDelivery(null)
+    setDeliveryState(null)
     setAcceptLoading(false)
     startTransition(() => router.refresh())
-  }
+  })
 
-  const handleDecline = async () => {
-    if (!latestNewDelivery) return
+  const handleDecline = ctx?.handleDecline ?? (async () => {
+    if (!deliveryForActions) return
     if (supabaseRef.current) {
       await supabaseRef.current
         .from("notifications")
         .update({ is_read: true })
-        .eq("id", latestNewDelivery.notificationId)
+        .eq("id", deliveryForActions.notificationId)
     }
-    setLatestNewDelivery(null)
+    setDeliveryState(null)
     startTransition(() => router.refresh())
-  }
+  })
 
   const onPopupInteraction = useCallback(() => {
     if (!soundPlayedForCurrentRef.current) {
@@ -611,7 +616,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
           </Button>
         </div>
       )}
-      {latestNewDelivery && (
+      {/* 컨텍스트 없을 때만 팝업(앱이 올라와 있을 때는 배송대기중 영역에서 인라인 표시) */}
+      {showPopup && latestNewDelivery && (
         <div
           role="alertdialog"
           aria-labelledby="delivery-popup-title"

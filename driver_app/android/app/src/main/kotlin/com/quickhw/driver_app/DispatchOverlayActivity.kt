@@ -18,11 +18,11 @@ class DispatchOverlayActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
-        // 콘텐츠 크기에 맞춰 중앙 정렬 (전체 화면 아님, 첫 번째 캡처처럼 플로팅 카드)
+        // 콘텐츠 크기에 맞춰 중앙 정렬 — 검정(딤) 영역 최소화하도록 창 더 작게
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             val dm = resources.displayMetrics
-            val w = (dm.widthPixels * 0.88).toInt().coerceAtLeast(280)
-            val h = (dm.heightPixels * 0.65).toInt().coerceAtLeast(320)
+            val w = (dm.widthPixels * 0.78).toInt().coerceAtLeast(260)
+            val h = (dm.heightPixels * 0.48).toInt().coerceAtLeast(280)
             window?.setLayout(w, h)
             window?.setGravity(Gravity.CENTER)
             window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)

@@ -138,43 +138,6 @@ Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
   }
 }
 
-/// 배터리 최적화 제외 여부 확인 후, 미제외 시 안내 다이얼로그를 띄우고 [설정 열기]로 시스템 화면 이동.
-/// 백그라운드에서도 배차 알림(오버레이)이 즉시 뜨도록 요청.
-Future<void> requestBatteryOptimizationExclusionWithDialog(BuildContext context) async {
-  if (!Platform.isAndroid) return;
-  try {
-    final excluded = await _launchChannel.invokeMethod<bool>('getBatteryOptimizationExcluded');
-    if (excluded == true) return;
-    if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('배터리 최적화 제외'),
-        content: const Text(
-          '백그라운드에서도 배차 요청이 즉시 알림으로 뜨려면 '
-          '"배터리 최적화 제외"가 필요합니다.\n\n'
-          '아래 [설정 열기]를 누르면 설정 화면으로 이동합니다. '
-          '언넌 앱을 "제한 없음" 또는 "최적화 안 함"으로 설정해 주세요.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              _launchChannel.invokeMethod('openBatteryOptimizationSettings');
-            },
-            child: const Text('설정 열기'),
-          ),
-        ],
-      ),
-    );
-  } catch (_) {}
-}
-
 /// 포그라운드 FCM: message.data만 있어도 동작 (notification 불필요). 배송 관련 키 있으면 진동 + 오버레이
 /// 앱 화면 위에 모달처럼 오버레이 표시 (앱은 그대로 둔 채 위에 띄움)
 Future<void> _onForegroundMessage(RemoteMessage message) async {
@@ -778,9 +741,6 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
       // [권한 호출 위치] '다른 앱 위에 표시'는 initState에서만 호출 (배송 가능 버튼과 무관). 800ms 후 requestOverlayPermissionWithDialog(context)
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) requestOverlayPermissionWithDialog(context);
-      });
-      Future.delayed(const Duration(milliseconds: 4000), () {
-        if (mounted) requestBatteryOptimizationExclusionWithDialog(context);
       });
     });
   }
