@@ -92,6 +92,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   const showPopup = !ctx && latestNewDelivery
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default")
   const [realtimeStatus, setRealtimeStatus] = useState<"idle" | "subscribed" | "error">("idle")
+  const [mounted, setMounted] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
   const [lastEventAt, setLastEventAt] = useState<number | null>(null)
   const [eventReceiveCount, setEventReceiveCount] = useState(0)
@@ -107,6 +108,11 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   setLatestNewDeliveryRef.current = setDeliveryState
   setEventReceiveCountRef.current = setEventReceiveCount
   setLastEventAtRef.current = setLastEventAt
+
+  // 클라이언트 마운트 후에만 렌더 (hydration 불일치 방지)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 사용자 제스처 시 AudioContext 언락 (자동재생 정책 통과 — 그래야 나중에 띵동 소리 재생 가능)
   useEffect(() => {
@@ -262,6 +268,22 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   }, [lastEventAt])
 
   // Realtime 콜백에서 이미 UI/진동/소리 직접 실행. 이벤트 리스너에서는 state 갱신 + 목록 refresh(이중으로 호출해 갱신 보장)
+  // 기사앱 포그라운드 FCM → WebView 배송대기중 영역 주입용 (오버레이 없이)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent<{ delivery: LatestNewDelivery["delivery"]; notificationId: string }>).detail
+      if (!d?.delivery) return
+      const payload: LatestNewDelivery = { delivery: d.delivery, notificationId: d.notificationId ?? `fcm-${d.delivery.id}` }
+      setEventReceiveCount((c) => c + 1)
+      setLastEventAt(Date.now())
+      setDeliveryState(payload)
+      triggerVibration()
+      startTransition(() => routerRef.current?.refresh())
+    }
+    window.addEventListener("driverNewDeliveryFcm", handler)
+    return () => window.removeEventListener("driverNewDeliveryFcm", handler)
+  }, [])
+
   useEffect(() => {
     const handler = (e: Event) => {
       const { payloadData } = (e as CustomEvent<{ payloadData: LatestNewDelivery; hasDelivery: boolean }>).detail
@@ -471,9 +493,9 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     detail: { payloadData, hasDelivery: !!delivery },
                   })
                 )
-                // Flutter WebView 브릿지: 배송가능 기사에게만 네이티브 오버레이 띄우기 (기사앱에서만 동작)
+                // Flutter WebView 브릿지: ctx 있으면 드라이버 페이지 → 배송대기중 인라인만 사용, 오버레이 호출 X
                 const win = window as Window & { FlutterOverlayChannel?: { postMessage: (s: string) => void } }
-                if (win.FlutterOverlayChannel && isAvailable) {
+                if (!ctx && win.FlutterOverlayChannel && isAvailable) {
                   const overlayData = {
                     delivery_id: payloadData.delivery.id,
                     pickup: payloadData.delivery.pickup_address ?? "",
@@ -527,7 +549,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                 .single()
               if (delivery) {
                 lastShownNotificationIdRef.current = row.id
-                setLatestNewDelivery({
+                setLatestNewDeliveryRef.current({
                   delivery: {
                     id: delivery.id,
                     pickup_address: delivery.pickup_address,
@@ -608,7 +630,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
           <strong>실시간 알림 연결 실패.</strong> 새 배송 요청 시 띵동/진동이 올 수 없습니다. PC에서 Supabase SQL 또는 관리자에게 문의하세요.
         </div>
       )}
-      {notificationPermission === "default" && realtimeStatus !== "error" && typeof window !== "undefined" && "Notification" in window && (
+      {notificationPermission === "default" && realtimeStatus !== "error" && mounted && typeof window !== "undefined" && "Notification" in window && (
         <div className="fixed top-16 left-2 right-2 z-[90] rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 shadow-sm flex items-center justify-between gap-2">
           <span>다른 앱 사용 중에도 알림을 받으려면 알림을 허용해 주세요.</span>
           <Button type="button" size="sm" variant="secondary" className="shrink-0 text-xs" onClick={requestNotificationPermission}>

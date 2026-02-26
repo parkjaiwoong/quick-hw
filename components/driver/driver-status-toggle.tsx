@@ -16,9 +16,11 @@ function notifyAppAvailability(available: boolean) {
 
 interface DriverStatusToggleProps {
   initialStatus: boolean
+  /** false로 변경 시 이동할 경로 (예: /driver) */
+  redirectToOnTurnOff?: string
 }
 
-export function DriverStatusToggle({ initialStatus }: DriverStatusToggleProps) {
+export function DriverStatusToggle({ initialStatus, redirectToOnTurnOff }: DriverStatusToggleProps) {
   const router = useRouter()
   const [isAvailable, setIsAvailable] = useState(initialStatus)
   const [isLoading, setIsLoading] = useState(false)
@@ -40,17 +42,29 @@ export function DriverStatusToggle({ initialStatus }: DriverStatusToggleProps) {
     setIsLoading(false)
     notifyAppAvailability(checked)
     const doRefresh = () => startTransition(() => router.refresh())
-    if (checked && "geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          await updateDriverLocation(pos.coords.latitude, pos.coords.longitude)
-          doRefresh()
-        },
-        () => doRefresh(),
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-      )
+    if (checked) {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            await updateDriverLocation(pos.coords.latitude, pos.coords.longitude)
+            doRefresh()
+            router.push("/driver/available")
+          },
+          () => {
+            doRefresh()
+            router.push("/driver/available")
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        )
+      } else {
+        doRefresh()
+        router.push("/driver/available")
+      }
     } else {
       doRefresh()
+      if (redirectToOnTurnOff) {
+        router.push(redirectToOnTurnOff)
+      }
     }
   }
 

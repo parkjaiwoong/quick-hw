@@ -13,7 +13,8 @@
     "test:local": "npm run dev",
     "test:local:run": "powershell -ExecutionPolicy Bypass -File ./test-local.ps1",
     "driver-app:run-emu": "cd driver_app && flutter run --dart-define=DRIVER_WEB_URL=http://10.0.2.2:3000/driver",
-    "driver-app:run-dev": "cd driver_app && flutter run --dart-define=DRIVER_WEB_URL=http://localhost:3000/driver"
+    "driver-app:run-dev": "cd driver_app && flutter run --dart-define=DRIVER_WEB_URL=http://localhost:3000/driver",
+    "driver-app:run-device": "cd driver_app && flutter run --dart-define=DRIVER_WEB_URL=http://192.168.0.10:3000/driver"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

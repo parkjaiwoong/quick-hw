@@ -14,6 +14,7 @@ import { acceptDelivery, updateDeliveryStatus } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import { OpenLayersMap } from "@/components/driver/openlayers-map"
 import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
+import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
@@ -37,7 +38,13 @@ const settlementStatusLabel: Record<string, string> = {
   EXCLUDED: "정산 제외",
 }
 
-export default async function DriverDeliveryDetailPage({ params }: { params: { id: string } }) {
+export default async function DriverDeliveryDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<{ accept_delivery?: string }>
+}) {
   const supabase = await getSupabaseServerClient()
 
   const {
@@ -57,6 +64,8 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
   }
 
   const { id } = await params
+  const sp = await searchParams
+  const acceptDeliveryId = id && sp?.accept_delivery === id ? id : null
   const { delivery } = await getDeliveryForDriver(id)
 
   const { data: settlement } = await supabase
@@ -118,6 +127,7 @@ export default async function DriverDeliveryDetailPage({ params }: { params: { i
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+      <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId ?? null} />
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">

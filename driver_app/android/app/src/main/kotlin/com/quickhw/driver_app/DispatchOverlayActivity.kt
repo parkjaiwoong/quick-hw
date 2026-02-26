@@ -18,11 +18,11 @@ class DispatchOverlayActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
-        // 콘텐츠 크기에 맞춰 중앙 정렬 — 검정(딤) 영역 최소화하도록 창 더 작게
+        // 콘텐츠 크기에 맞춰 중앙 정렬 — 위아래 짤림 방지(높이↑), 좌우 살짝 축소(폭↓)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             val dm = resources.displayMetrics
-            val w = (dm.widthPixels * 0.68).toInt().coerceAtLeast(240)
-            val h = (dm.heightPixels * 0.36).toInt().coerceAtLeast(220)
+            val w = (dm.widthPixels * 0.60).toInt().coerceAtLeast(240)
+            val h = (dm.heightPixels * 0.46).toInt().coerceAtLeast(280)
             window?.setLayout(w, h)
             window?.setGravity(Gravity.CENTER)
             window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
@@ -52,7 +52,7 @@ class DispatchOverlayActivity : FlutterActivity() {
                     @Suppress("UNCHECKED_CAST")
                     val args = call.arguments as? Map<String, Any?>
                     val deliveryId = args?.get("deliveryId")?.toString() ?: intent?.getStringExtra(EXTRA_DELIVERY_ID) ?: ""
-                    val openUrl = args?.get("openUrl")?.toString() ?: "/driver?accept_delivery=$deliveryId"
+                    val openUrl = args?.get("openUrl")?.toString() ?: "/driver/delivery/$deliveryId?accept_delivery=$deliveryId"
                     val main = Intent(this, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                         putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)

@@ -64,8 +64,14 @@ Start-Process "http://localhost:3000"
 
 Write-Host ""
 Write-Host "=== Local test ready ===" -ForegroundColor Green
-Write-Host "  Web: http://localhost:3000" -ForegroundColor White
-Write-Host "  Driver app (separate terminal): npm run driver-app:run-emu" -ForegroundColor White
+Write-Host "  Web:        http://localhost:3000" -ForegroundColor White
+Write-Host "  Driver:     http://localhost:3000/driver" -ForegroundColor White
+Write-Host "  Available:  http://localhost:3000/driver/available" -ForegroundColor White
+Write-Host ""
+Write-Host "  기사 앱 (Chrome):     npm run driver-app:run-dev" -ForegroundColor White
+Write-Host "  기사 앱 (에뮬레이터): npm run driver-app:run-emu" -ForegroundColor White
+Write-Host "  기사 앱 (실기기):     npm run driver-app:run-device (PC IP 192.168.0.10 가정)" -ForegroundColor White
+Write-Host ""
 Write-Host "  Stop: Ctrl+C in web server window" -ForegroundColor Gray
 Write-Host ""
 

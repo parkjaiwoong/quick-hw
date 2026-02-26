@@ -32,7 +32,7 @@ class DispatchAcceptActivity : Activity() {
             val main = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(MainActivity.EXTRA_ACCEPT_DELIVERY_ID, deliveryId)
-                putExtra(MainActivity.EXTRA_OPEN_URL, "/driver?accept_delivery=$deliveryId")
+                putExtra(MainActivity.EXTRA_OPEN_URL, "/driver/delivery/$deliveryId?accept_delivery=$deliveryId")
             }
             startActivity(main)
             finish()

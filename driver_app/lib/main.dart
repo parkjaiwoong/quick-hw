@@ -138,8 +138,15 @@ Future<void> requestOverlayPermissionWithDialog(BuildContext context) async {
   }
 }
 
-/// 포그라운드 FCM: message.data만 있어도 동작 (notification 불필요). 배송 관련 키 있으면 진동 + 오버레이
-/// 앱 화면 위에 모달처럼 오버레이 표시 (앱은 그대로 둔 채 위에 띄움)
+/// 포그라운드 FCM 수신 시 WebView의 배송대기중 영역에 주입 (오버레이 X)
+typedef FcmForegroundInjectFn = Future<void> Function(Map<String, dynamic> data);
+FcmForegroundInjectFn? _fcmForegroundInject;
+
+void setFcmForegroundInjector(FcmForegroundInjectFn? fn) {
+  _fcmForegroundInject = fn;
+}
+
+/// 포그라운드 FCM: 배송 요청이면 오버레이 대신 WebView 배송대기중 영역에 데이터 주입
 Future<void> _onForegroundMessage(RemoteMessage message) async {
   try {
     developer.log('===== FCM 포그라운드 수신 =====', name: 'FCM_FG');
@@ -154,17 +161,17 @@ Future<void> _onForegroundMessage(RemoteMessage message) async {
     final deliveryIdRaw = (data['delivery_id'] ?? data['deliveryId'] ?? data['order_id'] ?? data['orderId'] ?? data['order_number'])?.toString() ?? '';
     final isNewDelivery = typeRaw == 'new_delivery_request' || typeRaw == 'new_delivery' || deliveryIdRaw.isNotEmpty;
     if (isNewDelivery) {
-      // 배송가능 체크: 배송가능 누른 기사에게만 오버레이 표시
       final isAvailable = await DriverAvailabilityStorage.load();
       if (!isAvailable) {
-        if (kDebugMode) debugPrint('[FCM 포그라운드] 배송가능 OFF — 오버레이 스킵');
+        if (kDebugMode) debugPrint('[FCM 포그라운드] 배송가능 OFF — 스킵');
         return;
       }
       try { Vibration.vibrate(duration: 200); } catch (_) {}
       Future.delayed(const Duration(milliseconds: 250), () {
         try { Vibration.vibrate(duration: 200); } catch (_) {}
       });
-      _showOverlayForFcmData(message.data);
+      // 포그라운드: 오버레이 대신 WebView 배송대기중 영역에 주입
+      await _fcmForegroundInject?.call(Map<String, dynamic>.from(data));
     }
   } catch (_) {}
 }
@@ -376,8 +383,8 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
 
     await Future.delayed(const Duration(milliseconds: 600));
 
-    const openPath = '/driver?accept_delivery=';
-    final openUrl = '$openPath$_deliveryId';
+    const openPath = '/driver/delivery/';
+    final openUrl = '$openPath$_deliveryId?accept_delivery=$_deliveryId';
 
     // FlutterOverlayWindow: SharedPreferences에 URL 저장 후 close (앱 복귀 시 WebView 로드)
     try {
@@ -737,6 +744,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     debugPrint('[기사앱] initState');
     _checkAppVersion();
     _controller = _createController();
+    _registerFcmForegroundInjector();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // [권한 호출 위치] '다른 앱 위에 표시'는 initState에서만 호출 (배송 가능 버튼과 무관). 800ms 후 requestOverlayPermissionWithDialog(context)
       Future.delayed(const Duration(milliseconds: 800), () {
@@ -747,8 +755,41 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
 
   @override
   void dispose() {
+    setFcmForegroundInjector(null);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _registerFcmForegroundInjector() {
+    setFcmForegroundInjector((data) async {
+      if (!mounted) return;
+      final payload = buildOverlayPayloadFromFcmData(data);
+      var deliveryId = payload['delivery_id'] ?? payload['deliveryId'] ?? '';
+      if (deliveryId.isEmpty) deliveryId = 'fcm-${DateTime.now().millisecondsSinceEpoch}';
+      final pickup = payload['pickup'] ?? payload['origin_address'] ?? '-';
+      final dest = payload['destination'] ?? payload['destination_address'] ?? '-';
+      final price = payload['price'] ?? payload['fee'] ?? '-';
+      final feeNum = price.isNotEmpty && price != '-'
+          ? double.tryParse(price.replaceAll(RegExp(r'[^\d.]'), ''))
+          : null;
+      final detail = jsonEncode({
+        'delivery': {
+          'id': deliveryId,
+          'pickup_address': pickup,
+          'delivery_address': dest,
+          'driver_fee': feeNum,
+          'total_fee': feeNum,
+        },
+        'notificationId': 'fcm-$deliveryId',
+      });
+      final js = "try{var d=$detail;window.dispatchEvent(new CustomEvent('driverNewDeliveryFcm',{detail:d}));}catch(e){}";
+      try {
+        await _controller.runJavaScript(js);
+        if (kDebugMode) debugPrint('[기사앱] FCM 포그라운드 → WebView 배송대기중 주입 완료');
+      } catch (e) {
+        if (kDebugMode) debugPrint('[기사앱] FCM 주입 오류: $e');
+      }
+    });
   }
 
   @override

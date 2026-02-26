@@ -46,9 +46,8 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
             return
         }
 
-        // 앱 포그라운드=오버레이 스킵, 백그라운드/종료=오버레이 표시. getRunningTasks 기기별 반대 동작 → 반전 적용
-        val rawForeground = isAppInForeground()
-        val shouldSkipOverlay = !rawForeground
+        // 앱 포그라운드=오버레이 스킵(배송대기중 영역에서 처리), 백그라운드/종료=오버레이 표시
+        val shouldSkipOverlay = isAppInForeground()
         if (shouldSkipOverlay) {
             Log.i(TAG, "Dispatch FCM: app FOREGROUND — skip overlay (handled in app/웹)")
             super.onMessageReceived(remoteMessage)
@@ -132,6 +131,11 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         } else {
             null
         }
+        // 백그라운드에서 오버레이를 탭 없이 바로 표시하기 위해 Activity 직접 launch 시도 (기기에 따라 Full Screen Intent만으로는 heads-up만 뜨는 경우 대비)
+        try {
+            startActivity(fullScreenIntent)
+        } catch (_: Exception) { /* Android 10+ 백그라운드 제한 시 무시, Full Screen Intent에 의존 */ }
+
         val fullScreenPendingIntent = android.app.PendingIntent.getActivity(
             this,
             deliveryId.hashCode(),

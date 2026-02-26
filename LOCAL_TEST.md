@@ -14,6 +14,19 @@ npm run test:local:run
 
 → `.env.local` 확인, `npm install`, 웹 서버 시작, 브라우저 자동 열기
 
+### 로컬 테스트 URL
+
+| 화면 | URL |
+|------|-----|
+| 웹 앱 | http://localhost:3000 |
+| 기사 대시보드 | http://localhost:3000/driver |
+| 수락 가능한 배송 | http://localhost:3000/driver/available |
+
+### 기사 화면 접근
+
+- **로그인 후 role=driver인 계정** 또는
+- **role_override=driver** 쿠키 설정 후 접근 가능
+
 ---
 
 ## 1. 웹 앱 (Next.js)
@@ -128,7 +141,10 @@ flutter build apk --debug --dart-define=DRIVER_WEB_URL=http://192.168.0.10:3000/
 
 ### npm 스크립트
 
-- `npm run test:local:run` — **전체 로컬 테스트** (웹 서버 + 브라우저 자동 열기)
-- `npm run test:local` — 웹 개발 서버만 실행
-- `npm run driver-app:run-emu` — 기사 앱 실행 (에뮬레이터, http://10.0.2.2:3000/driver 연결)
-- `npm run driver-app:run-dev` — 기사 앱 실행 (Chrome/디스크톱, http://localhost:3000/driver 연결)
+| 스크립트 | 설명 |
+|----------|------|
+| `npm run test:local:run` | **한 번에** 웹 서버 + 브라우저 자동 열기 |
+| `npm run test:local` | 웹 개발 서버만 실행 |
+| `npm run driver-app:run-dev` | 기사 앱 (Chrome/디스크톱, localhost 연결) |
+| `npm run driver-app:run-emu` | 기사 앱 (에뮬레이터, 10.0.2.2:3000 연결) |
+| `npm run driver-app:run-device` | 기사 앱 (실기기, 192.168.0.10 연결). PC IP가 다르면 `ipconfig`로 확인 후 `package.json`의 `driver-app:run-device` IP 수정 |

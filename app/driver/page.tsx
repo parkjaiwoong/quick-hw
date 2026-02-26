@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Package, Star, TrendingUp, History, Smartphone } from "lucide-react"
-import { AvailableDeliveries } from "@/components/driver/available-deliveries"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { ensureDriverInfoForUser, getAvailableDeliveries, getMyAssignedDeliveries, getDriverInfo } from "@/lib/actions/driver"
@@ -79,7 +78,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
         <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId} />
         <RealtimeDeliveryNotifications userId={user.id} isAvailable={driverInfo?.is_available ?? false} />
-        <DriverDashboardPoller />
+      <DriverDashboardPoller />
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -144,7 +143,9 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
               <CardTitle className="text-3xl text-yellow-600">{available.length}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Package className="h-4 w-4 text-yellow-600" />
+              <Button variant="ghost" size="sm" className="p-0 h-auto text-yellow-600" asChild>
+                <Link href="/driver/available">수락 가능한 배송 보기</Link>
+              </Button>
             </CardContent>
           </Card>
 
@@ -159,35 +160,16 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
           </Card>
         </div>
 
-        <Tabs defaultValue="available" className="w-full">
+        <Tabs defaultValue="assigned" className="w-full">
           <div className="w-full">
             <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">탭 메뉴</p>
             <TabsList className="tabs-scroll-mobile inline-flex w-full max-w-full h-auto min-h-[2.75rem] gap-1.5 rounded-xl border border-border bg-muted/50 py-1.5 px-1.5 shadow-sm overflow-x-auto overflow-y-hidden justify-start">
-              <TabsTrigger value="available" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">대기 중 배송 ({available.length})</TabsTrigger>
               <TabsTrigger value="assigned" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">진행 중 배송 ({assigned.length})</TabsTrigger>
               <TabsTrigger value="history" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">운행 이력</TabsTrigger>
               <TabsTrigger value="settlements" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">정산</TabsTrigger>
               <TabsTrigger value="sales" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">📊 영업 성과</TabsTrigger>
             </TabsList>
           </div>
-
-          <TabsContent value="available" className="mt-4">
-            <Card>
-              <CardHeader> 
-                <CardTitle>수락 가능한 배송</CardTitle>
-                <CardDescription>새로운 배송 요청을 확인하고 수락하세요</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {driverInfo?.is_available ? (
-                  <AvailableDeliveries deliveries={available} />
-                ) : (
-                  <div className="text-center py-10 text-sm text-muted-foreground">
-                    배송 가능을 켜면 고객 요청 목록이 표시됩니다.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="assigned" className="mt-4">
             <Card>
