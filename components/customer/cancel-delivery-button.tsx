@@ -87,7 +87,6 @@ export function CancelDeliveryButton({
         setError(result.error)
       } else {
         setOpen(false)
-        router.refresh()
         router.push("/customer")
       }
     } catch {

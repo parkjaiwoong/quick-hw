@@ -1,5 +1,7 @@
 package com.quickhw.driver_app
 
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.view.Gravity
@@ -17,6 +19,19 @@ class DispatchOverlayActivity : FlutterActivity() {
     override fun getDartEntrypointFunctionName(): String = "overlayMain"
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        // 잠금화면/꺼진 화면에서도 표시
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+            val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+            km?.requestDismissKeyguard(this, null)
+        }
+        window?.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+        )
         super.onCreate(savedInstanceState)
         // 콘텐츠 크기에 맞춰 중앙 정렬 — 높이 크게, 폭 작게
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {

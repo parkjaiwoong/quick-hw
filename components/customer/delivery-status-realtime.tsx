@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/client"
 
 /**
  * 배송 상태(deliveries) 변경 시 실시간 반영.
- * 기사 수락 등으로 status/driver_id가 바뀌면 router.refresh()로 배송 상세를 다시 불러옵니다.
+ * - cancelled 상태: 고객 메인으로 이동
+ * - 그 외 변경: router.refresh()로 배송 상세 갱신
  */
 export function DeliveryStatusRealtime({ deliveryId }: { deliveryId: string }) {
   const router = useRouter()
@@ -25,8 +26,13 @@ export function DeliveryStatusRealtime({ deliveryId }: { deliveryId: string }) {
           table: "deliveries",
           filter: `id=eq.${deliveryId}`,
         },
-        () => {
-          startTransition(() => router.refresh())
+        (payload) => {
+          const newStatus = (payload.new as { status?: string })?.status
+          if (newStatus === "cancelled") {
+            router.push("/customer")
+          } else {
+            startTransition(() => router.refresh())
+          }
         },
       )
       .subscribe()
