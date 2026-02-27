@@ -268,8 +268,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     return () => clearTimeout(t)
   }, [lastEventAt])
 
-  // Realtime 콜백에서 이미 UI/진동/소리 직접 실행. 이벤트 리스너에서는 state 갱신 + 목록 refresh(이중으로 호출해 갱신 보장)
-  // 기사앱 포그라운드 FCM → WebView 배송대기중 영역 주입용 (오버레이 없이)
+  // 기사앱 포그라운드 FCM → WebView 배송대기중 영역 주입용
   useEffect(() => {
     const handler = (e: Event) => {
       const d = (e as CustomEvent<{ delivery: LatestNewDelivery["delivery"]; notificationId: string }>).detail
@@ -278,13 +277,16 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
       setEventReceiveCount((c) => c + 1)
       setLastEventAt(Date.now())
       setDeliveryState(payload)
+      // 배송대기중 카드 표출 시 진동+효과음
       triggerVibration()
+      playDingDongSound(audioContextRef)
       startTransition(() => routerRef.current?.refresh())
     }
     window.addEventListener("driverNewDeliveryFcm", handler)
     return () => window.removeEventListener("driverNewDeliveryFcm", handler)
   }, [])
 
+  // Realtime 수신 이벤트 (폴링/Realtime 콜백에서 dispatch)
   useEffect(() => {
     const handler = (e: Event) => {
       const { payloadData } = (e as CustomEvent<{ payloadData: LatestNewDelivery; hasDelivery: boolean }>).detail
@@ -292,20 +294,26 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
       setEventReceiveCount((c) => c + 1)
       setLastEventAt(Date.now())
       setDeliveryState(payloadData)
-      // 수락 가능한 배송 목록 갱신 (컴포넌트 컨텍스트에서 호출해 확실히 반영)
+      // 배송대기중 카드 표출 시 진동+효과음
+      triggerVibration()
+      playDingDongSound(audioContextRef)
       startTransition(() => routerRef.current?.refresh())
     }
     window.addEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
     return () => window.removeEventListener(DRIVER_NEW_DELIVERY_EVENT, handler)
   }, [])
 
-  // 팝업 표시 시 진동
+  // latestNewDelivery 변경 시 추가 진동 (state 경로로 들어온 경우 보완)
   useEffect(() => {
     if (!latestNewDelivery) {
       soundPlayedForCurrentRef.current = false
       return
     }
-    triggerVibration()
+    if (!soundPlayedForCurrentRef.current) {
+      soundPlayedForCurrentRef.current = true
+      triggerVibration()
+      playDingDongSound(audioContextRef)
+    }
   }, [latestNewDelivery])
 
   // 앱 전환 후 복귀 시 재연결: 카카오 등 다른 앱 갔다가 돌아오면 WebSocket이 끊겨 '연결 실패'가 나므로, 포그라운드 복귀 시 재구독
