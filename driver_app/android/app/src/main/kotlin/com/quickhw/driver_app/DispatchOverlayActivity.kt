@@ -33,11 +33,12 @@ class DispatchOverlayActivity : FlutterActivity() {
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
         )
         super.onCreate(savedInstanceState)
-        // 가로 넓게, 세로 콘텐츠에 맞게 (wrap_content)
+        // 가로 85%, 세로 36% 고정 — Flutter WRAP_CONTENT는 검정 여백이 생겨 고정값 사용
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             val dm = resources.displayMetrics
-            val w = (dm.widthPixels * 0.92).toInt().coerceAtLeast(320)
-            window?.setLayout(w, WindowManager.LayoutParams.WRAP_CONTENT)
+            val w = (dm.widthPixels * 0.85).toInt().coerceAtLeast(300)
+            val h = (dm.heightPixels * 0.36).toInt().coerceAtLeast(260)
+            window?.setLayout(w, h)
             window?.setGravity(Gravity.CENTER)
             window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
         }
