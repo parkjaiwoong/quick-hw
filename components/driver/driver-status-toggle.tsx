@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, startTransition } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { updateDriverAvailability, updateDriverLocation } from "@/lib/actions/driver"
@@ -14,6 +14,18 @@ function notifyAppAvailability(available: boolean) {
   if (ch) ch.postMessage(available ? "true" : "false")
 }
 
+/** 백그라운드에서 GPS 위치를 가져와 서버에 저장 (페이지 이동을 블로킹하지 않음) */
+function syncLocationInBackground() {
+  if (typeof window === "undefined" || !("geolocation" in navigator)) return
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      updateDriverLocation(pos.coords.latitude, pos.coords.longitude).catch(() => {})
+    },
+    () => {},
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 },
+  )
+}
+
 interface DriverStatusToggleProps {
   initialStatus: boolean
   /** false로 변경 시 이동할 경로 (예: /driver) */
@@ -24,46 +36,54 @@ export function DriverStatusToggle({ initialStatus, redirectToOnTurnOff }: Drive
   const router = useRouter()
   const [isAvailable, setIsAvailable] = useState(initialStatus)
   const [isLoading, setIsLoading] = useState(false)
+  const prefetchedRef = useRef(false)
 
   // 기사 앱 WebView 로드 시 서버의 초기 상태를 네이티브에 동기화
   useEffect(() => {
     notifyAppAvailability(initialStatus)
   }, [initialStatus])
 
+  // 컴포넌트 마운트 시 대기중인 배송 페이지를 미리 prefetch
+  useEffect(() => {
+    if (!prefetchedRef.current) {
+      router.prefetch("/driver/available")
+      prefetchedRef.current = true
+    }
+  }, [router])
+
   async function handleToggle(checked: boolean) {
     setIsLoading(true)
-    const result = await updateDriverAvailability(checked)
-    if (result.error) {
-      setIsLoading(false)
-      alert(result.error)
-      return
-    }
-    setIsAvailable(checked)
-    setIsLoading(false)
-    notifyAppAvailability(checked)
-    const doRefresh = () => startTransition(() => router.refresh())
+    setIsAvailable(checked) // 낙관적 UI 업데이트
+
     if (checked) {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            await updateDriverLocation(pos.coords.latitude, pos.coords.longitude)
-            doRefresh()
-            router.push("/driver/available")
-          },
-          () => {
-            doRefresh()
-            router.push("/driver/available")
-          },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-        )
-      } else {
-        doRefresh()
-        router.push("/driver/available")
+      // 배송가능 ON: DB 저장과 동시에 즉시 페이지 이동, 위치는 백그라운드 처리
+      notifyAppAvailability(true)
+      syncLocationInBackground()
+
+      const result = await updateDriverAvailability(true)
+      if (result.error) {
+        setIsAvailable(false) // 롤백
+        setIsLoading(false)
+        alert(result.error)
+        return
       }
+      setIsLoading(false)
+      router.push("/driver/available")
     } else {
-      doRefresh()
+      // 배송가능 OFF: DB 저장 후 메인으로 이동
+      notifyAppAvailability(false)
+      const result = await updateDriverAvailability(false)
+      if (result.error) {
+        setIsAvailable(true) // 롤백
+        setIsLoading(false)
+        alert(result.error)
+        return
+      }
+      setIsLoading(false)
       if (redirectToOnTurnOff) {
         router.push(redirectToOnTurnOff)
+      } else {
+        router.refresh()
       }
     }
   }

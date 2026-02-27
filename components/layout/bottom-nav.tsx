@@ -21,6 +21,11 @@ export function BottomNav() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isApp, setIsApp] = useState(false)
+
+  useEffect(() => {
+    setIsApp(navigator.userAgent.includes("QuickHWDriverApp"))
+  }, [])
 
   const refreshSession = useCallback(async () => {
     try {
@@ -253,7 +258,7 @@ export function BottomNav() {
             </Link>
           )}
 
-          {isLoading ? (
+          {isLoading && !isApp ? (
             <Link
               href="/auth/login"
               className={cn(
@@ -264,7 +269,7 @@ export function BottomNav() {
               <User className="w-5 h-5" />
               <span className="text-xs">로딩...</span>
             </Link>
-          ) : isAuthenticated ? (
+          ) : !isLoading && isAuthenticated ? (
             <form action={handleSignOut} className="flex-1">
               <button
                 type="submit"

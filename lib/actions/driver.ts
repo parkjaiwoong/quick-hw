@@ -16,7 +16,7 @@ export async function getAvailableDeliveries() {
 
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select("id,pickup_address,delivery_address,distance_km,driver_fee,total_fee,vehicle_type,urgency,delivery_option,item_description,package_size,created_at")
     .eq("status", "pending")
     .is("driver_id", null)
     .order("created_at", { ascending: false })

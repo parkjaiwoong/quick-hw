@@ -25,6 +25,11 @@ export function Header() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>("")
   const [roleOverride, setRoleOverride] = useState<string | null>(null)
+  const [isApp, setIsApp] = useState(false)
+
+  useEffect(() => {
+    setIsApp(navigator.userAgent.includes("QuickHWDriverApp"))
+  }, [])
 
   const refreshSession = useCallback(async () => {
     try {
@@ -232,12 +237,12 @@ export function Header() {
                 </Button>
               </Link>
             )}
-            {isLoading ? (
+            {isLoading && !isApp ? (
               <Button variant="outline" size="sm" disabled className="gap-2">
                 <LogOut className="w-4 h-4" />
                 <span className="text-xs">로딩 중</span>
               </Button>
-            ) : isAuthenticated ? (
+            ) : !isLoading && isAuthenticated ? (
               <form action={handleSignOut}>
                 <Button variant="outline" size="sm" type="submit" className="gap-2">
                   <LogOut className="w-4 h-4" />

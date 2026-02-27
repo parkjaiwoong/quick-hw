@@ -793,7 +793,8 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
 
   WebViewController _createController() {
     final c = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent('QuickHWDriverApp/1.0');
     _setupAndroidGeolocation(c);
     c
       ..addJavaScriptChannel(

@@ -2,7 +2,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Package, TrendingUp, History, Smartphone } from "lucide-react"
+import { Package, TrendingUp, History } from "lucide-react"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { ensureDriverInfoForUser, getAvailableDeliveries, getMyAssignedDeliveries, getDriverInfo } from "@/lib/actions/driver"
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { DriverDashboardPoller } from "@/components/driver/driver-dashboard-poller"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 import { DriverDeliveryRequestProvider } from "@/lib/contexts/driver-delivery-request"
+import { AppDownloadButton } from "@/components/driver/app-download-button"
 
 type PageProps = { searchParams?: Promise<{ accept_delivery?: string }> }
 
@@ -94,12 +95,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
               <Button asChild variant="outline" size="sm">
                 <Link href="/driver/settlements">정산 내역</Link>
               </Button>
-              <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
-                <Link href="/driver/app-download" className="flex items-center gap-1.5">
-                  <Smartphone className="h-4 w-4" />
-                  기사 앱 다운로드
-                </Link>
-              </Button>
+              <AppDownloadButton />
             </div>
             <div className="flex items-center gap-2">
               {driverInfo?.is_available && (
