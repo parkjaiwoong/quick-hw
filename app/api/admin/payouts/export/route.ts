@@ -41,12 +41,14 @@ export async function GET() {
   ])
 
   const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n")
-  const buffer = Buffer.from(csv, "utf-8")
+  // UTF-8 BOM(\uFEFF) 추가 — Excel이 한글을 올바르게 인식
+  const bom = Buffer.from("\uFEFF", "utf-8")
+  const body = Buffer.concat([bom, Buffer.from(csv, "utf-8")])
 
-  return new NextResponse(buffer, {
+  return new NextResponse(body, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="payout_requests.csv"`,
+      "Content-Disposition": `attachment; filename*=UTF-8''payout_requests.csv`,
     },
   })
 }

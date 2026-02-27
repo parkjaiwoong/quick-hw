@@ -523,7 +523,7 @@ export async function requestPayout(driverId: string, amount: number) {
     .from("settlements")
     .select("id")
     .eq("driver_id", driverId)
-    .eq("settlement_status", "READY")
+    .in("settlement_status", ["READY", "CONFIRMED"])
     .eq("payment_status", "PAID")
     .limit(1)
   if (!readySettlements || readySettlements.length === 0) {
@@ -1063,7 +1063,7 @@ export async function bulkConfirmSettlements(settlementIds: string[]) {
       failed.push({ id: settlementId, error: "정산 정보를 찾을 수 없습니다." })
       continue
     }
-    if (settlement.settlement_status !== "PENDING") {
+    if (settlement.settlement_status !== "PENDING" && settlement.settlement_status !== "READY") {
       skippedCount += 1
       continue
     }

@@ -3,7 +3,6 @@
 import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import * as XLSX from "xlsx"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -181,41 +180,41 @@ export function SettlementBulkPanel({ settlements }: SettlementBulkPanelProps) {
     setIsDownloading(true)
     try {
       const header = [
-        "정산ID",
-        "주문번호",
-        "기사명",
-        "기사ID",
-        "배송완료일",
-        "결제금액",
-        "기사정산금",
-        "정산상태",
-        "결제 상태",
-        "정산확정일",
+        "정산ID", "주문번호", "기사명", "기사ID",
+        "배송완료일", "결제금액", "기사정산금", "정산상태", "결제상태", "정산확정일",
       ]
-      const rows = downloadableSettlements.map((settlement) => [
-        settlement.id,
-        settlement.order_id || "",
-        settlement.driver?.full_name || settlement.driver?.email || "알 수 없음",
-        settlement.driver_id || "",
-        formatDate(getCompletedAt(settlement)),
-        Number(settlement.payment?.amount ?? settlement.total_earnings ?? 0),
-        Number(settlement.settlement_amount ?? settlement.net_earnings ?? 0),
-        getStatusLabel(settlement.settlement_status),
-        (settlement.payment_status || settlement.payment?.status || "").toString(),
-        formatDate(settlement.confirmed_at || ""),
-      ])
-      const sheet = XLSX.utils.aoa_to_sheet([header, ...rows])
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, sheet, "settlements")
+      const escape = (v: string | number) => {
+        const s = String(v)
+        return s.includes(",") || s.includes('"') || s.includes("\n")
+          ? `"${s.replace(/"/g, '""')}"` : s
+      }
+      const lines = [
+        header.map(escape).join(","),
+        ...downloadableSettlements.map((s) => [
+          s.id,
+          s.order_id || "",
+          s.driver?.full_name || s.driver?.email || (s.driver_id ? `기사(${s.driver_id.slice(0, 8)})` : "알수없음"),
+          s.driver_id || "",
+          formatDate(getCompletedAt(s)),
+          Number(s.payment?.amount ?? s.total_earnings ?? 0),
+          Number(s.settlement_amount ?? s.net_earnings ?? 0),
+          getStatusLabel(s.settlement_status),
+          (s.payment_status || s.payment?.status || "").toString(),
+          formatDate(s.confirmed_at || ""),
+        ].map(escape).join(",")),
+      ]
+      const bom = "\uFEFF"
+      const blob = new Blob([bom + lines.join("\n")], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
       const today = new Date()
-      const fileName = `settlements_${today.getFullYear()}${String(today.getMonth() + 1).padStart(
-        2,
-        "0",
-      )}${String(today.getDate()).padStart(2, "0")}.xlsx`
-      XLSX.writeFile(workbook, fileName)
-      toast.success("엑셀 다운로드가 완료되었습니다.")
+      a.href = url
+      a.download = `settlements_${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success("CSV 다운로드가 완료되었습니다.")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "엑셀 다운로드에 실패했습니다.")
+      toast.error(error instanceof Error ? error.message : "다운로드에 실패했습니다.")
     } finally {
       setIsDownloading(false)
     }
@@ -257,7 +256,7 @@ export function SettlementBulkPanel({ settlements }: SettlementBulkPanelProps) {
             onClick={handleDownload}
             disabled={!downloadableSettlements.length || isDownloading}
           >
-            {isDownloading ? "다운로드 중..." : "엑셀 다운로드"}
+            {isDownloading ? "다운로드 중..." : "CSV 다운로드"}
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -304,7 +303,7 @@ export function SettlementBulkPanel({ settlements }: SettlementBulkPanelProps) {
                 <div className="flex-1 flex justify-between items-start">
                   <div>
                     <p className="font-semibold">
-                      {settlement.driver?.full_name || settlement.driver?.email || "알 수 없음"}
+                      {settlement.driver?.full_name || settlement.driver?.email || (settlement.driver_id ? `기사 (${settlement.driver_id.slice(0, 8)}…)` : "알 수 없음")}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       기간: {settlement.settlement_period_start ? new Date(settlement.settlement_period_start).toLocaleDateString("ko-KR") : "-"} ~{" "}

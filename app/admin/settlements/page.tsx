@@ -2,11 +2,11 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { getAllSettlements } from "@/lib/actions/settlement"
+import { getSettlementsByDriver } from "@/lib/actions/settlement"
 import Link from "next/link"
-import { DollarSign, Calendar, CheckCircle, Clock } from "lucide-react"
+import { Users, DollarSign, CheckCircle, Clock } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
-import { SettlementBulkPanel } from "@/components/admin/settlement-bulk-panel"
+import { SettlementDriverList } from "@/components/admin/settlement-driver-list"
 
 export default async function SettlementsPage() {
   const supabase = await getSupabaseServerClient()
@@ -15,27 +15,27 @@ export default async function SettlementsPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+  if (!user) redirect("/auth/login")
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
   const roleOverride = await getRoleOverride()
   const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
-  if (!canActAsAdmin) {
-    redirect("/")
+  if (!canActAsAdmin) redirect("/")
+
+  const { driverGroups = [], error } = await getSettlementsByDriver()
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-500">{error}</p>
+      </div>
+    )
   }
 
-  const { settlements = [] } = await getAllSettlements()
-
-  const stats = {
-    total: settlements.length,
-    pending: settlements.filter((s: any) => s.status === "pending").length,
-    processing: settlements.filter((s: any) => s.status === "processing").length,
-    completed: settlements.filter((s: any) => s.status === "completed").length,
-    totalAmount: settlements.reduce((sum: number, s: any) => sum + (s.net_earnings || 0), 0),
-  }
+  const totalDrivers = driverGroups.length
+  const totalPaidAmount = driverGroups.reduce((s, g) => s + g.paid_amount, 0)
+  const totalPendingAmount = driverGroups.reduce((s, g) => s + g.pending_amount, 0)
+  const totalCount = driverGroups.reduce((s, g) => s + g.total_count, 0)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
@@ -50,59 +50,64 @@ export default async function SettlementsPage() {
           </Button>
         </div>
 
+        {/* Stats 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>전체 정산</CardDescription>
-              <CardTitle className="text-2xl">{stats.total}</CardTitle>
+              <CardDescription>기사 수</CardDescription>
+              <CardTitle className="text-2xl">{totalDrivers}명</CardTitle>
             </CardHeader>
             <CardContent>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>대기 중</CardDescription>
-              <CardTitle className="text-2xl text-yellow-600">{stats.pending}</CardTitle>
+              <CardDescription>전체 배송 건수</CardDescription>
+              <CardTitle className="text-2xl">{totalCount}건</CardTitle>
             </CardHeader>
             <CardContent>
-              <Clock className="h-4 w-4 text-yellow-600" />
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>처리 중</CardDescription>
-              <CardTitle className="text-2xl text-blue-600">{stats.processing}</CardTitle>
+              <CardDescription>결제완료 정산금액</CardDescription>
+              <CardTitle className="text-2xl text-emerald-600">
+                {totalPaidAmount.toLocaleString()}원
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <Clock className="h-4 w-4 text-blue-600" />
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>완료</CardDescription>
-              <CardTitle className="text-2xl text-green-600">{stats.completed}</CardTitle>
+              <CardDescription>정산대기 금액</CardDescription>
+              <CardTitle className="text-2xl text-yellow-600">
+                {totalPendingAmount.toLocaleString()}원
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <DollarSign className="h-4 w-4 text-yellow-600" />
             </CardContent>
           </Card>
         </div>
 
+        {/* 기사별 정산 목록 */}
         <Card>
           <CardHeader>
-            <CardTitle>정산 목록</CardTitle>
-            <CardDescription>모든 정산 내역을 확인하세요</CardDescription>
+            <CardTitle>기사별 정산 목록</CardTitle>
+            <CardDescription>기사를 클릭하면 상세 정산 내역을 확인할 수 있습니다</CardDescription>
           </CardHeader>
           <CardContent>
-            <SettlementBulkPanel settlements={settlements} />
+            <SettlementDriverList driverGroups={driverGroups} />
           </CardContent>
         </Card>
       </div>
     </div>
   )
 }
-
