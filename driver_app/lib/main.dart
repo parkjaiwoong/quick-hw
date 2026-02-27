@@ -183,9 +183,8 @@ Future<void> _onForegroundMessage(RemoteMessage message) async {
     Future.delayed(const Duration(milliseconds: 250), () {
       try { Vibration.vibrate(duration: 200); } catch (_) {}
     });
-    // 오버레이 표시
-    await _showOverlayForFcmData(Map<String, dynamic>.from(data));
-    // WebView 배송대기중 영역에 데이터 주입 (신규 배송 카드 표시)
+    // 앱이 포그라운드(화면에 보임): 오버레이 X, WebView 배송대기중 영역에만 주입
+    // 오버레이는 백그라운드/종료 시 DriverFcmService(네이티브)가 처리
     await _fcmForegroundInject?.call(Map<String, dynamic>.from(data));
   } catch (_) {}
 }
@@ -844,26 +843,9 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
       ..addJavaScriptChannel(
         'FlutterOverlayChannel',
         onMessageReceived: (JavaScriptMessage message) async {
-          if (!Platform.isAndroid) return;
-          try {
-            final data = jsonDecode(message.message) as Map<String, dynamic>?;
-            if (data == null || data.isEmpty) {
-              debugPrint('[기사앱] FlutterOverlayChannel: payload 비어있음');
-              return;
-            }
-            final overlayPayload = Map<String, String>.from(
-              buildOverlayPayloadFromFcmData(Map<String, dynamic>.from(data)),
-            );
-            final deliveryId = overlayPayload['delivery_id'] ?? overlayPayload['deliveryId'] ?? '';
-            if (deliveryId.isEmpty) {
-              overlayPayload['delivery_id'] = 'web-${DateTime.now().millisecondsSinceEpoch}';
-              overlayPayload['deliveryId'] = overlayPayload['delivery_id']!;
-            }
-            await _showFlutterOverlay(overlayPayload, source: 'Realtime');
-          } catch (e, st) {
-            debugPrint('[기사앱] FlutterOverlayChannel 오류: $e');
-            debugPrint('$st');
-          }
+          // 앱이 포그라운드(화면에 보임)이면 오버레이 X — WebView 배송대기중 카드가 이미 표시됨
+          // 오버레이는 백그라운드/종료 시 DriverFcmService(네이티브)가 처리
+          if (kDebugMode) debugPrint('[기사앱] FlutterOverlayChannel: 앱 포그라운드 — 오버레이 스킵');
         },
       )
       ..setNavigationDelegate(

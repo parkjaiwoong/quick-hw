@@ -1,6 +1,5 @@
 package com.quickhw.driver_app
 
-import android.app.ActivityManager
 import android.app.ActivityOptions
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -74,20 +73,13 @@ class DriverFcmService : FlutterFirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
     }
 
-    /** 앱(패키지)이 현재 포그라운드(화면에 보임)인지 확인. 불확실하면 false(백그라운드로 처리) */
-    private fun isAppInForeground(): Boolean {
-        return try {
-            val am = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
-            val tasks = am.getRunningTasks(1)
-            if (tasks.isNullOrEmpty()) false
-            else {
-                val top = tasks[0].topActivity ?: return false
-                top.packageName == packageName
-            }
-        } catch (_: Exception) {
-            false
-        }
-    }
+    /**
+     * 앱이 현재 포그라운드(화면에 보임)인지 확인.
+     * DriverApp.isForeground: ActivityLifecycleCallbacks 기반으로 정확하게 추적.
+     * - true  → 앱이 화면에 보임 → 오버레이 X (Flutter _onForegroundMessage가 WebView 주입만 처리)
+     * - false → 앱이 백그라운드이거나 종료됨 → 오버레이 O
+     */
+    private fun isAppInForeground(): Boolean = DriverApp.isForeground
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
