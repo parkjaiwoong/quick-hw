@@ -24,17 +24,8 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error)
       } else if (result?.success) {
-        // 로그인 성공 시 쿠키가 설정될 시간을 확보
-        // 서버 액션에서 쿠키가 설정되므로 약간의 지연 후 리다이렉트
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        // 전체 페이지 리로드하여 모든 컴포넌트가 새로운 세션 상태를 읽도록 함
-        // window.location.href를 사용하여 완전한 페이지 리로드 보장
-        if (result.redirectTo) {
-          window.location.href = result.redirectTo
-        } else {
-          window.location.href = "/"
-        }
+        router.push(result.redirectTo ?? "/")
+        router.refresh()
       }
     })
   }
