@@ -106,7 +106,14 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
                 </Link>
               </Button>
             </div>
-            <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
+            <div className="flex items-center gap-2">
+              {driverInfo?.is_available && (
+                <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                  <Link href="/driver/available">배송대기중</Link>
+                </Button>
+              )}
+              <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
+            </div>
             <Card className="w-full md:w-auto">
               <CardHeader className="pb-2">
                 <CardDescription>기사 코드</CardDescription>
