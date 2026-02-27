@@ -26,6 +26,8 @@ interface LatestNewDelivery {
     distance_km?: number
     total_fee?: number
     driver_fee?: number
+    item_description?: string
+    package_size?: string
   }
   notificationId: string
 }
@@ -353,7 +355,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
 
         const { data: delivery } = await supabase
           .from("deliveries")
-          .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee")
+          .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee, item_description, package_size")
           .eq("id", row.delivery_id)
           .single()
         if (!delivery) return
@@ -370,6 +372,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
             distance_km: delivery.distance_km,
             total_fee: delivery.total_fee,
             driver_fee: delivery.driver_fee,
+            item_description: delivery.item_description ?? undefined,
+            package_size: delivery.package_size ?? undefined,
           },
           notificationId: row.id,
         })
@@ -441,10 +445,10 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
               (notification.type === "new_delivery_request" || notification.type === "new_delivery") &&
               notification.delivery_id
             ) {
-              let delivery: { id: string; pickup_address: string; delivery_address: string; distance_km?: number; total_fee?: number; driver_fee?: number } | null = null
+              let delivery: { id: string; pickup_address: string; delivery_address: string; distance_km?: number; total_fee?: number; driver_fee?: number; item_description?: string; package_size?: string } | null = null
               const { data: deliveryRow, error: deliveryError } = await supabase
                 .from("deliveries")
-                .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee")
+                .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee, item_description, package_size")
                 .eq("id", notification.delivery_id)
                 .single()
               if (!deliveryError && deliveryRow) delivery = deliveryRow
@@ -467,6 +471,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                       distance_km: delivery.distance_km,
                       total_fee: delivery.total_fee,
                       driver_fee: delivery.driver_fee,
+                      item_description: delivery.item_description ?? undefined,
+                      package_size: delivery.package_size ?? undefined,
                     },
                     notificationId: notification.id,
                   }
@@ -553,7 +559,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
             if (row?.delivery_id) {
               const { data: delivery } = await supabase
                 .from("deliveries")
-                .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee")
+                .select("id, pickup_address, delivery_address, distance_km, total_fee, driver_fee, item_description, package_size")
                 .eq("id", row.delivery_id)
                 .single()
               if (delivery) {
@@ -566,6 +572,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                     distance_km: delivery.distance_km,
                     total_fee: delivery.total_fee,
                     driver_fee: delivery.driver_fee,
+                    item_description: delivery.item_description ?? undefined,
+                    package_size: delivery.package_size ?? undefined,
                   },
                   notificationId: row.id,
                 })
@@ -688,6 +696,17 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
                   {toAddressAbbrev(latestNewDelivery.delivery.delivery_address)}
                 </span>
               </div>
+              {latestNewDelivery.delivery.item_description && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="font-medium">
+                    {({ document: "서류", small: "소형", medium: "중형", large: "대형" } as Record<string,string>)[latestNewDelivery.delivery.item_description] ?? latestNewDelivery.delivery.item_description}
+                  </span>
+                  {latestNewDelivery.delivery.package_size && (
+                    <span className="text-muted-foreground text-xs">({latestNewDelivery.delivery.package_size})</span>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm pt-1">
                 <span className="text-muted-foreground">
                   {latestNewDelivery.delivery.distance_km != null && `${latestNewDelivery.delivery.distance_km.toFixed(1)}km`}

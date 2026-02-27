@@ -241,22 +241,48 @@ export default async function DriverDeliveryDetailPage({
               <CardTitle>물품 정보</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">물품</span>
-                <span className="font-medium">{delivery.item_description || "-"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">무게</span>
-                <span className="font-medium">{delivery.item_weight ? `${delivery.item_weight}kg` : "-"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">크기</span>
-                <span className="font-medium">{delivery.package_size || "-"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">거리</span>
-                <span className="font-medium">{delivery.distance_km?.toFixed(1)}km</span>
-              </div>
+              {(() => {
+                const itemTypeMap: Record<string, { label: string; weight: string; size: string }> = {
+                  document: { label: "서류", weight: "~1kg", size: "A4 이하" },
+                  small:    { label: "소형", weight: "~5kg", size: "30cm 이하" },
+                  medium:   { label: "중형", weight: "~10kg", size: "30~60cm" },
+                  large:    { label: "대형", weight: "~20kg", size: "60cm 이상" },
+                }
+                const raw = (delivery.item_description ?? "").trim()
+                const typeInfo = itemTypeMap[raw]
+                // item_description이 타입 코드면 typeInfo 사용, 아니면 그대로 설명으로 표시
+                const typeLabel = typeInfo ? typeInfo.label : (raw || "-")
+                // package_size: 신규 저장 건은 사용자 설명, 구 저장 건은 크기 문자열
+                const userDesc = delivery.package_size ?? null
+                return (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">물품 종류</span>
+                      <span className="font-medium">{typeLabel}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">무게 기준</span>
+                      <span className="font-medium">
+                        {typeInfo ? typeInfo.weight : (delivery.item_weight ? `${delivery.item_weight}kg` : "-")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">크기 기준</span>
+                      <span className="font-medium">{typeInfo ? typeInfo.size : "-"}</span>
+                    </div>
+                    {userDesc && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">물품 설명</span>
+                        <span className="font-medium">{userDesc}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">거리</span>
+                      <span className="font-medium">{delivery.distance_km?.toFixed(1) ?? "-"}km</span>
+                    </div>
+                  </>
+                )
+              })()}
             </CardContent>
           </Card>
 

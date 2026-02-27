@@ -47,6 +47,17 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
                 {toAddressAbbrev(latestNew.delivery.delivery_address)}
               </span>
             </div>
+            {latestNew.delivery.item_description && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">물품:</span>
+                <span className="font-medium">
+                  {({ document: "서류", small: "소형", medium: "중형", large: "대형" } as Record<string,string>)[latestNew.delivery.item_description] ?? latestNew.delivery.item_description}
+                </span>
+                {latestNew.delivery.package_size && (
+                  <span className="text-muted-foreground text-xs">({latestNew.delivery.package_size})</span>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm pt-1">
               <span className="text-muted-foreground">
                 {latestNew.delivery.distance_km != null && `${latestNew.delivery.distance_km.toFixed(1)}km`}
