@@ -99,15 +99,23 @@ function SignUpForm() {
 
             <div className="space-y-2">
               <Label htmlFor="role">가입 유형</Label>
-              <Select name="role" value={role} onValueChange={setRole}>
-                <SelectTrigger>
-                  <SelectValue placeholder="유형 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="customer">고객</SelectItem>
-                  <SelectItem value="driver">배송원</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select name="role" value={role} onValueChange={setRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="유형 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer">고객</SelectItem>
+                    <SelectItem value="driver">배송원</SelectItem>
+                  </SelectContent>
+                </Select>
+                {role === "customer" && riderCodeFromLink && (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-green-300 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+                    <UserCheck className="h-3.5 w-3.5" />
+                    추천코드 {riderCodeFromLink}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* 배송원 추가 정보 */}
