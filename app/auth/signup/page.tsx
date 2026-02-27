@@ -20,8 +20,6 @@ function SignUpForm() {
   const [role, setRole] = useState<string>("customer")
   const [insuranceAgreed, setInsuranceAgreed] = useState(false)
   const [termsAgreed, setTermsAgreed] = useState(false)
-  const testRiderCode = "R864041"
-
   // 기사 소개링크로 진입한 경우 기사 코드
   const riderCodeFromLink = searchParams.get("rider") ?? null
 
@@ -181,26 +179,9 @@ function SignUpForm() {
               </div>
             )}
 
-            <div className="flex flex-col gap-2 md:flex-row">
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? "처리 중..." : "회원가입"}
-              </Button>
-              <Button asChild variant="outline" className="w-full" type="button">
-                <Link href={`/r/${testRiderCode}`}>기사추천가입(테스트용)</Link>
-              </Button>
-            </div>
-            <div className="flex flex-col items-center gap-2 rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-              <div className="font-medium text-foreground">테스트용 QR코드</div>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(
-                  `http://localhost:3000/r/${testRiderCode}`,
-                )}`}
-                alt="기사추천가입 테스트 QR"
-                className="h-28 w-28 rounded bg-white"
-                loading="lazy"
-              />
-              <div>http://localhost:3000/r/{testRiderCode}</div>
-            </div>
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "처리 중..." : "회원가입"}
+            </Button>
           </form>
 
           <div className="mt-4 text-center text-sm">
