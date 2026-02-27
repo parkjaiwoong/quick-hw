@@ -2,8 +2,6 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getRoleOverride } from "@/lib/role"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { AvailableDeliveries } from "@/components/driver/available-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { getAvailableDeliveries, getDriverInfo } from "@/lib/actions/driver"
@@ -32,6 +30,11 @@ export default async function DriverAvailablePage() {
     redirect("/")
   }
 
+  // 배송가능 OFF 상태면 기사 메인(대시보드)으로 이동
+  if (!driverInfo?.is_available) {
+    redirect("/driver")
+  }
+
   return (
     <DriverDeliveryRequestProvider>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
@@ -44,22 +47,11 @@ export default async function DriverAvailablePage() {
                 <DriverStatusToggle initialStatus={driverInfo?.is_available ?? false} redirectToOnTurnOff="/driver" />
               </div>
               <CardDescription>
-                {driverInfo?.is_available
-                  ? `현재 ${available.length}건의 수락 가능한 배송이 있습니다`
-                  : "배송 가능을 켜면 고객 요청 목록이 표시됩니다"}
+                현재 {available.length}건의 수락 가능한 배송이 있습니다
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {driverInfo?.is_available ? (
-                <AvailableDeliveries deliveries={available} />
-              ) : (
-                <div className="text-center py-10 text-sm text-muted-foreground space-y-4">
-                  <p>배송 가능을 켜면 고객 요청 목록이 표시됩니다.</p>
-                  <Button asChild variant="outline">
-                    <Link href="/driver">대시보드로 이동</Link>
-                  </Button>
-                </div>
-              )}
+              <AvailableDeliveries deliveries={available} />
             </CardContent>
           </Card>
         </div>
