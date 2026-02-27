@@ -31,7 +31,9 @@ export async function GET(request: Request, { params }: { params: { code: string
   }
 
   if (result.status === "cookie_only") {
-    const response = NextResponse.redirect(new URL(`/?referral=${encodeURIComponent(riderCode)}`, request.url))
+    // 비로그인 상태 → 회원가입 페이지로 이동 (기사 코드 쿼리 파라미터로 전달)
+    const signupUrl = new URL(`/auth/signup?rider=${encodeURIComponent(riderCode)}`, request.url)
+    const response = NextResponse.redirect(signupUrl)
     response.cookies.set("rider_referral_code", riderCode, { path: "/", maxAge: 60 * 60 * 24 * 30 })
     if (!existingSession) {
       response.cookies.set("rider_referral_session", sessionId, { path: "/", maxAge: 60 * 60 * 24 * 30 })

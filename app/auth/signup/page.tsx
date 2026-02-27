@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Shield, Truck } from "lucide-react"
+import { AlertCircle, Shield, Truck, UserCheck } from "lucide-react"
 import Link from "next/link"
 import { useState, useTransition, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
@@ -22,8 +22,10 @@ function SignUpForm() {
   const [termsAgreed, setTermsAgreed] = useState(false)
   const testRiderCode = "R864041"
 
+  // 기사 소개링크로 진입한 경우 기사 코드
+  const riderCodeFromLink = searchParams.get("rider") ?? null
+
   useEffect(() => {
-    // 쿼리 파라미터에서 에러 확인
     const errorParam = searchParams.get("error")
     if (errorParam === "profile_missing") {
       setError("프로필 정보가 없습니다. 회원가입을 완료해주세요.")
@@ -60,6 +62,15 @@ function SignUpForm() {
           <CardDescription className="text-center">새 계정을 만들어 서비스를 시작하세요</CardDescription>
         </CardHeader>
         <CardContent>
+          {riderCodeFromLink && (
+            <Alert className="mb-4 border-green-200 bg-green-50">
+              <UserCheck className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 text-sm">
+                기사 <strong>{riderCodeFromLink}</strong> 님의 소개로 가입하고 있습니다.
+                회원가입 완료 후 자동으로 연결됩니다.
+              </AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
