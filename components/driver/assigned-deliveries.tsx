@@ -36,6 +36,25 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
     startTransition(() => router.refresh())
   }
 
+  // accepted 상태에서 배송완료 버튼: picked_up → delivered 순서로 연속 처리
+  async function handleCompleteFromAccepted(deliveryId: string) {
+    setLoadingId(deliveryId)
+    const r1 = await updateDeliveryStatus(deliveryId, "picked_up")
+    if (r1.error) {
+      setLoadingId(null)
+      alert(r1.error)
+      return
+    }
+    const r2 = await updateDeliveryStatus(deliveryId, "delivered")
+    if (r2.error) {
+      setLoadingId(null)
+      alert(r2.error)
+      return
+    }
+    setLoadingId(null)
+    startTransition(() => router.refresh())
+  }
+
   if (deliveries.length === 0) {
     return (
       <div className="text-center py-12">
@@ -133,6 +152,16 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
               >
                 {loadingId === delivery.id ? "처리중..." : config.nextLabel}
               </Button>
+              {delivery.status === "accepted" && (
+                <Button
+                  onClick={() => handleCompleteFromAccepted(delivery.id)}
+                  disabled={loadingId === delivery.id}
+                  size="sm"
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  {loadingId === delivery.id ? "처리중..." : "배송 완료"}
+                </Button>
+              )}
             </div>
           </div>
         )
