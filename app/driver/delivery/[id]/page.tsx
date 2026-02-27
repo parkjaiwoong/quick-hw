@@ -109,6 +109,26 @@ export default async function DriverDeliveryDetailPage({
   const deliveryCoords = parsePoint(delivery.delivery_location)
   const baseDriverFee = Number(delivery.driver_fee ?? delivery.total_fee ?? 0)
 
+  // 기사 현재 위치 → 픽업장소 거리 계산 (하버사인)
+  const { data: driverInfo } = await supabase
+    .from("driver_info")
+    .select("current_location")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  const driverCoords = parsePoint(driverInfo?.current_location)
+  const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const R = 6371
+    const dLat = ((b.lat - a.lat) * Math.PI) / 180
+    const dLng = ((b.lng - a.lng) * Math.PI) / 180
+    const s =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+    return Math.round(R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s)) * 10) / 10
+  }
+  const toPickupKm =
+    driverCoords && pickupCoords ? haversineKm(driverCoords, pickupCoords) : null
+
   async function handleAccept() {
     "use server"
     await acceptDelivery(delivery.id)
@@ -276,8 +296,14 @@ export default async function DriverDeliveryDetailPage({
                         <span className="font-medium">{userDesc}</span>
                       </div>
                     )}
+                    {toPickupKm !== null && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">픽업장소까지</span>
+                        <span className="font-medium">{toPickupKm.toFixed(1)}km</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">거리</span>
+                      <span className="text-muted-foreground">픽업 → 배송장소</span>
                       <span className="font-medium">{delivery.distance_km?.toFixed(1) ?? "-"}km</span>
                     </div>
                   </>
