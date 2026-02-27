@@ -1,9 +1,21 @@
 "use server"
 
 import { getSupabaseServerClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, unstable_cache } from "next/cache"
 import { resolveRiderForOrder } from "@/lib/actions/rider-referral"
 import { calculateDeliveryFee } from "@/lib/pricing"
+
+/** pricing_config 캐시 (60초) — 자주 변경되지 않는 요금 설정 */
+const getCachedPricingConfig = unstable_cache(
+  async () => {
+    const { createClient } = await import("@supabase/supabase-js")
+    const svc = createClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
+    const { data } = await svc.from("pricing_config").select("base_fee, per_km_fee, platform_commission_rate, min_driver_fee").order("created_at", { ascending: false }).limit(1).maybeSingle()
+    return data
+  },
+  ["pricing_config"],
+  { revalidate: 60 }
+)
 
 interface CreateDeliveryData {
   pickupAddress: string
@@ -33,89 +45,41 @@ interface CreateDeliveryData {
   scheduledPickupAt?: string
 }
 
-/** 감사 로그 기록 (실패해도 메인 흐름은 유지) */
-async function writeAuditLog(
-  service: { from: (t: string) => { insert: (r: object) => Promise<{ error: unknown }> } },
-  deliveryId: string,
-  eventType: string,
-  payload: Record<string, unknown>
-) {
-  try {
-    await service.from("notification_audit_log").insert({
-      delivery_id: deliveryId,
-      event_type: eventType,
-      payload,
-    })
-  } catch (_) {}
-}
-
 /** 결제 완료 후 기사에게 Realtime 알림(INSERT notifications). createDelivery(현금) 또는 payment confirm(카드/계좌이체)에서 호출 */
 export async function notifyDriversForDelivery(
   deliveryId: string,
   pickupLat: number,
   pickupLng: number
 ): Promise<{ error?: string }> {
-  console.log("[기사알림-1] notifyDriversForDelivery 시작", { deliveryId, pickupLat, pickupLng })
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) {
-    console.error("[기사알림-1] 서비스 키 없음")
-    return { error: "서비스 키 없음" }
-  }
+  if (!serviceRoleKey) return { error: "서비스 키 없음" }
 
   const { createClient: createServiceClient } = await import("@supabase/supabase-js")
   const service = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
 
-  await writeAuditLog(service, deliveryId, "notify_start", { pickup_lat: pickupLat, pickup_lng: pickupLng })
+  // 근처 기사 조회 + 배송가능 전원 조회를 병렬로 실행
+  const [{ data: nearbyDrivers, error: rpcError }, { data: availableDrivers }] = await Promise.all([
+    service.rpc("find_nearby_drivers", {
+      pickup_lat: pickupLat,
+      pickup_lng: pickupLng,
+      max_distance_km: 10.0,
+      limit_count: 5,
+    }),
+    service.from("driver_info").select("id").eq("is_available", true),
+  ])
 
-  // RPC는 반드시 service role로 호출 (고객 세션으로 호출 시 RLS로 driver_info 조회 불가 → 기사 0명)
-  const { data: nearbyDrivers, error: rpcError } = await service.rpc("find_nearby_drivers", {
-    pickup_lat: pickupLat,
-    pickup_lng: pickupLng,
-    max_distance_km: 10.0,
-    limit_count: 5,
-  })
-  if (rpcError) {
-    console.error("[기사알림-2] find_nearby_drivers RPC 오류:", rpcError.message)
-    await writeAuditLog(service, deliveryId, "rpc_error", { error: rpcError.message })
-  }
+  if (rpcError) console.error("[기사알림] find_nearby_drivers RPC 오류:", rpcError.message)
+
   const nearbyIds = (nearbyDrivers?.length ?? 0) > 0
-    ? (nearbyDrivers as { driver_id?: string; id?: string }[]).map((d) => d.driver_id ?? d.id).filter(Boolean)
+    ? (nearbyDrivers as { driver_id?: string; id?: string }[]).map((d) => d.driver_id ?? d.id).filter(Boolean) as string[]
     : []
-  await writeAuditLog(service, deliveryId, "rpc_nearby", {
-    nearby_count: nearbyDrivers?.length ?? 0,
-    driver_ids: nearbyIds,
-  })
-  console.log("[기사알림-2] 근처 기사 수:", nearbyDrivers?.length ?? 0, "driver_ids:", nearbyIds)
+  const allAvailableIds = (availableDrivers ?? []).map((d) => d.id as string)
 
-  // 배송 가능(is_available=true) 전원 조회 (위치 없음 포함)
-  const { data: availableDrivers } = await service
-    .from("driver_info")
-    .select("id")
-    .eq("is_available", true)
-  const allAvailableIds = (availableDrivers ?? []).map((d) => d.id)
+  // 근처 5명 이하 → 배송가능 전원에게 알림 (위치 없는 기사 포함)
+  const merged = new Set<string>([...nearbyIds, ...allAvailableIds])
+  const driverIdsToNotify = Array.from(merged)
 
-  // 근처 5명 이하일 때는 배송 가능 전원에게 FCM (위치 없어도 포함). 6명 이상이면 근처만(현재 RPC limit=5라 항상 5명 이하).
-  let driverIdsToNotify: string[]
-  if (nearbyIds.length <= 5) {
-    const merged = new Set<string>([...nearbyIds, ...allAvailableIds])
-    driverIdsToNotify = Array.from(merged)
-    await writeAuditLog(service, deliveryId, "merge_nearby_and_available", {
-      nearby_count: nearbyIds.length,
-      available_count: allAvailableIds.length,
-      merged_count: driverIdsToNotify.length,
-      driver_ids: driverIdsToNotify,
-    })
-    console.log("[기사알림-2] 근처 5명 이하 → 배송가능 전원에게 알림 (위치 없음 포함)", { merged: driverIdsToNotify.length, nearby: nearbyIds.length, available: allAvailableIds.length })
-  } else {
-    driverIdsToNotify = nearbyIds
-    console.log("[기사알림-2] 근처 6명 이상 → 근처만 알림:", driverIdsToNotify.length)
-  }
-
-  if (driverIdsToNotify.length === 0) {
-    console.warn("[기사알림-2] 알림할 기사 0명 — INSERT 스킵 (is_available=true인 기사 0명)")
-    await writeAuditLog(service, deliveryId, "insert_skip", { reason: "알림할 기사 0명" })
-    return {}
-  }
+  if (driverIdsToNotify.length === 0) return {}
 
   const rows = driverIdsToNotify.map((driverId) => ({
     user_id: driverId,
@@ -126,21 +90,11 @@ export async function notifyDriversForDelivery(
   }))
   const { error: notifError } = await service.from("notifications").insert(rows)
   if (notifError) {
-    console.error("[기사알림-3] notifications INSERT 실패:", notifError.message, { deliveryId, driverIds: driverIdsToNotify })
-    await writeAuditLog(service, deliveryId, "insert_fail", {
-      error: notifError.message,
-      driver_count: driverIdsToNotify.length,
-      driver_ids: driverIdsToNotify,
-    })
+    console.error("[기사알림] notifications INSERT 실패:", notifError.message)
     return { error: notifError.message }
   }
-  await writeAuditLog(service, deliveryId, "insert_ok", {
-    driver_count: driverIdsToNotify.length,
-    driver_ids: driverIdsToNotify,
-  })
-  console.log("[기사알림-3] notifications INSERT 성공", { deliveryId, driverCount: driverIdsToNotify.length, driverIds: driverIdsToNotify })
 
-  // 웹훅 없이도 FCM 전송: 서버에서 /api/push/send 직접 호출 (기사 앱 수신 보장)
+  // FCM 전송: 모든 기사에게 병렬로 전송 (직렬 루프 → Promise.all)
   const pushSecret = process.env.PUSH_WEBHOOK_SECRET
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -148,14 +102,11 @@ export async function notifyDriversForDelivery(
     "https://quick-hw.vercel.app"
   if (pushSecret && baseUrl) {
     const pushUrl = `${baseUrl}/api/push/send`
-    for (const driverId of driverIdsToNotify) {
-      try {
-        const res = await fetch(pushUrl, {
+    await Promise.all(
+      driverIdsToNotify.map((driverId) =>
+        fetch(pushUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-webhook-secret": pushSecret,
-          },
+          headers: { "Content-Type": "application/json", "x-webhook-secret": pushSecret },
           body: JSON.stringify({
             record: {
               user_id: driverId,
@@ -165,15 +116,9 @@ export async function notifyDriversForDelivery(
               type: "new_delivery_request",
             },
           }),
-        })
-        const text = await res.text()
-        console.log("[기사알림-4] push/send 호출", { driverId, status: res.status, body: text })
-      } catch (e) {
-        console.error("[기사알림-4] push/send 호출 실패", { driverId, error: (e as Error).message })
-      }
-    }
-  } else {
-    console.warn("[기사알림-4] PUSH_WEBHOOK_SECRET 또는 baseUrl 없음 — FCM 직접 호출 스킵 (웹훅에만 의존)")
+        }).catch((e) => console.error("[기사알림] FCM 전송 실패", { driverId, error: (e as Error).message }))
+      )
+    )
   }
   return {}
 }
@@ -239,45 +184,33 @@ export async function createDelivery(data: CreateDeliveryData) {
     }
   }
 
-  // 거리 계산 (하버사인 공식으로 직접 계산, RPC 실패 대비)
-  let distanceKm = 0
-  try {
-    const { data: distanceData, error: distanceError } = await supabase.rpc("calculate_distance", {
+  // 거리 계산 + 요금 설정 병렬 조회 (pricing_config는 캐시 사용)
+  const [distanceResult, pricing] = await Promise.all([
+    supabase.rpc("calculate_distance", {
       lat1: data.pickupLat,
       lon1: data.pickupLng,
       lat2: data.deliveryLat,
       lon2: data.deliveryLng,
-    })
+    }),
+    getCachedPricingConfig(),
+  ])
 
-    if (distanceError) {
-      console.warn("RPC 거리 계산 실패, 클라이언트 측 계산으로 대체:", distanceError)
-      // 클라이언트 측 거리 계산 (하버사인 공식)
-      const R = 6371 // 지구 반지름 (km)
-      const dLat = ((data.deliveryLat - data.pickupLat) * Math.PI) / 180
-      const dLng = ((data.deliveryLng - data.pickupLng) * Math.PI) / 180
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((data.pickupLat * Math.PI) / 180) *
-          Math.cos((data.deliveryLat * Math.PI) / 180) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2)
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-      distanceKm = Math.round(R * c * 10) / 10
-    } else {
-      distanceKm = distanceData as number
-    }
-  } catch (error) {
-    console.error("거리 계산 오류:", error)
-    return { error: "거리 계산에 실패했습니다. 위도/경도를 확인해주세요." }
+  let distanceKm = 0
+  if (distanceResult.error) {
+    console.warn("RPC 거리 계산 실패, 하버사인 공식으로 대체:", distanceResult.error)
+    const R = 6371
+    const dLat = ((data.deliveryLat - data.pickupLat) * Math.PI) / 180
+    const dLng = ((data.deliveryLng - data.pickupLng) * Math.PI) / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((data.pickupLat * Math.PI) / 180) *
+        Math.cos((data.deliveryLat * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2)
+    distanceKm = Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10
+  } else {
+    distanceKm = distanceResult.data as number
   }
-
-  // 요금 계산 (카카오픽 방식: 기본요금 + 2km 초과분 km당 요금)
-  const { data: pricing } = await supabase
-    .from("pricing_config")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
   const baseFee = Number(pricing?.base_fee ?? 4000)
   const perKmFee = Number(pricing?.per_km_fee ?? 1000)
@@ -359,29 +292,15 @@ export async function createDelivery(data: CreateDeliveryData) {
     return { error: orderResult.error }
   }
 
-  const { data: nearbyDrivers } = await supabase.rpc("find_nearby_drivers", {
-    pickup_lat: data.pickupLat,
-    pickup_lng: data.pickupLng,
-    max_distance_km: 10.0,
-    limit_count: 5,
-  })
-
   // 현금 결제만 즉시 기사 알림. 카드/계좌이체는 결제 완료 후 confirm 쪽에서 notifyDriversForDelivery 호출
-  const shouldNotifyNow = paymentMethodNormalized === "cash"
-  if (shouldNotifyNow) {
-    const notifyResult = await notifyDriversForDelivery(delivery.id, data.pickupLat, data.pickupLng)
-    if (notifyResult.error) {
-      console.error("[createDelivery] 기사 알림 실패:", notifyResult.error)
-    }
+  if (paymentMethodNormalized === "cash") {
+    notifyDriversForDelivery(delivery.id, data.pickupLat, data.pickupLng).catch((e) =>
+      console.error("[createDelivery] 기사 알림 실패:", e)
+    )
   }
 
   revalidatePath("/customer")
-  return {
-    success: true,
-    delivery,
-    nearbyDriversCount: nearbyDrivers?.length || 0,
-    nearbyDrivers: nearbyDrivers || [],
-  }
+  return { success: true, delivery }
 }
 
 export async function getMyDeliveries() {

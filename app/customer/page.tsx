@@ -25,9 +25,27 @@ export default async function CustomerDashboard({
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-  const referringDriverId = profile?.referring_driver_id || null
+  // profile + roleOverride + deliveries + latestChangeRequest 병렬 조회
+  const [{ data: profile }, roleOverride, { deliveries = [] }, { data: latestChangeRequest }] = await Promise.all([
+    supabase.from("profiles").select("role, full_name, referring_driver_id").eq("id", user.id).single(),
+    getRoleOverride(),
+    getMyDeliveries(),
+    supabase
+      .from("rider_change_history")
+      .select("id, status, admin_reason, cooldown_until, created_at")
+      .eq("customer_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
+  const canActAsCustomer =
+    roleOverride === "customer" || roleOverride === "admin" || profile?.role === "customer" || profile?.role === "admin"
+  if (!canActAsCustomer) {
+    redirect("/")
+  }
+
+  const referringDriverId = profile?.referring_driver_id || null
   let referringDriver: {
     id?: string | null
     full_name?: string | null
@@ -40,20 +58,11 @@ export default async function CustomerDashboard({
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (serviceRoleKey) {
       const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-      const supabaseService = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-
-      const { data: riderRow } = await supabaseService
-        .from("riders")
-        .select("code")
-        .eq("id", referringDriverId)
-        .maybeSingle()
-
-      const { data: profileRow } = await supabaseService
-        .from("profiles")
-        .select("full_name, email, phone")
-        .eq("id", referringDriverId)
-        .maybeSingle()
-
+      const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+      const [{ data: riderRow }, { data: profileRow }] = await Promise.all([
+        svc.from("riders").select("code").eq("id", referringDriverId).maybeSingle(),
+        svc.from("profiles").select("full_name, email, phone").eq("id", referringDriverId).maybeSingle(),
+      ])
       referringRiderCode = riderRow?.code ?? null
       referringDriver = profileRow ?? null
     }
@@ -81,23 +90,6 @@ export default async function CustomerDashboard({
               : changeStatus === "error"
                 ? `요청 처리 중 오류가 발생했습니다.${errorReason ? ` (${errorReason})` : ""}`
                 : null
-
-  const roleOverride = await getRoleOverride()
-  const canActAsCustomer =
-    roleOverride === "customer" || roleOverride === "admin" || profile?.role === "customer" || profile?.role === "admin"
-  if (!canActAsCustomer) {
-    redirect("/")
-  }
-
-  const { deliveries = [] } = await getMyDeliveries()
-
-  const { data: latestChangeRequest } = await supabase
-    .from("rider_change_history")
-    .select("id, status, admin_reason, cooldown_until, created_at")
-    .eq("customer_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
   const stats = {
     total: deliveries.length,

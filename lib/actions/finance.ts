@@ -1,10 +1,24 @@
 "use server"
 
 import { getSupabaseServerClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, unstable_cache } from "next/cache"
 import type { PaymentMethod } from "@/lib/types/database"
 
 type ServiceClient = Awaited<ReturnType<typeof getSupabaseServerClient>>
+
+/** platform_settings 캐시 (60초) — 자주 변경되지 않는 설정값 */
+const getCachedPlatformSettings = unstable_cache(
+  async () => {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceRoleKey) return null
+    const { createClient } = await import("@supabase/supabase-js")
+    const svc = createClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey, { auth: { persistSession: false } })
+    const { data } = await svc.from("platform_settings").select("*").maybeSingle()
+    return data
+  },
+  ["platform_settings"],
+  { revalidate: 60 }
+)
 
 async function getServiceClient(): Promise<ServiceClient | null> {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -245,7 +259,7 @@ export async function ensureDriverWallet(driverId: string) {
     return { walletId: existing.id }
   }
 
-  const { data: platform } = await supabase.from("platform_settings").select("*").maybeSingle()
+  const platform = await getCachedPlatformSettings()
   const initialBalance = Number(platform?.driver_wallet_initial_balance ?? 0)
   const minPayout = Number(platform?.driver_wallet_min_payout ?? 0)
 
@@ -390,24 +404,12 @@ async function addRiderReferralReward(params: {
   const { supabase, deliveryId, orderId, referringRiderId, totalFee, shouldReady } = params
   if (totalFee <= 0) return
 
-  const { data: masterPolicy } = await supabase
-    .from("reward_policy_master")
-    .select("rider_reward_rate")
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const [{ data: masterPolicy }, { data: overridePolicy }] = await Promise.all([
+    supabase.from("reward_policy_master").select("rider_reward_rate").eq("is_active", true).is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("rider_reward_policy").select("rider_reward_rate").eq("rider_id", referringRiderId).is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ])
 
   let rate = Number(masterPolicy?.rider_reward_rate ?? 0.05)
-  const { data: overridePolicy } = await supabase
-    .from("rider_reward_policy")
-    .select("rider_reward_rate")
-    .eq("rider_id", referringRiderId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
   if (overridePolicy != null && Number.isFinite(Number(overridePolicy.rider_reward_rate))) {
     rate = Number(overridePolicy.rider_reward_rate)
   }

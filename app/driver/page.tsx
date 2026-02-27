@@ -29,31 +29,29 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  let riderCode: string | null = null
-  if (serviceRoleKey) {
-    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-    const supabaseService = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-    const { data: riderRow } = await supabaseService
-      .from("riders")
-      .select("code")
-      .eq("id", user.id)
-      .maybeSingle()
-    riderCode = riderRow?.code ?? null
-  }
 
-  const roleOverride = await getRoleOverride()
+  // profile + riderCode + roleOverride 병렬 조회
+  const [{ data: profile }, riderCode, roleOverride] = await Promise.all([
+    supabase.from("profiles").select("role, full_name").eq("id", user.id).single(),
+    serviceRoleKey
+      ? (async () => {
+          const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+          const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+          const { data } = await svc.from("riders").select("code").eq("id", user.id).maybeSingle()
+          return data?.code ?? null
+        })()
+      : Promise.resolve(null as string | null),
+    getRoleOverride(),
+  ])
+
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {
     redirect("/")
   }
 
-  if (canActAsDriver) {
-    await ensureDriverInfoForUser()
-  }
-
+  // ensureDriverInfoForUser + getDriverInfo 순서 보장 후 나머지 병렬 실행
+  await ensureDriverInfoForUser()
   const { driverInfo } = await getDriverInfo()
 
   // 배송가능 ON 상태면 바로 대기중인 배송 페이지로 이동
@@ -61,22 +59,26 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     redirect("/driver/available")
   }
 
-  const { deliveries: available = [] } = await getAvailableDeliveries()
-  const { deliveries: assigned = [] } = await getMyAssignedDeliveries()
-
-  // 전체 운행 이력
-  const { data: allDeliveries } = await supabase
-    .from("deliveries")
-    .select("id, status, created_at, delivered_at, customer_rating")
-    .eq("driver_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(20)
-
-  // 사고 발생 여부 확인
-  const { data: accidents } = await supabase
-    .from("accident_reports")
-    .select("id, status, accident_type")
-    .eq("driver_id", user.id)
+  // 독립적인 쿼리들을 병렬로 실행
+  const [
+    { deliveries: available = [] },
+    { deliveries: assigned = [] },
+    { data: allDeliveries },
+    { data: accidents },
+  ] = await Promise.all([
+    getAvailableDeliveries(),
+    getMyAssignedDeliveries(),
+    supabase
+      .from("deliveries")
+      .select("id, status, created_at, delivered_at, customer_rating")
+      .eq("driver_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("accident_reports")
+      .select("id, status, accident_type")
+      .eq("driver_id", user.id),
+  ])
 
   return (
     <DriverDeliveryRequestProvider>

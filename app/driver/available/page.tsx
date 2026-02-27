@@ -20,15 +20,17 @@ export default async function DriverAvailablePage() {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  const roleOverride = await getRoleOverride()
+  const [{ data: profile }, roleOverride, { driverInfo }, { deliveries: available = [] }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).single(),
+    getRoleOverride(),
+    getDriverInfo(),
+    getAvailableDeliveries(),
+  ])
+
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {
     redirect("/")
   }
-
-  const { driverInfo } = await getDriverInfo()
-  const { deliveries: available = [] } = await getAvailableDeliveries()
 
   return (
     <DriverDeliveryRequestProvider>

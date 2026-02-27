@@ -138,55 +138,47 @@ export async function acceptDelivery(deliveryId: string) {
 export async function updateDeliveryStatus(deliveryId: string, status: string) {
   const supabase = await getSupabaseServerClient()
 
-  const { data: current } = await supabase.from("deliveries").select("status").eq("id", deliveryId).single()
+  const { data: current } = await supabase.from("deliveries").select("status, customer_id").eq("id", deliveryId).single()
   if (current?.status === "delivered") {
     return { error: "이미 배송 완료된 건은 변경할 수 없습니다." }
   }
 
-  const updateData: any = {
-    status,
-  }
-
+  const updateData: Record<string, unknown> = { status }
   if (status === "picked_up") {
     updateData.picked_up_at = new Date().toISOString()
   } else if (status === "delivered") {
     updateData.delivered_at = new Date().toISOString()
-    
-    // 배송 완료 시 포인트 적립 및 추천인 보상 처리
-    const { data: delivery } = await supabase.from("deliveries").select("*").eq("id", deliveryId).single()
-    
-    if (delivery && delivery.customer_id) {
-      // 포인트 적립 (배송 완료 시 100포인트)
-      const { earnPoints } = await import("@/lib/actions/points")
-      await earnPoints(delivery.customer_id, 100, "delivery", deliveryId, "배송 완료 포인트")
-      
-      // 첫 배송 완료인지 확인하여 추천인 보상 처리
-      const { data: customerDeliveries } = await supabase
-        .from("deliveries")
-        .select("id")
-        .eq("customer_id", delivery.customer_id)
-        .eq("status", "delivered")
-      
-      if (customerDeliveries && customerDeliveries.length === 1) {
-        // 첫 배송 완료
-        const { processReferralReward } = await import("@/lib/actions/points")
-        await processReferralReward(delivery.customer_id, deliveryId)
-      }
-    }
-
-    const { createSettlementForDelivery, syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
-    await createSettlementForDelivery(deliveryId)
-    await syncOrderStatusForDelivery(deliveryId, "delivered")
   }
 
+  // 상태 업데이트 먼저 실행
   const { error } = await supabase.from("deliveries").update(updateData).eq("id", deliveryId)
+  if (error) return { error: error.message }
 
-  if (error) {
-    return { error: error.message }
+  // 배송 완료 시 후처리 (포인트, 정산, 주문상태 동기화) — 병렬 실행
+  if (status === "delivered" && current?.customer_id) {
+    const customerId = current.customer_id
+    const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
+    const { createSettlementForDelivery, syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+
+    // 첫 배송 완료 여부 확인 (추천인 보상용)
+    const { data: customerDeliveries } = await supabase
+      .from("deliveries")
+      .select("id")
+      .eq("customer_id", customerId)
+      .eq("status", "delivered")
+
+    const isFirstDelivery = customerDeliveries && customerDeliveries.length === 1
+
+    await Promise.all([
+      earnPoints(customerId, 100, "delivery", deliveryId, "배송 완료 포인트"),
+      isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
+      createSettlementForDelivery(deliveryId),
+      syncOrderStatusForDelivery(deliveryId, "delivered"),
+    ])
+  } else {
+    const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+    await syncOrderStatusForDelivery(deliveryId, status)
   }
-
-  const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
-  await syncOrderStatusForDelivery(deliveryId, status)
 
   revalidatePath("/driver")
   revalidatePath(`/driver/delivery/${deliveryId}`)

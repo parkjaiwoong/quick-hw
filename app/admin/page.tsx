@@ -35,57 +35,30 @@ export default async function AdminDashboard() {
       })
     : supabase
 
-  // 통계 데이터 (관리자용은 service role로 조회)
-  const { count: totalDeliveries } = await supabaseAdmin
-    .from("deliveries")
-    .select("id", { count: "exact", head: true })
-
-  const { count: activeDeliveries } = await supabaseAdmin
-    .from("deliveries")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["pending", "accepted", "picked_up", "in_transit"])
-
-  const { count: customers } = await supabaseAdmin
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "customer")
-
-  const { count: drivers } = await supabaseAdmin
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "driver")
-
-  const { count: accidents } = await supabaseAdmin
-    .from("accident_reports")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["reported", "investigating"])
-
-  const { count: inquiries } = await supabaseAdmin
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("type", "inquiry")
-    .eq("is_read", false)
-
-  const { data: recentAccidents, error: recentAccidentsError } = await supabaseAdmin
-    .from("accident_reports")
-    .select("id, accident_type, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  const { data: recentInquiries } = await supabaseAdmin
-    .from("notifications")
-    .select("id, title, message, created_at, is_read")
-    .eq("type", "inquiry")
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  const { data: recentDeliveries, error: recentDeliveriesError } = await supabaseAdmin
-    .from("deliveries")
-    .select("id, pickup_address, delivery_address, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  const alertCounts = await getAdminAlertCounts()
+  // 통계 데이터 전체 병렬 조회
+  const [
+    { count: totalDeliveries },
+    { count: activeDeliveries },
+    { count: customers },
+    { count: drivers },
+    { count: accidents },
+    { count: inquiries },
+    { data: recentAccidents },
+    { data: recentInquiries },
+    { data: recentDeliveries },
+    alertCounts,
+  ] = await Promise.all([
+    supabaseAdmin.from("deliveries").select("id", { count: "exact", head: true }),
+    supabaseAdmin.from("deliveries").select("id", { count: "exact", head: true }).in("status", ["pending", "accepted", "picked_up", "in_transit"]),
+    supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
+    supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "driver"),
+    supabaseAdmin.from("accident_reports").select("id", { count: "exact", head: true }).in("status", ["reported", "investigating"]),
+    supabaseAdmin.from("notifications").select("id", { count: "exact", head: true }).eq("type", "inquiry").eq("is_read", false),
+    supabaseAdmin.from("accident_reports").select("id, accident_type, status, created_at").order("created_at", { ascending: false }).limit(5),
+    supabaseAdmin.from("notifications").select("id, title, message, created_at, is_read").eq("type", "inquiry").order("created_at", { ascending: false }).limit(5),
+    supabaseAdmin.from("deliveries").select("id, pickup_address, delivery_address, status, created_at").order("created_at", { ascending: false }).limit(5),
+    getAdminAlertCounts(),
+  ])
   const countsForBanner =
     "error" in alertCounts
       ? { pendingSettlementCount: 0, pendingPayoutCount: 0, pendingPayoutAmount: 0, unreadInquiries: inquiries ?? 0, openAccidents: accidents ?? 0 }
@@ -216,9 +189,7 @@ export default async function AdminDashboard() {
 
         <AdminDashboardTabs
           recentDeliveries={recentDeliveries}
-          recentDeliveriesError={recentDeliveriesError?.message}
           recentAccidents={recentAccidents}
-          recentAccidentsError={recentAccidentsError?.message}
           recentInquiries={recentInquiries}
         />
       </div>
