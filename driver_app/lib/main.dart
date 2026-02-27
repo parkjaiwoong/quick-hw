@@ -445,15 +445,7 @@ class _DispatchAcceptOverlayWidgetState extends State<DispatchAcceptOverlayWidge
       color: Colors.transparent,
       child: Stack(
         children: [
-          // 배경 딤 — 터치 시 넘기기
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _acceptSent ? null : _dismiss,
-              child: Container(color: Colors.black.withOpacity(0.35)),
-            ),
-          ),
-          // 중앙 흰색 카드 (카카오픽 스타일)
+          // 중앙 흰색 카드 (카카오픽 스타일) — 배경 딤 없음
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

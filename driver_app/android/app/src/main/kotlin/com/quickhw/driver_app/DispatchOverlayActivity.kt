@@ -33,12 +33,11 @@ class DispatchOverlayActivity : FlutterActivity() {
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
         )
         super.onCreate(savedInstanceState)
-        // 콘텐츠 크기에 맞춰 중앙 정렬 — 높이 크게, 폭 작게
+        // 가로 넓게, 세로 콘텐츠에 맞게 (wrap_content)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             val dm = resources.displayMetrics
-            val w = (dm.widthPixels * 0.48).toInt().coerceAtLeast(240)
-            val h = (dm.heightPixels * 0.58).toInt().coerceAtLeast(320)
-            window?.setLayout(w, h)
+            val w = (dm.widthPixels * 0.92).toInt().coerceAtLeast(320)
+            window?.setLayout(w, WindowManager.LayoutParams.WRAP_CONTENT)
             window?.setGravity(Gravity.CENTER)
             window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
         }
