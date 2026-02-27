@@ -185,6 +185,56 @@ export async function updateDeliveryStatus(deliveryId: string, status: string) {
   return { success: true }
 }
 
+/** accepted 상태에서 픽업완료 → 배송완료를 한 번에 처리 */
+export async function completeDeliveryFromAccepted(deliveryId: string) {
+  const supabase = await getSupabaseServerClient()
+
+  const { data: current } = await supabase
+    .from("deliveries")
+    .select("status, customer_id")
+    .eq("id", deliveryId)
+    .single()
+
+  if (!current) return { error: "배송 정보를 찾을 수 없습니다." }
+  if (current.status === "delivered") return { error: "이미 배송 완료된 건입니다." }
+
+  const now = new Date().toISOString()
+
+  // picked_up + delivered 를 한 번의 update로 처리
+  const { error } = await supabase
+    .from("deliveries")
+    .update({ status: "delivered", picked_up_at: now, delivered_at: now })
+    .eq("id", deliveryId)
+
+  if (error) return { error: error.message }
+
+  // 배송 완료 후처리
+  if (current.customer_id) {
+    const customerId = current.customer_id
+    const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
+    const { createSettlementForDelivery, syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+
+    const { data: customerDeliveries } = await supabase
+      .from("deliveries")
+      .select("id")
+      .eq("customer_id", customerId)
+      .eq("status", "delivered")
+
+    const isFirstDelivery = customerDeliveries && customerDeliveries.length === 1
+
+    await Promise.all([
+      earnPoints(customerId, 100, "delivery", deliveryId, "배송 완료 포인트"),
+      isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
+      createSettlementForDelivery(deliveryId),
+      syncOrderStatusForDelivery(deliveryId, "delivered"),
+    ])
+  }
+
+  revalidatePath("/driver")
+  revalidatePath(`/driver/delivery/${deliveryId}`)
+  return { success: true }
+}
+
 export async function updateDriverAvailability(isAvailable: boolean) {
   const supabase = await getSupabaseServerClient()
 
