@@ -111,7 +111,7 @@ export async function createOrderAndPaymentForDelivery(params: {
       amount: params.amount,
       payment_method: method,
       status: paymentStatus,
-      pg_provider: method === "card" ? "TOSS" : null,
+      pg_provider: (method === "card" || method === "bank_transfer") ? "TOSS" : null,
       paid_at: null,
       approved_at: null,
       requested_at: new Date().toISOString(),
