@@ -54,11 +54,6 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
   await ensureDriverInfoForUser()
   const { driverInfo } = await getDriverInfo()
 
-  // 배송가능 ON 상태면 바로 대기중인 배송 페이지로 이동
-  if (driverInfo?.is_available) {
-    redirect("/driver/available")
-  }
-
   // 독립적인 쿼리들을 병렬로 실행
   const [
     { deliveries: available = [] },
