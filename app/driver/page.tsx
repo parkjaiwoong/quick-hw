@@ -2,7 +2,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Package, Star, TrendingUp, History, Smartphone } from "lucide-react"
+import { Package, TrendingUp, History, Smartphone } from "lucide-react"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { ensureDriverInfoForUser, getAvailableDeliveries, getMyAssignedDeliveries, getDriverInfo } from "@/lib/actions/driver"
@@ -65,7 +65,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     getMyAssignedDeliveries(),
     supabase
       .from("deliveries")
-      .select("id, status, created_at, delivered_at, customer_rating")
+      .select("id, status, created_at, delivered_at")
       .eq("driver_id", user.id)
       .order("created_at", { ascending: false })
       .limit(20),
@@ -121,20 +121,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>평점</CardDescription>
-              <CardTitle className="text-3xl flex items-center gap-1">
-                {driverInfo?.rating?.toFixed(1) || "5.0"}
-                <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">{driverInfo?.total_deliveries || 0}건 완료</p>
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>진행 중</CardDescription>
@@ -213,11 +200,6 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
                             <p className="text-sm text-muted-foreground">
                               상태: {delivery.status === "delivered" ? "완료" : delivery.status}
                             </p>
-                            {delivery.customer_rating && (
-                              <p className="text-sm text-yellow-600">
-                                평점: {delivery.customer_rating}점
-                              </p>
-                            )}
                           </div>
                           <Link href={`/driver/delivery/${delivery.id}`}>
                             <Button variant="outline" size="sm">
