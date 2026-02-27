@@ -12,6 +12,47 @@ function getServiceClient() {
   return createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
 }
 
+/** DB pickup_location(point) 파싱: (lng,lat) 형태 */
+function parsePickupLatLng(location: unknown): { lat: number; lng: number } | null {
+  if (!location) return null
+  if (typeof location === "string") {
+    const m = location.match(/\(([^,]+),([^)]+)\)/)
+    if (!m) return null
+    const lng = Number(m[1])
+    const lat = Number(m[2])
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+    return null
+  }
+  const o = location as { x?: number; y?: number; 0?: number; 1?: number }
+  const lng = o?.x ?? o?.[0]
+  const lat = o?.y ?? o?.[1]
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+  return null
+}
+
+/** 결제 완료 후 기사에게 FCM 알림 전송 */
+async function notifyDriversAfterPayment(deliveryId: string) {
+  console.log("[빌링결제→기사] notifyDriversAfterPayment 시작", { deliveryId })
+  const supabase = getServiceClient()
+  if (!supabase) {
+    console.warn("[빌링결제→기사] getServiceClient null")
+    return
+  }
+  const { data: delivery } = await supabase
+    .from("deliveries")
+    .select("id, pickup_location")
+    .eq("id", deliveryId)
+    .maybeSingle()
+  const coords = delivery?.pickup_location ? parsePickupLatLng(delivery.pickup_location) : null
+  if (!delivery?.id || !coords) {
+    console.warn("[빌링결제→기사] delivery 또는 좌표 없음", { deliveryId, delivery })
+    return
+  }
+  console.log("[빌링결제→기사] notifyDriversForDelivery 호출", { deliveryId, lat: coords.lat, lng: coords.lng })
+  const { notifyDriversForDelivery } = await import("@/lib/actions/deliveries")
+  await notifyDriversForDelivery(delivery.id, coords.lat, coords.lng)
+}
+
 async function updatePaymentStatus(params: {
   orderId: string
   status: "PAID" | "FAILED"
@@ -183,6 +224,15 @@ export async function POST(request: Request) {
   }
 
   const deliveryId = order.delivery_id ?? ""
+
+  // 결제 완료 후 기사에게 FCM 알림 전송 (비동기 — 응답 지연 없음)
+  if (deliveryId) {
+    console.log("[빌링결제] 기사 알림 트리거", { deliveryId })
+    notifyDriversAfterPayment(deliveryId)
+      .then(() => console.log("[빌링결제] 기사 알림 완료", { deliveryId }))
+      .catch((e) => console.error("[빌링결제] 기사 알림 실패:", e))
+  }
+
   return NextResponse.json({
     success: true,
     deliveryId,
