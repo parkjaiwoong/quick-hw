@@ -35,6 +35,11 @@ export default async function DriverAvailablePage() {
     redirect("/driver")
   }
 
+  // 온보딩 가이드 미완료 시 가이드 페이지로 이동
+  if (!driverInfo?.guide_completed_at) {
+    redirect("/driver/guide")
+  }
+
   return (
     <DriverDeliveryRequestProvider>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">

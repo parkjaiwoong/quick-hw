@@ -106,8 +106,8 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
             <div
               key={delivery.id}
               className="grid grid-cols-12 items-center gap-2 rounded-lg border bg-card px-3 py-3 text-sm hover:bg-accent/30 cursor-pointer"
-              onDoubleClick={() => router.push(`/driver/delivery/${delivery.id}`)}
-              title="더블클릭으로 상세 보기"
+              onClick={() => router.push(`/driver/delivery/${delivery.id}`)}
+              title="클릭으로 상세 보기"
               role="button"
               tabIndex={0}
               onKeyDown={(event) => {

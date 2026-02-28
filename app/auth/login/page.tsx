@@ -9,10 +9,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -24,8 +22,8 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error)
       } else if (result?.success) {
-        router.push(result.redirectTo ?? "/")
-        router.refresh()
+        // 하드 네비게이션으로 전체 페이지 재로드 → 헤더 세션 상태 확실히 갱신
+        window.location.href = result.redirectTo ?? "/"
       }
     })
   }
@@ -34,7 +32,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">퀵HW 로그인</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">퀵HW언넌 로그인</CardTitle>
           <CardDescription className="text-center">계정에 로그인하여 서비스를 이용하세요</CardDescription>
         </CardHeader>
         <CardContent>

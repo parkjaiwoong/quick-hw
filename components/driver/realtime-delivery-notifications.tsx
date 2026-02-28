@@ -97,6 +97,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   const [realtimeStatus, setRealtimeStatus] = useState<"idle" | "subscribed" | "error">("idle")
   const [mounted, setMounted] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
+  const retryCountRef = useRef(0)
   const [lastEventAt, setLastEventAt] = useState<number | null>(null)
   const [eventReceiveCount, setEventReceiveCount] = useState(0)
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
@@ -323,7 +324,8 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
     if (typeof document === "undefined") return
     const onVisible = () => {
       if (document.visibilityState !== "visible") return
-      if (realtimeStatus === "error") {
+      if (realtimeStatus === "error" || realtimeStatus === "idle") {
+        retryCountRef.current = 0
         setRetryKey((k) => k + 1)
       }
     }
@@ -334,7 +336,9 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   // Realtime 미수신/CHANNEL_ERROR 시에도 폴링으로 알림 수신: 10초마다 미확인 신규 요청 조회 → UI/진동/소리
   useEffect(() => {
     if (!userId) return
-    if (realtimeStatus !== "subscribed" && realtimeStatus !== "error") return
+    // subscribed: Realtime 정상 동작 중에도 폴링 병행 (누락 방지)
+    // error/idle: Realtime 연결 실패 시 폴링이 주 수신 수단
+    if (realtimeStatus === "idle" && retryCountRef.current === 0) return
     const supabase = supabaseRef.current
     if (!supabase) return
 
@@ -543,6 +547,7 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           setRealtimeStatus("subscribed")
+          retryCountRef.current = 0
           console.log("[기사-Realtime] 실시간 알림 구독 성공 userId:", userId)
           // 앱 복귀 후 재연결 시: 다른 앱 갔다 오는 동안 온 미확인 신규 요청이 있으면 모달로 표시
           try {
@@ -584,10 +589,20 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
             }
           } catch (_) {}
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setRealtimeStatus("error")
-          console.error("[기사-Realtime] 실시간 알림 구독 오류:", status, "- 10초 폴링으로 알림 수신 계속 시도")
-          // 5초 후 재구독 시도 (retryKey 변경으로 useEffect 재실행)
-          setTimeout(() => setRetryKey((k) => k + 1), 5000)
+          retryCountRef.current += 1
+          const isTimedOut = status === "TIMED_OUT"
+          // TIMED_OUT은 네트워크 일시 단절로 warn, CHANNEL_ERROR는 설정 문제로 warn (폴링이 커버)
+          console.warn(
+            `[기사-Realtime] 구독 ${isTimedOut ? "타임아웃" : "오류"} (시도 ${retryCountRef.current}회) - 폴링으로 계속 수신 중`
+          )
+          // 최대 10회까지 지수 백오프로 재시도 (5s → 10s → 20s → ... 최대 60s)
+          if (retryCountRef.current <= 10) {
+            const delay = Math.min(5000 * Math.pow(2, retryCountRef.current - 1), 60000)
+            setTimeout(() => setRetryKey((k) => k + 1), delay)
+          } else {
+            // 10회 초과 시 에러 상태로 전환 (UI에 연결 실패 배너 표시)
+            setRealtimeStatus("error")
+          }
         }
       })
 

@@ -379,48 +379,55 @@ export async function cancelDelivery(deliveryId: string) {
     return { error: "로그인이 필요합니다" }
   }
 
+  // RPC로 원자적 취소 처리:
+  // - FOR UPDATE 행 잠금으로 기사 수락 RPC와 상호 배타적 실행
+  // - status IN ('pending','accepted') 조건 만족 시에만 cancelled로 변경
+  // - 소유자 확인도 DB 내에서 처리
+  const { data: rpcResult, error: rpcError } = await supabase.rpc("cancel_delivery", {
+    p_delivery_id: deliveryId,
+    p_customer_id: user.id,
+  })
+
+  if (rpcError) {
+    return { error: rpcError.message }
+  }
+
+  if (rpcResult === "not_found") {
+    return { error: "배송 정보를 찾을 수 없습니다" }
+  }
+  if (rpcResult === "not_owner") {
+    return { error: "취소 권한이 없습니다" }
+  }
+  if (rpcResult === "not_cancellable") {
+    return { error: "이미 완료되었거나 취소할 수 없는 상태입니다" }
+  }
+
+  // rpcResult === 'ok' → DB 상태는 이미 cancelled로 변경됨
+  // 결제 취소/환불은 DB 변경 성공 이후 처리 (취소 확정 후 결제 취소)
   const { data: delivery } = await supabase
     .from("deliveries")
-    .select("id, status, customer_id")
+    .select("status")
     .eq("id", deliveryId)
     .single()
 
-  if (!delivery) {
-    return { error: "배송 정보를 찾을 수 없습니다" }
-  }
+  const prevStatus = delivery?.status ?? "cancelled"
+  const wasStarted = ["picked_up", "in_transit"].includes(prevStatus)
 
-  if (delivery.customer_id !== user.id) {
-    return { error: "취소 권한이 없습니다" }
-  }
-
-  if (["delivered", "cancelled"].includes(delivery.status)) {
-    return { error: "이미 완료되었거나 취소된 배송입니다" }
-  }
-
-  const isStarted = ["picked_up", "in_transit"].includes(delivery.status)
   const { cancelPaymentForDelivery, refundPaymentForDelivery, excludeSettlementForDelivery } = await import(
     "@/lib/actions/finance"
   )
 
-  if (isStarted) {
+  if (wasStarted) {
     const refundResult = await refundPaymentForDelivery(deliveryId)
-    if (!refundResult.success && refundResult.error) return { error: refundResult.error }
+    if (!refundResult.success && refundResult.error) {
+      console.error("[cancelDelivery] 환불 처리 실패 (배송은 취소됨):", refundResult.error)
+    }
     await excludeSettlementForDelivery(deliveryId, "배송 시작 이후 취소")
   } else {
     const cancelResult = await cancelPaymentForDelivery(deliveryId)
-    if (!cancelResult.success && cancelResult.error) return { error: cancelResult.error }
-  }
-
-  const { error } = await supabase
-    .from("deliveries")
-    .update({
-      status: "cancelled",
-      cancelled_at: new Date().toISOString(),
-    })
-    .eq("id", deliveryId)
-
-  if (error) {
-    return { error: error.message }
+    if (!cancelResult.success && cancelResult.error) {
+      console.error("[cancelDelivery] 결제 취소 실패 (배송은 취소됨):", cancelResult.error)
+    }
   }
 
   revalidatePath("/customer")

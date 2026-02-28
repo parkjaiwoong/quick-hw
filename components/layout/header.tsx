@@ -33,51 +33,36 @@ export function Header() {
 
   const refreshSession = useCallback(async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // getUser()를 우선 사용 — 서버에서 설정된 쿠키 세션을 즉시 반영
+      const { data: { user }, error } = await supabase.auth.getUser()
       if (!mountedRef.current) return
 
-      if (error) {
+      if (error && error.name !== "AuthSessionMissingError") {
         console.error("Header session check error:", error)
+      }
+
+      const authenticated = !!user
+      if (authenticated && user?.id) {
         startTransition(() => {
+          loadingClearedRef.current = true
+          setIsAuthenticated(true)
+          setIsLoading(false)
+        })
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle()
+        if (mountedRef.current) {
+          startTransition(() => setUserRole(profile?.role ?? null))
+        }
+      } else {
+        startTransition(() => {
+          loadingClearedRef.current = true
           setIsAuthenticated(false)
           setUserRole(null)
           setIsLoading(false)
         })
-      } else {
-        let sessionUser = session?.user ?? null
-        if (!sessionUser) {
-          const { data: { user }, error: userError } = await supabase.auth.getUser()
-          if (userError && userError.name !== "AuthSessionMissingError") {
-            console.error("Header getUser error:", userError)
-          } else {
-            sessionUser = user ?? null
-          }
-        }
-        const authenticated = !!sessionUser
-        console.log("Header session check:", authenticated, sessionUser?.id)
-        if (authenticated && sessionUser?.id) {
-          // 로딩 먼저 해제하고 역할은 비동기로 채움 (프로필 지연 시 로딩에 갇히지 않도록)
-          startTransition(() => {
-            loadingClearedRef.current = true
-            setIsAuthenticated(true)
-            setIsLoading(false)
-          })
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", sessionUser.id)
-            .maybeSingle()
-          if (mountedRef.current) {
-            startTransition(() => setUserRole(profile?.role ?? null))
-          }
-        } else {
-          startTransition(() => {
-            loadingClearedRef.current = true
-            setIsAuthenticated(authenticated)
-            setUserRole(null)
-            setIsLoading(false)
-          })
-        }
       }
     } catch (error) {
       if (!mountedRef.current) return
@@ -192,7 +177,10 @@ export function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Image src="/logo.svg" alt="퀵HW 로고" width={120} height={40} priority />
+          <Image src="/logo.png" alt="퀵HW언넌 로고" width={40} height={40} priority className="object-contain rounded-lg" />
+          <span className="font-bold text-lg leading-tight">
+            <span className="text-primary">퀵HW</span>언넌
+          </span>
         </Link>
 
         {!isAuthPage && (

@@ -113,20 +113,27 @@ export async function acceptDelivery(deliveryId: string) {
     return { error: "인증이 필요합니다" }
   }
 
-  const { error } = await supabase
-    .from("deliveries")
-    .update({
-      driver_id: user.id,
-      status: "accepted",
-      accepted_at: new Date().toISOString(),
-    })
-    .eq("id", deliveryId)
-    .is("driver_id", null)
+  // SECURITY DEFINER RPC로 원자적 처리
+  // - PostgreSQL 행 잠금으로 동시 수락 시 첫 번째 기사만 성공
+  // - driver_id IS NULL AND status = 'pending' 조건 만족 시에만 UPDATE
+  const { data: result, error } = await supabase.rpc("accept_delivery", {
+    p_delivery_id: deliveryId,
+    p_driver_id: user.id,
+  })
 
   if (error) {
     return { error: error.message }
   }
 
+  if (result === "already_taken") {
+    return { error: "이미 다른 기사가 수락한 배송입니다." }
+  }
+
+  if (result === "not_found") {
+    return { error: "존재하지 않는 배송입니다." }
+  }
+
+  // result === 'ok'
   const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
   await syncOrderStatusForDelivery(deliveryId, "accepted")
 

@@ -23,12 +23,41 @@ export async function signUp(formData: FormData) {
   const fullName = formData.get("fullName") as string
   const phone = formData.get("phone") as string
   const role = (formData.get("role") as string) || "customer"
+  const privacyAgreed = formData.get("privacyAgreed") === "true"
+  const serviceAgreed = formData.get("serviceAgreed") === "true"
+  const insuranceAgreed = formData.get("insuranceAgreed") === "true"
+  const licensePhotoPath = (formData.get("licensePhotoPath") as string) || null
+  const vehiclePhotoPath = (formData.get("vehiclePhotoPath") as string) || null
   // 고객-기사 연결은 딥링크/QR(기사 코드)로만 가능. 폼 입력 제거.
   const referringDriverId = null
 
   // 입력값 검증
   if (!email || !password || !fullName || !phone) {
     return { error: "모든 필드를 입력해주세요." }
+  }
+
+  // 필수 약관 동의 서버 측 검증
+  if (!privacyAgreed || !serviceAgreed) {
+    return { error: "필수 약관에 동의해주세요." }
+  }
+
+  // 휴대폰 인증 완료 여부 서버 측 검증
+  const normalizedPhone = phone.replace(/\D/g, "").replace(/^82/, "0")
+  const svc = getServiceRoleClient()
+  if (svc) {
+    const { data: verification } = await svc
+      .from("phone_verifications")
+      .select("id")
+      .eq("phone", normalizedPhone)
+      .eq("verified", true)
+      .gte("expires_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()) // 30분 이내 인증
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!verification) {
+      return { error: "휴대폰 인증을 완료해주세요." }
+    }
   }
 
   // emailRedirectTo 설정 - 로컬과 프로덕션 환경 구분
@@ -145,18 +174,18 @@ export async function signUp(formData: FormData) {
       supabaseService.from("riders").select("id").eq("id", userId).maybeSingle(),
     ])
 
+    const driverInfoData = {
+      vehicle_type: vehicleType || null,
+      vehicle_number: vehicleNumber || null,
+      license_number: licenseNumber || null,
+      ...(licensePhotoPath ? { license_photo_url: licensePhotoPath } : {}),
+      ...(vehiclePhotoPath ? { vehicle_photo_url: vehiclePhotoPath } : {}),
+      ...((licensePhotoPath || vehiclePhotoPath) ? { docs_submitted_at: new Date().toISOString() } : {}),
+    }
+
     const driverInfoPromise = existingDriverInfo
-      ? supabaseService.from("driver_info").update({
-          vehicle_type: vehicleType || null,
-          vehicle_number: vehicleNumber || null,
-          license_number: licenseNumber || null,
-        }).eq("id", userId)
-      : supabaseService.from("driver_info").insert({
-          id: userId,
-          vehicle_type: vehicleType || null,
-          vehicle_number: vehicleNumber || null,
-          license_number: licenseNumber || null,
-        })
+      ? supabaseService.from("driver_info").update(driverInfoData).eq("id", userId)
+      : supabaseService.from("driver_info").insert({ id: userId, is_available: false, ...driverInfoData })
 
     const riderPromise = existingRider
       ? Promise.resolve()
@@ -222,6 +251,24 @@ export async function signUp(formData: FormData) {
       await confirmReferralFromCookie()
     }
   }
+
+  // 약관 동의 기록 저장
+  const headerList = await headers()
+  const ip =
+    headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headerList.get("x-real-ip") ||
+    null
+  const ua = headerList.get("user-agent") || null
+
+  await supabaseService.from("term_agreements").insert({
+    user_id: userId,
+    terms_version: "v1.0",
+    privacy_agreed: privacyAgreed,
+    service_agreed: serviceAgreed,
+    insurance_agreed: insuranceAgreed,
+    ip_address: ip,
+    user_agent: ua,
+  })
 
   const roleStore = await cookies()
   roleStore.delete("role_override")

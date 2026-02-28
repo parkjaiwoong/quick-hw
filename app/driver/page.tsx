@@ -2,7 +2,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Package, TrendingUp, History } from "lucide-react"
+import { Package, TrendingUp, History, BookOpen } from "lucide-react"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { ensureDriverInfoForUser, getAvailableDeliveries, getMyAssignedDeliveries, getDriverInfo } from "@/lib/actions/driver"
@@ -13,6 +13,7 @@ import { DriverDashboardPoller } from "@/components/driver/driver-dashboard-poll
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 import { DriverDeliveryRequestProvider } from "@/lib/contexts/driver-delivery-request"
 import { AppDownloadButton } from "@/components/driver/app-download-button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 type PageProps = { searchParams?: Promise<{ accept_delivery?: string }> }
 
@@ -76,12 +77,29 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
       .eq("driver_id", user.id),
   ])
 
+  const guideCompleted = !!driverInfo?.guide_completed_at
+
   return (
     <DriverDeliveryRequestProvider>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
         <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId} />
       <DriverDashboardPoller />
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+        {/* 온보딩 가이드 미완료 배너 */}
+        {!guideCompleted && (
+          <Alert className="border-amber-300 bg-amber-50">
+            <BookOpen className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-900">필수 온보딩 가이드를 읽어주세요</AlertTitle>
+            <AlertDescription className="text-amber-800 flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
+              <span className="text-sm">가이드를 완료해야 배송 수락이 가능합니다. (약 3분 소요)</span>
+              <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 shrink-0">
+                <Link href="/driver/guide">가이드 시작하기</Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-balance">배송원 대시보드</h1>
@@ -94,6 +112,12 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
               </Button>
               <Button asChild variant="outline" size="sm">
                 <Link href="/driver/settlements">정산 내역</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/driver/guide">
+                  <BookOpen className="h-4 w-4 mr-1" />
+                  {guideCompleted ? "가이드 다시보기" : "가이드"}
+                </Link>
               </Button>
               <AppDownloadButton />
             </div>

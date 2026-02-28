@@ -10,7 +10,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "퀵HW - 빠르고 안전한 퀵배송 서비스",
+  title: "퀵HW언넌 - 빠르고 안전한 퀵배송 서비스",
   description: "카카오T 스타일의 편리한 배송 요청과 실시간 추적으로 안심하고 이용하세요",
   generator: "v0.app",
   icons: {

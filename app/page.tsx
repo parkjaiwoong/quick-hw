@@ -15,33 +15,16 @@ export default async function HomePage() {
 
   // 로그인한 사용자는 역할에 따라 대시보드로 리다이렉트
   if (user) {
-    // maybeSingle() 사용 - 결과가 없어도 에러를 던지지 않음
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle()
-    
-    // 에러 로깅 (RLS 정책 위반 등)
+    const [{ data: profile, error: profileError }, roleOverride] = await Promise.all([
+      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+      getRoleOverride(),
+    ])
+
     if (profileError) {
-      console.error("Profile fetch error:", profileError)
-      console.error("User ID:", user.id)
-      console.error("Error details:", {
-        code: profileError.code,
-        message: profileError.message,
-        details: profileError.details,
-        hint: profileError.hint,
-      })
-      
-      // RLS 정책 위반인 경우 또는 기타 에러인 경우 프로필이 없다고 간주
-      // 회원가입 페이지로 리다이렉트
       redirect("/auth/signup?error=profile_missing")
     }
-    
-    const roleOverride = await getRoleOverride()
 
-    // 프로필이 있고 role이 있는 경우 역할에 따라 리다이렉트
-    if (profile && profile.role) {
+    if (profile?.role) {
       const targetRole = roleOverride || profile.role
       if (targetRole === "admin") {
         redirect("/admin")
@@ -51,9 +34,6 @@ export default async function HomePage() {
         redirect("/customer")
       }
     } else {
-      // 프로필이 없거나 role이 없는 경우 회원가입 페이지로 리다이렉트
-      console.warn("Profile not found or missing role, redirecting to signup")
-      console.warn("User ID:", user.id)
       redirect("/auth/signup?error=profile_missing")
     }
   }
@@ -63,9 +43,9 @@ export default async function HomePage() {
       <div className="max-w-7xl mx-auto px-4 py-16 md:py-24">
         <div className="text-center space-y-6">
           <h1 className="text-5xl md:text-6xl font-bold text-balance">
-            빠르고 안전한
+            <span className="text-primary">퀵HW언넌</span>
             <br />
-            <span className="text-primary">퀵배송 연결 플랫폼</span>
+            빠르고 안전한 퀵배송 연결 플랫폼
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-pretty">
             우리는 <strong className="text-primary">연결만 합니다</strong>. 기사와 고객을 연결하고, 모든 거래를 기록합니다.
@@ -94,11 +74,11 @@ export default async function HomePage() {
           <Card>
             <CardHeader>
               <Truck className="h-12 w-12 text-primary mb-2" />
-              <CardTitle>실시간 위치 추적</CardTitle>
+              <CardTitle>배송 현황 추적</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription>
-                배송원의 현재 위치를 실시간으로 확인하고 정확한 도착 시간을 알 수 있습니다
+                배송 상태 변경을 실시간으로 알림받고, 기사의 위치 정보를 확인할 수 있습니다
               </CardDescription>
             </CardContent>
           </Card>
@@ -163,21 +143,24 @@ export default async function HomePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-blue-600" />
-                  2️⃣ 수익 모델
+                  2️⃣ 요금 및 수익 모델
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">
-                    <strong>현재:</strong> 무료 서비스 (수수료 없음)
+                    <strong>기본 요금:</strong> 4,000원 (기본 2km 포함)
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <strong>향후 계획:</strong> 거래 수수료 전환 예정
+                    <strong>추가 거리:</strong> 1,000원/km
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>플랫폼 수수료:</strong> 현재 0% (향후 전환 예정)
                   </p>
                 </div>
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-sm">
-                    초기에는 수익을 내지 않지만, 향후 수수료 기반 수익 모델로 전환할 계획입니다.
+                    초기에는 플랫폼 수수료 없이 운영하며, 향후 수수료 기반 수익 모델로 전환할 계획입니다.
                   </p>
                 </div>
               </CardContent>
@@ -247,28 +230,36 @@ export default async function HomePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  5️⃣ MVP 기능 (최소 기능)
+                  5️⃣ 현재 제공 기능
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600 mt-1 flex-shrink-0" />
-                    <p className="text-sm">연결 (기사-고객 매칭)</p>
+                    <p className="text-sm">연결 (기사-고객 매칭 및 배차)</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600 mt-1 flex-shrink-0" />
-                    <p className="text-sm">기록 (거래 이력 관리)</p>
+                    <p className="text-sm">기록 (거래 이력 및 정산 관리)</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-1 flex-shrink-0" />
+                    <p className="text-sm">결제 (카드·계좌이체·현금)</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-1 flex-shrink-0" />
+                    <p className="text-sm">사고 접수 및 처리</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
-                    <p className="text-sm text-muted-foreground line-through">배차, 채팅, 결제, 위치 추적 (향후 추가)</p>
+                    <p className="text-sm text-muted-foreground">채팅, 고객용 실시간 지도 (향후 추가)</p>
                   </div>
                 </div>
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-sm font-semibold">핵심 가치</p>
                   <p className="text-sm text-muted-foreground">
-                    "연결 + 기록"만으로도 충분한 가치를 제공합니다.
+                    연결·기록·결제·사고처리까지 핵심 기능을 제공합니다.
                   </p>
                 </div>
               </CardContent>
