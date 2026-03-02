@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { TermsButton } from "@/components/common/terms-modal"
 import { CheckCircle, AlertCircle, Shield, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { reportAccident } from "@/lib/actions/accident"
@@ -150,7 +151,8 @@ export default function AccidentReportPage() {
           <Shield className="h-4 w-4 text-orange-600" />
           <AlertDescription className="text-orange-800">
             <strong>보험 안내:</strong> 물품 사고는 플랫폼 보험으로 처리됩니다. 
-            보상 한도는 약관에 명시되어 있습니다. <a href="/terms" className="underline">약관 보기</a>
+            보상 한도는 약관에 명시되어 있습니다.{" "}
+            <TermsButton type="insurance" label="약관 보기" className="h-auto p-0 text-xs text-orange-800 underline underline-offset-2" />
           </AlertDescription>
         </Alert>
 

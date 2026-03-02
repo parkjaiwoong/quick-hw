@@ -11,6 +11,8 @@ import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
 import { TossPaymentButton } from "@/components/customer/toss-payment-button"
 import { DeliveryStatusRealtime } from "@/components/customer/delivery-status-realtime"
 import { CancelDeliveryButton } from "@/components/customer/cancel-delivery-button"
+import { ReceiptButton } from "@/components/customer/receipt-button"
+import { getCompanyInfo } from "@/lib/actions/company"
 
 export const dynamic = "force-dynamic"
 
@@ -54,8 +56,11 @@ export default async function DeliveryDetailPage({
   const payParam = sp?.pay
   const isPayRedirect = payParam === "1" || (Array.isArray(payParam) && payParam[0] === "1")
 
-  const { delivery } = await getDeliveryForCustomer(id)
-  const { order, payment } = await getOrderPaymentSummaryByDelivery(id)
+  const [{ delivery }, { order, payment }, companyInfo] = await Promise.all([
+    getDeliveryForCustomer(id),
+    getOrderPaymentSummaryByDelivery(id),
+    getCompanyInfo(),
+  ])
   const { data: pointRows } = await supabase
     .from("points")
     .select("points, point_type")
@@ -77,7 +82,7 @@ export default async function DeliveryDetailPage({
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <DeliveryStatusRealtime deliveryId={id} />
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <Button asChild variant="outline">
             <Link href="/customer">← 돌아가기</Link>
           </Button>
@@ -85,9 +90,39 @@ export default async function DeliveryDetailPage({
             <h1 className="text-2xl font-bold">배송 추적</h1>
             <p className="text-sm text-muted-foreground">배송 상태를 확인하세요</p>
           </div>
-          <Badge className={statusConfig[delivery.status as keyof typeof statusConfig].color}>
-            {statusConfig[delivery.status as keyof typeof statusConfig].label}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={statusConfig[delivery.status as keyof typeof statusConfig].color}>
+              {statusConfig[delivery.status as keyof typeof statusConfig].label}
+            </Badge>
+            <ReceiptButton
+              companyName={companyInfo?.company_name}
+              stampUrl={companyInfo?.stamp_url}
+              data={{
+                deliveryId: delivery.id,
+                createdAt: delivery.created_at,
+                deliveredAt: delivery.delivered_at ?? null,
+                cancelledAt: delivery.cancelled_at ?? null,
+                deliveryStatus: delivery.status,
+                pickupAddress: delivery.pickup_address,
+                pickupContactName: delivery.pickup_contact_name,
+                pickupContactPhone: delivery.pickup_contact_phone,
+                deliveryAddress: delivery.delivery_address,
+                deliveryContactName: delivery.delivery_contact_name,
+                deliveryContactPhone: delivery.delivery_contact_phone,
+                itemDescription: delivery.item_description,
+                distanceKm: delivery.distance_km,
+                driverFee: Number(delivery.driver_fee ?? 0),
+                platformFee: Number(delivery.platform_fee ?? 0),
+                totalFee: delivery.total_fee,
+                earnedPoints,
+                paymentMethod: payment?.payment_method || order?.payment_method,
+                paymentStatus: payment?.status,
+                paymentAmount: Number(payment?.amount || order?.order_amount || 0),
+                paidAt: payment?.paid_at ?? null,
+                driverName: delivery.driver?.full_name ?? null,
+              }}
+            />
+          </div>
         </div>
 
         {delivery.status === "pending" && !delivery.driver_id && (

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getPointBalance, getPointHistory, requestPointRedemption } from "@/lib/actions/points"
-import { Coins, TrendingUp, History } from "lucide-react"
+import { Coins, TrendingUp, History, CheckCircle, Clock } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { getRoleOverride } from "@/lib/role"
 
 export default async function PointsPage() {
@@ -28,8 +29,21 @@ export default async function PointsPage() {
     redirect("/")
   }
 
-  const { balance } = await getPointBalance(user.id)
-  const { history = [] } = await getPointHistory(user.id)
+  const [{ balance }, { history = [] }] = await Promise.all([
+    getPointBalance(user.id),
+    getPointHistory(user.id),
+  ])
+
+  // 교환 요청 내역 (pending + completed)
+  const { data: redemptionNotifications } = await supabase
+    .from("notifications")
+    .select("id, title, message, is_read, created_at")
+    .eq("user_id", user.id)
+    .in("type", ["point_redemption", "point_redemption_completed"])
+    .order("created_at", { ascending: false })
+    .limit(20)
+
+  const redemptions = redemptionNotifications ?? []
 
   const earnedPoints = history.filter((h: any) => h.point_type === "earned").length
   const usedPoints = history.filter((h: any) => h.point_type === "used").length
@@ -122,6 +136,57 @@ export default async function PointsPage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* 교환 요청 내역 */}
+        {redemptions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">교환 요청 내역</CardTitle>
+              <CardDescription>포인트 교환 요청 및 처리 결과를 확인하세요</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {redemptions.map((r: any) => {
+                  const isCompleted = r.title === "포인트 교환 완료"
+                  const requestedPts = r.message?.match(/요청 포인트:\s*([\d,]+)/)?.[1] ?? r.message?.match(/([\d,]+)P/)?.[1]
+                  const processedAt  = r.message?.match(/처리 일시:\s*(.+)/)?.[1]
+                  const processor    = r.message?.match(/처리자:\s*(.+)/)?.[1]
+                  const remaining    = r.message?.match(/처리 후 잔액:\s*(.+)/)?.[1]
+                  return (
+                    <div key={r.id} className={`border rounded-lg p-4 space-y-1.5 ${isCompleted ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}`}>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          {isCompleted ? (
+                            <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-yellow-600 shrink-0" />
+                          )}
+                          <span className="font-semibold text-sm">{r.title}</span>
+                          {requestedPts && (
+                            <Badge variant="secondary" className="text-xs">{requestedPts}P</Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(r.created_at).toLocaleString("ko-KR")}
+                        </span>
+                      </div>
+                      {isCompleted && (
+                        <div className="text-xs text-muted-foreground space-y-0.5 pl-6">
+                          {processedAt && <p>처리 일시: {processedAt}</p>}
+                          {processor   && <p>처리자: {processor}</p>}
+                          {remaining   && <p>처리 후 잔액: {remaining}</p>}
+                        </div>
+                      )}
+                      {!isCompleted && (
+                        <p className="text-xs text-yellow-700 pl-6">관리자 검토 후 처리됩니다.</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

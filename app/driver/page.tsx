@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { DriverDashboardPoller } from "@/components/driver/driver-dashboard-poller"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 import { DriverDeliveryRequestProvider } from "@/lib/contexts/driver-delivery-request"
-import { AppDownloadButton } from "@/components/driver/app-download-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 type PageProps = { searchParams?: Promise<{ accept_delivery?: string }> }
@@ -119,7 +118,6 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
                   {guideCompleted ? "가이드 다시보기" : "가이드"}
                 </Link>
               </Button>
-              <AppDownloadButton />
             </div>
             <div className="flex items-center gap-2">
               {driverInfo?.is_available && (

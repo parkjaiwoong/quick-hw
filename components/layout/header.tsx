@@ -9,8 +9,16 @@ import { Package, LogOut } from "lucide-react"
 import { signOut } from "@/lib/actions/auth"
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { HeaderTermsButton } from "@/components/common/terms-trigger-buttons"
 
-export function Header() {
+interface HeaderProps {
+  logoUrl?: string | null
+  companyName?: string | null
+}
+
+export function Header({ logoUrl, companyName }: HeaderProps) {
+  const displayName = companyName ?? "퀵HW언넌"
+  const logoSrc = logoUrl ?? "/logo.png"
   const pathname = usePathname()
   const router = useRouter()
   const pathnameRef = useRef(pathname)
@@ -177,19 +185,22 @@ export function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Image src="/logo.png" alt="퀵HW언넌 로고" width={40} height={40} priority className="object-contain rounded-lg" />
+          <Image src={logoSrc} alt={`${displayName} 로고`} width={40} height={40} priority className="object-contain rounded-lg" unoptimized={!!logoUrl} />
           <span className="font-bold text-lg leading-tight">
-            <span className="text-primary">퀵HW</span>언넌
+            {displayName.startsWith("퀵HW") ? (
+              <>
+                <span className="text-primary">퀵HW</span>
+                {displayName.slice(3)}
+              </>
+            ) : (
+              <span className="text-primary">{displayName}</span>
+            )}
           </span>
         </Link>
 
         {!isAuthPage && (
           <nav className="flex items-center gap-2">
-            <Link href="/terms">
-              <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
-                약관
-              </Button>
-            </Link>
+            <HeaderTermsButton />
             {showRoleSwitcher && (
               <Select
                 value={selectedRole || currentRolePath()}

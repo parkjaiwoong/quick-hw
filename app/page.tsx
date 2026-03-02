@@ -5,6 +5,8 @@ import { Package, Truck, Shield, Clock, Link2, FileText, Users, AlertTriangle, C
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { getRoleOverride } from "@/lib/role"
+import { MainTermsButton } from "@/components/common/terms-trigger-buttons"
+import { AppDownloadButton } from "@/components/driver/app-download-button"
 
 export default async function HomePage() {
   const supabase = await getSupabaseServerClient()
@@ -308,9 +310,8 @@ export default async function HomePage() {
                 <Button asChild size="lg">
                   <Link href="/auth/signup">회원가입하기</Link>
                 </Button>
-                <Button asChild variant="outline" size="lg">
-                  <Link href="/terms">약관 및 정책 보기</Link>
-                </Button>
+                <MainTermsButton />
+                <AppDownloadButton />
               </div>
             </CardContent>
           </Card>

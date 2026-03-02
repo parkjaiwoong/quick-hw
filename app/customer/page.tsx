@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
-import { Package, MapPin, Shield, AlertCircle } from "lucide-react"
+import { Package, MapPin, Shield, AlertCircle, CreditCard, Coins } from "lucide-react"
 import { DeliveryList } from "@/components/customer/delivery-list"
 import { getMyDeliveries } from "@/lib/actions/deliveries"
 import { getRoleOverride } from "@/lib/role"
 import { RiderChangeForm } from "@/components/customer/rider-change-form"
+import { TermsButton } from "@/components/common/terms-modal"
 
 export default async function CustomerDashboard({
   searchParams,
@@ -116,8 +117,8 @@ export default async function CustomerDashboard({
           <AlertCircle className="h-4 w-4 text-orange-600" />
           <AlertDescription className="text-orange-800">
             <strong>중요 안내:</strong> 본 플랫폼은 운송 당사자가 아닌 중개 플랫폼입니다. 
-            요금은 카카오픽 기준으로 자동 산정됩니다. 
-            <Link href="/terms" className="underline ml-1">약관 보기</Link>
+            요금은 카카오픽 기준으로 자동 산정됩니다.{" "}
+            <TermsButton type="service" label="약관 보기" className="ml-1 h-auto p-0 text-xs text-orange-800 underline underline-offset-2" />
           </AlertDescription>
         </Alert>
 
@@ -189,12 +190,45 @@ export default async function CustomerDashboard({
         <Card>
           <CardHeader>
             <CardTitle>내 배송 목록</CardTitle>
-            <CardDescription>최근 배송 내역을 확인하고 관리하세요</CardDescription>
+            <CardDescription>진행 중인 배송과 완료·취소된 배송 내역을 탭으로 확인하세요</CardDescription>
           </CardHeader>
           <CardContent>
             <DeliveryList deliveries={deliveries} />
           </CardContent>
         </Card>
+
+        {/* 결제내역 / 포인트 바로가기 */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-700">
+                <CreditCard className="h-5 w-5" />
+                결제 내역
+              </CardTitle>
+              <CardDescription>이용 금액 및 결제 상태를 확인하세요</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full" variant="outline">
+                <Link href="/customer/payments">결제 내역 보기</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-yellow-200 bg-yellow-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-yellow-700">
+                <Coins className="h-5 w-5" />
+                포인트
+              </CardTitle>
+              <CardDescription>적립 포인트를 확인하고 교환하세요</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full" variant="outline">
+                <Link href="/customer/points">포인트 보기</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* 문의/사고 접수 */}
         <div className="grid md:grid-cols-2 gap-4">

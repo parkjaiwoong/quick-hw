@@ -141,7 +141,7 @@ export async function getOrderPaymentSummaryByDelivery(deliveryId: string) {
 
   const { data: payment } = await supabase
     .from("payments")
-    .select("status, amount, payment_method")
+    .select("status, amount, payment_method, paid_at")
     .eq("order_id", order.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -1171,4 +1171,33 @@ export async function getAllPayments() {
   }
 
   return { payments: data }
+}
+
+/** 고객 본인의 결제 내역 조회 (배송 정보 포함) */
+export async function getMyPayments() {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { payments: [], error: "인증이 필요합니다." }
+
+  const { data, error } = await supabase
+    .from("payments")
+    .select(
+      `
+      id, amount, status, payment_method, pg_provider,
+      paid_at, requested_at, canceled_at, refunded_at, refunded_amount,
+      created_at,
+      delivery:deliveries!payments_delivery_id_fkey(
+        id, pickup_address, delivery_address, distance_km, total_fee, status
+      )
+    `,
+    )
+    .eq("customer_id", user.id)
+    .order("created_at", { ascending: false })
+
+  if (error) return { payments: [], error: error.message }
+
+  return { payments: data ?? [] }
 }

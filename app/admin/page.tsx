@@ -2,7 +2,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Package, Users, Shield, MessageSquare, Calculator, Banknote } from "lucide-react"
+import { Package, Users, Shield, MessageSquare, Calculator, Banknote, Building2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { getRoleOverride } from "@/lib/role"
@@ -165,6 +165,22 @@ export default async function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* 회사 정보 관리 */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              회사 정보 관리
+            </CardTitle>
+            <CardDescription>로고·도장 이미지, 회사명, 사업자 정보를 관리합니다. 저장 즉시 헤더·영수증에 반영됩니다.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full sm:w-auto">
+              <Link href="/admin/company">회사 정보 관리하기</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

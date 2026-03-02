@@ -1,8 +1,8 @@
- "use client"
+"use client"
 
-import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { FileText, Shield, Mail } from "lucide-react"
+import { TermsButton } from "@/components/common/terms-modal"
 
 export function Footer() {
   const pathname = usePathname()
@@ -20,16 +20,28 @@ export function Footer() {
             <h3 className="font-semibold mb-4">서비스 안내</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link href="/terms" className="hover:text-foreground flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  약관 및 안내
-                </Link>
+                <TermsButton
+                  type="service"
+                  label="서비스 이용약관"
+                  variant="ghost"
+                  className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                />
               </li>
               <li>
-                <Link href="/terms#insurance" className="hover:text-foreground flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  보험 안내
-                </Link>
+                <TermsButton
+                  type="privacy"
+                  label="개인정보 처리방침"
+                  variant="ghost"
+                  className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                />
+              </li>
+              <li>
+                <TermsButton
+                  type="insurance"
+                  label="보험 안내"
+                  variant="ghost"
+                  className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                />
               </li>
             </ul>
           </div>

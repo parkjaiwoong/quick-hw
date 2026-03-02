@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, Package, Truck, LayoutDashboard, User, DollarSign, LogOut, Wallet } from "lucide-react"
+import { Home, Package, Truck, LayoutDashboard, User, DollarSign, LogOut, Wallet, CreditCard, Coins } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -204,6 +204,30 @@ export function BottomNav() {
               >
                 <Package className="w-5 h-5" />
                 <span className="text-xs">배송 요청</span>
+              </Link>
+              <Link
+                href="/customer/payments"
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                  pathname === "/customer/payments"
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CreditCard className="w-5 h-5" />
+                <span className="text-xs">결제내역</span>
+              </Link>
+              <Link
+                href="/customer/points"
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                  pathname === "/customer/points"
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Coins className="w-5 h-5" />
+                <span className="text-xs">포인트</span>
               </Link>
             </>
           )}

@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AppShell } from "@/components/layout/app-shell"
 import { Toaster } from "@/components/ui/toaster"
+import { getCompanyInfo } from "@/lib/actions/company"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -32,18 +33,22 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const companyInfo = await getCompanyInfo()
+
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
         {/* Supabase 세션은 쿠키로 관리되므로 localStorage 삭제 스크립트 제거 */}
       </head>
       <body className={`font-sans antialiased`} suppressHydrationWarning>
-        <AppShell>{children}</AppShell>
+        <AppShell logoUrl={companyInfo?.logo_url} companyName={companyInfo?.company_name}>
+          {children}
+        </AppShell>
         <Toaster />
         <Analytics />
       </body>

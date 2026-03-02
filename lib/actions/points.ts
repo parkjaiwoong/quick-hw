@@ -305,6 +305,8 @@ export async function processPointRedemption(formData: FormData): Promise<void> 
   }
 
   revalidatePath("/admin/inquiries")
+  revalidatePath("/admin/point-redemptions")
+  revalidatePath("/admin/point-history")
   revalidatePath("/customer/points")
 }
 

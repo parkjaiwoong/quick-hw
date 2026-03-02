@@ -555,19 +555,29 @@ export function DeliveryRequestForm({
               <Label>물품 종류 *</Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { value: "document", label: "서류", weight: "~1kg", size: "A4 이하", surcharge: 0, Icon: FileText },
-                  { value: "small", label: "소형", weight: "~5kg", size: "30cm 이하", surcharge: 500, Icon: Package },
-                  { value: "medium", label: "중형", weight: "~10kg", size: "30~60cm", surcharge: 1000, Icon: Package },
-                  { value: "large", label: "대형", weight: "~20kg", size: "60cm 이상", surcharge: 2000, Icon: Box },
-                ].map(({ value, label, weight, size, surcharge, Icon }) => (
+                  { value: "document", label: "서류", weight: "~1kg", size: "A4 이하", surcharge: 0, Icon: FileText, disabled: false },
+                  { value: "small", label: "소형", weight: "~5kg", size: "30cm 이하", surcharge: 500, Icon: Package, disabled: false },
+                  { value: "medium", label: "중형", weight: "~10kg", size: "30~60cm", surcharge: 1000, Icon: Package, disabled: false },
+                  { value: "large", label: "대형", weight: "~20kg", size: "60cm 이상", surcharge: 2000, Icon: Box, disabled: true },
+                ].map(({ value, label, weight, size, surcharge, Icon, disabled }) => (
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setItemType(value)}
-                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 ${
-                      itemType === value ? "border-primary bg-primary/10" : "border-muted"
+                    disabled={disabled}
+                    onClick={() => !disabled && setItemType(value)}
+                    className={`relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-left transition-all ${
+                      disabled
+                        ? "border-muted bg-muted/30 opacity-40 cursor-not-allowed"
+                        : itemType === value
+                          ? "border-primary bg-primary/10 hover:border-primary/50"
+                          : "border-muted hover:border-primary/50"
                     }`}
                   >
+                    {disabled && (
+                      <span className="absolute top-1.5 right-1.5 rounded text-[10px] font-semibold bg-muted-foreground/20 text-muted-foreground px-1.5 py-0.5 leading-none">
+                        준비중
+                      </span>
+                    )}
                     <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-muted">
                       <Icon className={`h-8 w-8 text-muted-foreground ${value === "large" ? "h-10 w-10" : ""}`} />
                     </div>
