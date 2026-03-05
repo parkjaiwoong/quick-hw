@@ -104,6 +104,7 @@ export default async function HomePage() {
             </CardContent>
           </Card>
         </div>
+      </section>
 
       {/* Policy - 간결한 정책 요약 */}
       <section className="max-w-6xl mx-auto px-4 py-16 md:py-24">
