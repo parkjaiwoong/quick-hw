@@ -1,25 +1,34 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
 export function HeroSection() {
+  const [isApp, setIsApp] = useState(true) // 기본값 true: 앱에서는 비디오 안 쓰고, 웹에서는 마운트 후 false로 전환
+
+  useEffect(() => {
+    setIsApp(typeof navigator !== "undefined" && navigator.userAgent.includes("QuickHWDriverApp"))
+  }, [])
+
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden bg-slate-900">
-      {/* 비디오 배경 - 퀵배송 영상 */}
+      {/* 비디오 배경 - 앱 WebView에서는 ORB 오류 방지를 위해 비디오 미로드 */}
       <div className="absolute inset-0">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-45"
-        >
-          <source
-            src="https://assets.mixkit.co/videos/preview/mixkit-man-delivering-a-package-4896-large.mp4"
-            type="video/mp4"
-          />
-        </video>
+        {!isApp && (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover opacity-45"
+          >
+            <source
+              src="https://assets.mixkit.co/videos/preview/mixkit-man-delivering-a-package-4896-large.mp4"
+              type="video/mp4"
+            />
+          </video>
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/75 via-slate-900/55 to-slate-900" />
       </div>
 
