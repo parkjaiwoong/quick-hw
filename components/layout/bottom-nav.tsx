@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, Package, Truck, LayoutDashboard, User, DollarSign, LogOut, Wallet, CreditCard, Coins } from "lucide-react"
+import { Home, Package, Truck, LayoutDashboard, User, DollarSign, LogOut, Wallet, CreditCard, Coins, Megaphone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -34,6 +34,7 @@ export function BottomNav() {
     router.prefetch("/customer/new-delivery")
     router.prefetch("/driver")
     router.prefetch("/driver/available")
+    router.prefetch("/announcements")
     router.prefetch("/auth/login")
   }, [router])
 
@@ -185,6 +186,21 @@ export function BottomNav() {
             <Home className="w-5 h-5" />
             <span className="text-xs">홈</span>
           </Link>
+
+          {isAuthenticated && (
+            <Link
+              href="/announcements"
+              className={cn(
+                "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                pathname === "/announcements"
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Megaphone className="w-5 h-5" />
+              <span className="text-xs">공지</span>
+            </Link>
+          )}
 
           {isCustomerRoute && (
             <>

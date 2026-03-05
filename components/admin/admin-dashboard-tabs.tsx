@@ -66,6 +66,7 @@ export default function AdminDashboardTabs({
             <TabsTrigger value="rider-change" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">기사 변경 요청</TabsTrigger>
             <TabsTrigger value="rewards" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">리워드 관리</TabsTrigger>
             <TabsTrigger value="pricing" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">가격 정책</TabsTrigger>
+            <TabsTrigger value="announcements" className="flex-none shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">공지사항</TabsTrigger>
           </TabsList>
         </div>
 
@@ -263,6 +264,20 @@ export default function AdminDashboardTabs({
           <CardContent>
             <Link href="/admin/pricing">
               <Button className="w-full">가격 정책 설정</Button>
+            </Link>
+          </CardContent>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="announcements" className="mt-0">
+        <div className="rounded-lg border bg-card p-4">
+          <CardHeader>
+            <CardTitle>공지사항 관리</CardTitle>
+            <CardDescription>고객·기사에게 노출되는 공지사항을 등록·수정·삭제합니다.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/announcements">
+              <Button className="w-full">공지사항 관리 화면</Button>
             </Link>
           </CardContent>
         </div>

@@ -27,7 +27,10 @@ async function main() {
   const client = new pg.default.Client(opts);
   await client.connect();
   try {
-    const sql = process.argv[2] || fs.readFileSync(path.join(__dirname, '057_fcm_receipt_log.sql'), 'utf8');
+    const sqlArg = process.argv[2];
+    const sql = sqlArg
+      ? (sqlArg.startsWith('@') ? fs.readFileSync(path.join(__dirname, sqlArg.slice(1)), 'utf8') : sqlArg)
+      : fs.readFileSync(path.join(__dirname, '057_fcm_receipt_log.sql'), 'utf8');
     await client.query(sql);
     console.log('SQL 실행 완료');
   } finally {

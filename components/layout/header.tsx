@@ -5,7 +5,7 @@ import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, LogOut } from "lucide-react"
+import { Package, LogOut, Megaphone } from "lucide-react"
 import { signOut } from "@/lib/actions/auth"
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -200,6 +200,15 @@ export function Header({ logoUrl, companyName }: HeaderProps) {
         {!isAuthPage && (
           <nav className="flex items-center gap-2">
             <HeaderTermsButton />
+            {isAuthenticated && (
+              <Link
+                href="/announcements"
+                className="hidden sm:inline-flex h-9 px-3 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors items-center gap-2"
+              >
+                <Megaphone className="h-4 w-4" />
+                공지사항
+              </Link>
+            )}
             {showRoleSwitcher && (
               <Select
                 value={selectedRole || currentRolePath()}
