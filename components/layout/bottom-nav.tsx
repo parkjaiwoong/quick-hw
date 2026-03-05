@@ -27,6 +27,16 @@ export function BottomNav() {
     setIsApp(navigator.userAgent.includes("QuickHWDriverApp"))
   }, [])
 
+  // 클릭 전 주요 라우트 prefetch → 네비게이션 즉시 반응
+  useEffect(() => {
+    router.prefetch("/")
+    router.prefetch("/customer")
+    router.prefetch("/customer/new-delivery")
+    router.prefetch("/driver")
+    router.prefetch("/driver/available")
+    router.prefetch("/auth/login")
+  }, [router])
+
   const refreshSession = useCallback(async () => {
     try {
       const { data: { session }, error } = await supabase.auth.getSession()
@@ -51,8 +61,6 @@ export function BottomNav() {
           }
         }
         const authenticated = !!sessionUser
-        console.log("BottomNav session check:", authenticated, sessionUser?.id)
-
         if (sessionUser) {
           // 로딩 먼저 해제하고 역할은 비동기로 채움 (프로필 지연 시 로딩에 갇히지 않도록)
           startTransition(() => {
@@ -113,7 +121,6 @@ export function BottomNav() {
     } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
       if (!mountedRef.current) return
 
-      console.log("BottomNav auth state changed:", _event, !!session)
       const authenticated = !!session
       startTransition(() => {
         loadingClearedRef.current = true

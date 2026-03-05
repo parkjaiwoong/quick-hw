@@ -8,22 +8,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import Link from "next/link"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
 
-  async function handleSubmit(formData: FormData) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setError(null)
-    
-    startTransition(async () => {
-      const result = await signIn(formData)
-      if (result?.error) {
-        setError(result.error)
-      } else if (result?.success) {
-        // 하드 네비게이션으로 전체 페이지 재로드 → 헤더 세션 상태 확실히 갱신
-        window.location.href = result.redirectTo ?? "/"
+    setIsPending(true)
+    const form = e.currentTarget
+    queueMicrotask(async () => {
+      try {
+        const formData = new FormData(form)
+        const result = await signIn(formData)
+        if (result?.error) {
+          setError(result.error)
+        } else if (result?.success) {
+          window.location.href = result.redirectTo ?? "/"
+          return
+        }
+      } finally {
+        setIsPending(false)
       }
     })
   }
@@ -43,7 +50,7 @@ export default function LoginPage() {
             </Alert>
           )}
           
-          <form action={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">이메일</Label>
               <Input id="email" name="email" type="email" placeholder="your@email.com" required />

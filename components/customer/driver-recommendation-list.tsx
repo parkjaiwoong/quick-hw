@@ -98,36 +98,36 @@ export function DriverRecommendationList({
     }
   }
 
-  async function handleConnectRequest(driverId: string) {
+  function handleConnectRequest(driverId: string) {
     setLoadingDriverId(driverId)
-
-    const result = await requestDriverConnection(deliveryId, driverId)
-
-    if (result.error) {
-      toast.error(result.error)
-      setLoadingDriverId(null)
-    } else {
-      setLoadingDriverId(null)
-      setConnectedDriverId(driverId)
-      if (openTossAfterConnect && orderId && paymentAmount > 0) {
-        toast.success("연결 요청되었습니다. 결제 창을 엽니다.")
-        const waitToss = (attempts: number) => {
-          if (window.TossPayments) {
-            openTossPayment()
-            return
-          }
-          if (attempts < 30) setTimeout(() => waitToss(attempts + 1), 200)
-          else {
-            toast.error("결제 모듈 로딩이 지연됩니다. 배송 상세에서 결제해 주세요.")
-            router.push(`/customer/delivery/${deliveryId}`)
-          }
-        }
-        setTimeout(() => waitToss(0), 400)
+    queueMicrotask(async () => {
+      const result = await requestDriverConnection(deliveryId, driverId)
+      if (result.error) {
+        toast.error(result.error)
+        setLoadingDriverId(null)
       } else {
-        toast.success("연결 요청되었습니다. 배송 상세에서 진행 상황을 확인하세요.")
-        startTransition(() => router.push(`/customer/delivery/${deliveryId}`))
+        setLoadingDriverId(null)
+        setConnectedDriverId(driverId)
+        if (openTossAfterConnect && orderId && paymentAmount > 0) {
+          toast.success("연결 요청되었습니다. 결제 창을 엽니다.")
+          const waitToss = (attempts: number) => {
+            if (window.TossPayments) {
+              openTossPayment()
+              return
+            }
+            if (attempts < 30) setTimeout(() => waitToss(attempts + 1), 200)
+            else {
+              toast.error("결제 모듈 로딩이 지연됩니다. 배송 상세에서 결제해 주세요.")
+              router.push(`/customer/delivery/${deliveryId}`)
+            }
+          }
+          setTimeout(() => waitToss(0), 400)
+        } else {
+          toast.success("연결 요청되었습니다. 배송 상세에서 진행 상황을 확인하세요.")
+          startTransition(() => router.push(`/customer/delivery/${deliveryId}`))
+        }
       }
-    }
+    })
   }
 
   return (

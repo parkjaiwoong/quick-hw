@@ -20,7 +20,7 @@ type UploadedDoc = { path: string; previewUrl: string }
 function SignUpForm() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
   const [role, setRole] = useState<string>("customer")
 
   // 약관 동의 (공통 + 배송원 전용)
@@ -133,7 +133,8 @@ function SignUpForm() {
     }
   }
 
-  async function handleSubmit(formData: FormData) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setError(null)
 
     if (!phoneVerified) { setError("휴대폰 인증을 완료해주세요."); return }
@@ -143,6 +144,9 @@ function SignUpForm() {
       if (!insuranceAgreed) { setError("보험 안내 약관에 동의해주세요."); return }
     }
 
+    setIsPending(true)
+    const form = e.currentTarget
+    const formData = new FormData(form)
     formData.set("role", role)
     formData.set("phone", phone)
     formData.set("privacyAgreed", "true")
@@ -151,9 +155,13 @@ function SignUpForm() {
     if (licenseDoc) formData.set("licensePhotoPath", licenseDoc.path)
     if (vehicleDoc) formData.set("vehiclePhotoPath", vehicleDoc.path)
 
-    startTransition(async () => {
-      const result = await signUp(formData)
-      if (result?.error) setError(result.error)
+    queueMicrotask(async () => {
+      try {
+        const result = await signUp(formData)
+        if (result?.error) setError(result.error)
+      } finally {
+        setIsPending(false)
+      }
     })
   }
 
@@ -181,7 +189,7 @@ function SignUpForm() {
             </Alert>
           )}
           
-          <form action={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">이름</Label>
               <Input id="fullName" name="fullName" type="text" placeholder="홍길동" required />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -152,7 +152,7 @@ export default function DriverGuidePage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const [completed, setCompleted] = useState(false)
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
 
   const step = STEPS[currentStep]
   const isLast = currentStep === STEPS.length - 1
@@ -160,9 +160,14 @@ export default function DriverGuidePage() {
 
   function handleNext() {
     if (isLast) {
-      startTransition(async () => {
-        await completeDriverGuide()
-        setCompleted(true)
+      setIsPending(true)
+      queueMicrotask(async () => {
+        try {
+          await completeDriverGuide()
+          setCompleted(true)
+        } finally {
+          setIsPending(false)
+        }
       })
     } else {
       setCurrentStep((v) => v + 1)

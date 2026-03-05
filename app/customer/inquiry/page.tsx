@@ -41,37 +41,42 @@ export default function InquiryPage() {
     })
   }, [])
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setIsLoading(true)
     setError("")
 
-    const formData = new FormData(e.currentTarget)
-    const title = String(formData.get("title") || "").trim()
-    const message = String(formData.get("message") || "").trim()
+    const form = e.currentTarget
+    queueMicrotask(async () => {
+      try {
+        const formData = new FormData(form)
+        const title = String(formData.get("title") || "").trim()
+        const message = String(formData.get("message") || "").trim()
 
-    const result = await submitInquiry({ title, message })
+        const result = await submitInquiry({ title, message })
 
-    if (result?.error) {
-      setError(result.error)
-      setIsLoading(false)
-      return
-    }
+        if (result?.error) {
+          setError(result.error)
+          return
+        }
 
-    setIsLoading(false)
-    setIsSubmitted(true)
+        setIsSubmitted(true)
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data } = await supabase
-        .from("notifications")
-        .select("id, title, message, created_at, is_read")
-        .eq("user_id", user.id)
-        .eq("type", "inquiry")
-        .order("created_at", { ascending: false })
-      setInquiries(data || [])
-    }
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data } = await supabase
+            .from("notifications")
+            .select("id, title, message, created_at, is_read")
+            .eq("user_id", user.id)
+            .eq("type", "inquiry")
+            .order("created_at", { ascending: false })
+          setInquiries(data || [])
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    })
   }
 
   if (isSubmitted) {

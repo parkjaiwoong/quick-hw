@@ -78,22 +78,24 @@ export function CancelDeliveryButton({
 
   const info = getCancelInfo(paymentMethod, paymentStatus)
 
-  async function handleCancel() {
+  function handleCancel() {
     setLoading(true)
     setError(null)
-    try {
-      const result = await cancelDelivery(deliveryId)
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setOpen(false)
-        router.push("/customer")
+    queueMicrotask(async () => {
+      try {
+        const result = await cancelDelivery(deliveryId)
+        if (result.error) {
+          setError(result.error)
+        } else {
+          setOpen(false)
+          router.push("/customer")
+        }
+      } catch {
+        setError("취소 처리 중 오류가 발생했습니다")
+      } finally {
+        setLoading(false)
       }
-    } catch {
-      setError("취소 처리 중 오류가 발생했습니다")
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   return (

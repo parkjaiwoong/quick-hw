@@ -107,7 +107,6 @@ export function Header({ logoUrl, companyName }: HeaderProps) {
     } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
       if (!mountedRef.current) return
 
-      console.log("Header auth state changed:", _event, !!session)
       const authenticated = !!session
       startTransition(() => {
         loadingClearedRef.current = true

@@ -13,23 +13,26 @@ export function ReferralForm() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!referralCode.trim()) {
       toast.error("추천인 코드를 입력해주세요")
       return
     }
-
     setLoading(true)
-    const result = await registerReferral(referralCode.trim().toUpperCase())
-
-    if (result.error) {
-      toast.error(result.error)
-    } else {
-      toast.success("추천인이 등록되었습니다")
-      router.refresh()
-    }
-    setLoading(false)
+    queueMicrotask(async () => {
+      try {
+        const result = await registerReferral(referralCode.trim().toUpperCase())
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success("추천인이 등록되었습니다")
+          router.refresh()
+        }
+      } finally {
+        setLoading(false)
+      }
+    })
   }
 
   return (

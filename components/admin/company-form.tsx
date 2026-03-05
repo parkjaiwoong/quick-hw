@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useTransition } from "react"
+import { useState, useRef } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,7 @@ interface CompanyFormProps {
 }
 
 export function CompanyForm({ initialData }: CompanyFormProps) {
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   const [logoUrl, setLogoUrl] = useState<string | null>(initialData?.logo_url ?? null)
@@ -36,8 +36,9 @@ export function CompanyForm({ initialData }: CompanyFormProps) {
 
   function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setIsPending(true)
     const formData = new FormData(e.currentTarget)
-    startTransition(async () => {
+    queueMicrotask(async () => {
       try {
         const result = await saveCompanyInfo(formData)
         if (result.error) {
@@ -47,6 +48,8 @@ export function CompanyForm({ initialData }: CompanyFormProps) {
         }
       } catch (err: any) {
         showMessage("error", err?.message ?? "저장 중 오류가 발생했습니다.")
+      } finally {
+        setIsPending(false)
       }
     })
   }
