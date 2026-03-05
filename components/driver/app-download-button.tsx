@@ -19,8 +19,8 @@ export function AppDownloadButton() {
   if (isApp) return null
 
   return (
-    <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
-      <Link href="/app-download" className="flex items-center gap-1.5">
+    <Button asChild size="lg" className="h-12 rounded-full px-6 bg-slate-800 hover:bg-slate-900">
+      <Link href="/app-download" className="flex items-center gap-2">
         <Smartphone className="h-4 w-4" />
         앱 다운로드
       </Link>

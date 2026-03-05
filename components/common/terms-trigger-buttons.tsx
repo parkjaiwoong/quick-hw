@@ -8,7 +8,7 @@ export function MainTermsButton() {
     <AllTermsButton
       label="약관 및 정책 보기"
       variant="outline"
-      className="inline-flex items-center justify-center rounded-md border border-input bg-background px-8 py-3 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+      className="inline-flex h-12 items-center justify-center rounded-full border border-border/80 bg-background px-6 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
     />
   )
 }
