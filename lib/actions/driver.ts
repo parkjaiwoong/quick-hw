@@ -283,46 +283,40 @@ export async function getDriverInfo() {
   return { driverInfo: data }
 }
 
-export async function ensureDriverInfoForUser() {
+/** ensure + get를 한 번에 처리 (왕복·auth.getUser 축소) */
+export async function ensureAndGetDriverInfo() {
   const supabase = await getSupabaseServerClient()
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: "인증이 필요합니다" }
-  }
+  if (!user) return { error: "인증이 필요합니다" }
 
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) {
-    return { error: "Service Role Key가 설정되지 않았습니다." }
-  }
+  if (!serviceRoleKey) return { error: "Service Role Key가 설정되지 않았습니다." }
 
   const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-  const supabaseService = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+  const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
 
-  const { data: existingDriverInfo } = await supabaseService
-    .from("driver_info")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  if (!existingDriverInfo) {
-    const { error: insertError } = await supabaseService.from("driver_info").insert({
+  const { data: existing } = await svc.from("driver_info").select("id").eq("id", user.id).maybeSingle()
+  if (!existing) {
+    const { error: insertError } = await svc.from("driver_info").insert({
       id: user.id,
       vehicle_type: null,
       vehicle_number: null,
       license_number: null,
       is_available: false,
     })
-
-    if (insertError) {
-      return { error: insertError.message }
-    }
+    if (insertError) return { error: insertError.message }
   }
 
-  return { success: true }
+  const { data, error } = await svc.from("driver_info").select("*").eq("id", user.id).single()
+  if (error) return { error: error.message }
+  return { driverInfo: data }
+}
+
+export async function ensureDriverInfoForUser() {
+  const res = await ensureAndGetDriverInfo()
+  return res.error ? { error: res.error } : { success: true }
 }
 
 export async function updateDriverLocation(lat: number, lng: number, deliveryId?: string) {

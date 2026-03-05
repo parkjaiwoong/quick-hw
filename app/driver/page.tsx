@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Package, TrendingUp, History, BookOpen } from "lucide-react"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
-import { ensureDriverInfoForUser, getAvailableDeliveries, getMyAssignedDeliveries, getDriverInfo } from "@/lib/actions/driver"
+import { ensureAndGetDriverInfo } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -51,19 +51,28 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     redirect("/")
   }
 
-  // ensureDriverInfoForUser + getDriverInfo 순서 보장 후 나머지 병렬 실행
-  await ensureDriverInfoForUser()
-  const { driverInfo } = await getDriverInfo()
-
-  // 독립적인 쿼리들을 병렬로 실행
+  // ensure + get + 배송·사고 조회를 한 번에 병렬 실행 (auth.getUser·왕복 최소화)
   const [
-    { deliveries: available = [] },
-    { deliveries: assigned = [] },
+    ensureResult,
+    { data: availableRows },
+    { data: assignedRows },
     { data: allDeliveries },
     { data: accidents },
   ] = await Promise.all([
-    getAvailableDeliveries(),
-    getMyAssignedDeliveries(),
+    ensureAndGetDriverInfo(),
+    supabase
+      .from("deliveries")
+      .select("id,pickup_address,delivery_address,distance_km,driver_fee,total_fee,vehicle_type,urgency,delivery_option,item_description,package_size,created_at")
+      .eq("status", "pending")
+      .is("driver_id", null)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("deliveries")
+      .select("*")
+      .eq("driver_id", user.id)
+      .in("status", ["accepted", "picked_up", "in_transit"])
+      .order("accepted_at", { ascending: false }),
     supabase
       .from("deliveries")
       .select("id, status, created_at, delivered_at")
@@ -75,6 +84,10 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
       .select("id, status, accident_type")
       .eq("driver_id", user.id),
   ])
+
+  const driverInfo = ensureResult.driverInfo ?? null
+  const available = availableRows ?? []
+  const assigned = assignedRows ?? []
 
   const guideCompleted = !!driverInfo?.guide_completed_at
 

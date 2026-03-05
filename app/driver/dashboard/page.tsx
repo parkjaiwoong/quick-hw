@@ -26,28 +26,30 @@ export default async function DriverDashboardPage({
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const period = searchParams?.period || "this_month"
+  const periodLabel = period === "last_month" ? "지난 달" : period === "all" ? "전체" : "이번 달"
 
-  const roleOverride = await getRoleOverride()
+  const [{ data: profile }, roleOverride, riderCodeRes, kpiRes, customersRes] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    getRoleOverride(),
+    (async () => {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!serviceRoleKey) return null
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+      const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+      const { data } = await svc.from("riders").select("code").eq("id", user.id).maybeSingle()
+      return data?.code ?? null
+    })(),
+    getRiderDashboardKpi(period),
+    getRiderDashboardCustomers(period),
+  ])
   const canActAsRider = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsRider) {
     redirect("/")
   }
-
-  let riderCode: string | null = null
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (serviceRoleKey) {
-    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-    const supabaseService = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-    const { data: riderRow } = await supabaseService.from("riders").select("code").eq("id", user.id).maybeSingle()
-    riderCode = riderRow?.code ?? null
-  }
-
-  const period = searchParams?.period || "this_month"
-  const periodLabel = period === "last_month" ? "지난 달" : period === "all" ? "전체" : "이번 달"
-
-  const { data: kpi, error: kpiError } = await getRiderDashboardKpi(period)
-  const { data: customers, error: customersError } = await getRiderDashboardCustomers(period)
+  const riderCode = riderCodeRes
+  const { data: kpi, error: kpiError } = kpiRes
+  const { data: customers, error: customersError } = customersRes
 
   const totalCustomers = Number(kpi?.total_customers || 0)
   const periodNewCustomers = Number(kpi?.period_new_customers || 0)
@@ -60,7 +62,7 @@ export default async function DriverDashboardPage({
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-balance">기사 대시보드</h1>
+            <h1 className="text-3xl font-bold text-balance">영업성과 대시보드</h1>
             <p className="text-muted-foreground mt-1">내 고객과 추가 수익을 한눈에 확인하세요</p>
           </div>
           <div className="flex flex-col items-end gap-2">

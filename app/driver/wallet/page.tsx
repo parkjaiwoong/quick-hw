@@ -23,30 +23,33 @@ export default async function DriverWalletPage() {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  const roleOverride = await getRoleOverride()
+  const [{ data: profile }, roleOverride] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).single(),
+    getRoleOverride(),
+  ])
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {
     redirect("/")
   }
 
   await ensureDriverWallet(userId)
-  const { wallet } = await getDriverWalletSummary(userId)
-  const { data: payoutRequests } = await supabase
-    .from("payout_requests")
-    .select("id, requested_amount, status, notes, requested_at, settlement_status, payout_status")
-    .eq("driver_id", userId)
-    .order("requested_at", { ascending: false })
-  const { data: recentSettlements } = await supabase
-    .from("settlements")
-    .select("settlement_status, settlement_amount, created_at, updated_at")
-    .eq("driver_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50)
-  const { data: driverDeliveries } = await supabase
-    .from("deliveries")
-    .select("id, status")
-    .eq("driver_id", userId)
+  const [walletResult, { data: payoutRequests }, { data: recentSettlements }, { data: driverDeliveries }] =
+    await Promise.all([
+      getDriverWalletSummary(userId),
+      supabase
+        .from("payout_requests")
+        .select("id, requested_amount, status, notes, requested_at, settlement_status, payout_status")
+        .eq("driver_id", userId)
+        .order("requested_at", { ascending: false }),
+      supabase
+        .from("settlements")
+        .select("settlement_status, settlement_amount, created_at, updated_at")
+        .eq("driver_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase.from("deliveries").select("id, status").eq("driver_id", userId),
+    ])
+  const wallet = walletResult.wallet
   const totalBalance = Number(wallet?.total_balance || 0)
   const availableBalance = Number(wallet?.available_balance || 0)
   const pendingBalance = Number(wallet?.pending_balance || 0)

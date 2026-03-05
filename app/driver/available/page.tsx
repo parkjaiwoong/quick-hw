@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getRoleOverride } from "@/lib/role"
 import { AvailableDeliveries } from "@/components/driver/available-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
-import { getAvailableDeliveries, getDriverInfo } from "@/lib/actions/driver"
+import { ensureAndGetDriverInfo } from "@/lib/actions/driver"
 import { RealtimeDeliveryNotifications } from "@/components/driver/realtime-delivery-notifications"
 import { DriverDeliveryRequestProvider } from "@/lib/contexts/driver-delivery-request"
 
@@ -18,12 +18,21 @@ export default async function DriverAvailablePage() {
     redirect("/auth/login")
   }
 
-  const [{ data: profile }, roleOverride, { driverInfo }, { deliveries: available = [] }] = await Promise.all([
+  const [{ data: profile }, roleOverride, ensureResult, { data: availableRows }] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user.id).single(),
     getRoleOverride(),
-    getDriverInfo(),
-    getAvailableDeliveries(),
+    ensureAndGetDriverInfo(),
+    supabase
+      .from("deliveries")
+      .select("id,pickup_address,delivery_address,distance_km,driver_fee,total_fee,vehicle_type,urgency,delivery_option,item_description,package_size,created_at")
+      .eq("status", "pending")
+      .is("driver_id", null)
+      .order("created_at", { ascending: false })
+      .limit(50),
   ])
+
+  const driverInfo = ensureResult.driverInfo ?? null
+  const available = availableRows ?? []
 
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {

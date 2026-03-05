@@ -29,20 +29,20 @@ export default async function DriverSettlementsPage({
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  const roleOverride = await getRoleOverride()
+  const [{ data: profile }, roleOverride] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    getRoleOverride(),
+  ])
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {
     redirect("/")
   }
 
-  if (canActAsDriver) {
-    await ensureDriverInfoForUser()
-  }
-
-  const { settlements = [] } = await getDriverSettlements()
-  const { data: wallet } = await supabase.from("driver_wallet").select("available_balance").eq("driver_id", user.id).maybeSingle()
+  await ensureDriverInfoForUser()
+  const [{ settlements = [] }, { data: wallet }] = await Promise.all([
+    getDriverSettlements(),
+    supabase.from("driver_wallet").select("available_balance").eq("driver_id", user.id).maybeSingle(),
+  ])
   const availableBalance = Number(wallet?.available_balance || 0)
   const pendingAmount = settlements
     .filter((s: any) => s.settlement_status === "PENDING")
