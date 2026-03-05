@@ -137,6 +137,70 @@
   }
 }
 
+/* Hero: 퀵 느낌 속도 라인 애니메이션 */
+@keyframes speed-line {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  20% {
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100vw);
+  }
+}
+@keyframes speed-line-delayed {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-100vw);
+  }
+}
+@keyframes speed-line-slow {
+  0%, 100% {
+    opacity: 0.2;
+    transform: translateX(-50%);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateX(50%);
+  }
+}
+@keyframes shimmer {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+.animate-speed-line {
+  animation: speed-line 4s ease-in-out infinite;
+}
+.animate-speed-line-delayed {
+  animation: speed-line-delayed 5s ease-in-out infinite 1s;
+}
+.animate-speed-line-slow {
+  animation: speed-line-slow 6s ease-in-out infinite;
+}
+.animate-shimmer {
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
 /* 모바일 최적화: 탭 가로 스크롤, 스크롤바 완전 숨김 */
 .tabs-scroll-mobile {
   overflow-x: auto;

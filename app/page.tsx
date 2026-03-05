@@ -7,6 +7,7 @@ import { redirect } from "next/navigation"
 import { getRoleOverride } from "@/lib/role"
 import { MainTermsButton } from "@/components/common/terms-trigger-buttons"
 import { AppDownloadButton } from "@/components/driver/app-download-button"
+import { HeroSection } from "@/components/home/hero-section"
 
 export default async function HomePage() {
   const supabase = await getSupabaseServerClient()
@@ -42,35 +43,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#fafaf9]">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
-        <div className="relative max-w-5xl mx-auto px-4 pt-24 pb-20 md:pt-32 md:pb-28">
-          <div className="text-center space-y-8">
-            <p className="text-sm font-medium tracking-[0.2em] text-muted-foreground uppercase">
-              퀵배송 연결 플랫폼
-            </p>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
-              <span className="text-primary">퀵HW언넌</span>
-              <br />
-              빠르고 안전한 배송
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
-              기사와 고객을 연결하고, 모든 거래를 기록합니다.
-              <br className="hidden sm:block" />
-              <span className="text-foreground/80">애매함 없는 정책으로 운영합니다.</span>
-            </p>
-            <div className="flex gap-3 justify-center flex-wrap pt-2">
-              <Button asChild size="lg" className="h-12 px-8 rounded-full text-base font-medium shadow-lg shadow-primary/20">
-                <Link href="/auth/signup">시작하기</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="h-12 px-8 rounded-full text-base font-medium border-border/80 bg-background/80">
-                <Link href="/auth/login">로그인</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroSection />
 
       {/* Features */}
       <section className="max-w-6xl mx-auto px-4 py-16 md:py-24">
@@ -246,7 +219,6 @@ export default async function HomePage() {
           </CardContent>
         </Card>
       </section>
-      </div>
     </div>
   )
 }
