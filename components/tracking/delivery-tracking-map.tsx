@@ -420,10 +420,10 @@ export function DeliveryTrackingMap({
             onMouseDown={handlePointerDown}
             onTouchStart={handlePointerDown}
             onDoubleClick={handleDoubleClick}
-            className="flex shrink-0 cursor-grab active:cursor-grabbing touch-none justify-center py-3 bg-slate-100 hover:bg-slate-200 border-t border-slate-200"
+            className="flex shrink-0 cursor-grab active:cursor-grabbing justify-center py-4 bg-slate-100 hover:bg-slate-200 border-t-2 border-slate-300 min-h-[44px] touch-manipulation select-none"
             aria-label="지도 높이 조절 (드래그) 또는 더블클릭으로 전체/숨김"
           >
-            <span className="w-12 h-1.5 rounded-full bg-slate-400" />
+            <span className="w-14 h-1.5 rounded-full bg-slate-500 block" />
           </div>
         )}
       </div>

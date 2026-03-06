@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Map from "ol/Map"
+import { defaults as defaultInteractions } from "ol/interaction"
 import View from "ol/View"
 import TileLayer from "ol/layer/Tile"
 import VectorLayer from "ol/layer/Vector"
@@ -48,7 +49,7 @@ interface OpenLayersMapProps {
   resizableOnMobile?: boolean
 }
 
-const MIN_MAP_HEIGHT_PX = 120
+const MIN_MAP_HEIGHT_PX = 80
 const MAX_MAP_HEIGHT_VH = 95
 const DEFAULT_MAP_HEIGHT_VH = 40
 
@@ -299,7 +300,7 @@ export function OpenLayersMap({
       map.setTarget(undefined)
       mapInstanceRef.current = null
     }
-  }, [features])
+  }, [features, resizableOnMobile])
 
   useEffect(() => {
     if (!resizableOnMobile || typeof window === "undefined") return
@@ -322,6 +323,17 @@ export function OpenLayersMap({
     const next = Math.max(MIN_MAP_HEIGHT_PX, Math.min(maxPx, dragStartHeightRef.current + delta))
     setMapHeightPx(next)
   }, [])
+
+  const handleDoubleClick = useCallback(() => {
+    if (!resizableOnMobile) return
+    setMapHeightPx((prev) => {
+      const maxPx = typeof window !== "undefined"
+        ? Math.round((window.innerHeight * MAX_MAP_HEIGHT_VH) / 100)
+        : 400
+      if (prev == null || prev <= MIN_MAP_HEIGHT_PX) return maxPx
+      return MIN_MAP_HEIGHT_PX
+    })
+  }, [resizableOnMobile])
 
   const handlePointerDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -403,26 +415,28 @@ export function OpenLayersMap({
             </span>
           )}
         </div>
-        {resizableOnMobile && (
-          <div
-            role="button"
-            tabIndex={0}
-            onMouseDown={handlePointerDown}
-            onTouchStart={handlePointerDown}
-            className="flex shrink-0 cursor-grab active:cursor-grabbing touch-none justify-center py-2 bg-slate-100 hover:bg-slate-200 border-y border-slate-200"
-            aria-label="지도 높이 조절"
-          >
-            <span className="w-12 h-1 rounded-full bg-slate-400" />
-          </div>
-        )}
         <div
           ref={mapRef}
+          onDoubleClick={resizableOnMobile ? handleDoubleClick : undefined}
           className={
             resizableOnMobile
               ? "min-h-0 flex-1 w-full md:flex-none md:h-56"
               : "h-56 w-full"
           }
         />
+        {resizableOnMobile && (
+          <div
+            role="button"
+            tabIndex={0}
+            onMouseDown={handlePointerDown}
+            onTouchStart={handlePointerDown}
+            onDoubleClick={handleDoubleClick}
+            className="flex shrink-0 cursor-grab active:cursor-grabbing justify-center py-4 bg-slate-100 hover:bg-slate-200 border-t-2 border-slate-300 min-h-[44px] touch-manipulation select-none"
+            aria-label="지도 높이 조절 (드래그) 또는 더블클릭으로 전체/숨김"
+          >
+            <span className="w-14 h-1.5 rounded-full bg-slate-500 block" />
+          </div>
+        )}
       </div>
     </div>
   )

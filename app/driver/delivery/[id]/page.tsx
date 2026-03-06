@@ -10,10 +10,11 @@ import { MapPin, Phone, Bike, Clock, Calendar, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
-import { acceptDelivery, updateDeliveryStatus } from "@/lib/actions/driver"
+import { acceptDelivery } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import { OpenLayersMap } from "@/components/driver/openlayers-map"
 import { DeliveryCompleteForm } from "@/components/driver/delivery-complete-form"
+import { StatusUpdateButton } from "@/components/driver/status-update-button"
 import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 
@@ -133,16 +134,6 @@ export default async function DriverDeliveryDetailPage({
   async function handleAccept() {
     "use server"
     await acceptDelivery(delivery.id)
-    redirect(`/driver/delivery/${delivery.id}`)
-  }
-
-  async function handleUpdateStatus(formData: FormData) {
-    "use server"
-    const status = String(formData.get("status") || "")
-    if (!["picked_up", "in_transit", "delivered"].includes(status)) {
-      return
-    }
-    await updateDeliveryStatus(delivery.id, status)
     redirect(`/driver/delivery/${delivery.id}`)
   }
 
@@ -425,16 +416,12 @@ export default async function DriverDeliveryDetailPage({
                 className="flex-1 w-full"
               />
             ) : (
-              <form action={handleUpdateStatus} className="flex-1">
-                <input
-                  type="hidden"
-                  name="status"
-                  value={statusActionConfig[delivery.status as keyof typeof statusActionConfig].next}
-                />
-                <SubmitButtonPending className="w-full" size="lg">
-                  {statusActionConfig[delivery.status as keyof typeof statusActionConfig].label}
-                </SubmitButtonPending>
-              </form>
+              <StatusUpdateButton
+                deliveryId={delivery.id}
+                nextStatus={statusActionConfig[delivery.status as keyof typeof statusActionConfig].next}
+                label={statusActionConfig[delivery.status as keyof typeof statusActionConfig].label}
+                className="flex-1 w-full"
+              />
             )
           ) : (
             <Button className="flex-1" size="lg" disabled>
