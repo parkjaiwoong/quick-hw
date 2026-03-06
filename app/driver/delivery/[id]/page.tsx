@@ -155,7 +155,7 @@ export default async function DriverDeliveryDetailPage({
           pickup={pickupCoords}
           delivery={deliveryCoords}
           showMyLocation
-          fullHeightOnMobile
+          resizableOnMobile
         />
       </div>
       <div className="p-4">

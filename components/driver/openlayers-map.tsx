@@ -44,17 +44,26 @@ interface OpenLayersMapProps {
   delivery: { lat: number; lng: number } | null
   /** 기사 화면에서 내 위치 표시 및 픽업까지 거리 표시 */
   showMyLocation?: boolean
-  /** 모바일에서 지도만 전체 화면 고정 (스크롤해도 지도 유지) */
-  fullHeightOnMobile?: boolean
+  /** 모바일에서 드래그로 지도 높이 조절 (전체화면~최소) */
+  resizableOnMobile?: boolean
 }
+
+const MIN_MAP_HEIGHT_PX = 120
+const MAX_MAP_HEIGHT_VH = 95
+const DEFAULT_MAP_HEIGHT_VH = 40
 
 export function OpenLayersMap({
   pickup,
   delivery,
   showMyLocation = false,
-  fullHeightOnMobile = false,
+  resizableOnMobile = false,
 }: OpenLayersMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null)
+  const mapInstanceRef = useRef<InstanceType<typeof Map> | null>(null)
+  const dragStartYRef = useRef(0)
+  const dragStartHeightRef = useRef(0)
+
+  const [mapHeightPx, setMapHeightPx] = useState<number | null>(null)
   const [myLocation, setMyLocation] = useState<{
     lat: number
     lng: number
@@ -263,7 +272,7 @@ export function OpenLayersMap({
     const vectorLayer = new VectorLayer({ source: vectorSource })
 
     const map = new Map({
-      target: mapRef.current,
+      target: mapRef.current!,
       layers: [
         new TileLayer({
           source: new OSM(),
@@ -285,10 +294,63 @@ export function OpenLayersMap({
       map.getView().fit(extent, { padding: [48, 48, 48, 48], maxZoom: 15 })
     }
 
+    mapInstanceRef.current = map
     return () => {
       map.setTarget(undefined)
+      mapInstanceRef.current = null
     }
   }, [features])
+
+  useEffect(() => {
+    if (!resizableOnMobile || typeof window === "undefined") return
+    setMapHeightPx(Math.round((window.innerHeight * DEFAULT_MAP_HEIGHT_VH) / 100))
+  }, [resizableOnMobile])
+
+  useEffect(() => {
+    if (!resizableOnMobile || mapHeightPx == null) return
+    mapInstanceRef.current?.updateSize()
+  }, [resizableOnMobile, mapHeightPx])
+
+  const handleDragStart = useCallback((clientY: number) => {
+    dragStartYRef.current = clientY
+    dragStartHeightRef.current = mapHeightPx ?? Math.round((window.innerHeight * DEFAULT_MAP_HEIGHT_VH) / 100)
+  }, [mapHeightPx])
+
+  const handleDragMove = useCallback((clientY: number) => {
+    const delta = dragStartYRef.current - clientY
+    const maxPx = Math.round((window.innerHeight * MAX_MAP_HEIGHT_VH) / 100)
+    const next = Math.max(MIN_MAP_HEIGHT_PX, Math.min(maxPx, dragStartHeightRef.current + delta))
+    setMapHeightPx(next)
+  }, [])
+
+  const handlePointerDown = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      if (!resizableOnMobile) return
+      const y = "touches" in e ? e.touches[0]?.clientY : e.clientY
+      if (y == null) return
+      handleDragStart(y)
+
+      const onMove = (ev: MouseEvent | TouchEvent) => {
+        const yy = "touches" in ev ? ev.touches[0]?.clientY : ev.clientY
+        if (yy != null) handleDragMove(yy)
+      }
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove)
+        document.removeEventListener("mouseup", onUp)
+        document.removeEventListener("touchmove", onMove, { passive: true })
+        document.removeEventListener("touchend", onUp)
+        document.body.style.touchAction = ""
+        document.body.style.userSelect = ""
+      }
+      document.body.style.touchAction = "none"
+      document.body.style.userSelect = "none"
+      document.addEventListener("mousemove", onMove)
+      document.addEventListener("mouseup", onUp)
+      document.addEventListener("touchmove", onMove, { passive: true })
+      document.addEventListener("touchend", onUp)
+    },
+    [resizableOnMobile, handleDragStart, handleDragMove],
+  )
 
   return (
     <div className="space-y-2">
@@ -315,9 +377,14 @@ export function OpenLayersMap({
       )}
       <div
         className={
-          fullHeightOnMobile
-            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border-0 md:border border-slate-200 bg-slate-50 shadow-none md:shadow-sm sticky top-0 z-10 h-[100dvh] md:h-auto md:min-h-0"
+          resizableOnMobile
+            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border-0 md:border border-slate-200 bg-slate-50 shadow-none md:shadow-sm sticky top-0 z-10 md:h-auto"
             : "overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm"
+        }
+        style={
+          resizableOnMobile
+            ? { height: mapHeightPx != null ? `${mapHeightPx}px` : `${DEFAULT_MAP_HEIGHT_VH}dvh` }
+            : undefined
         }
       >
         <div className="flex shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
@@ -336,9 +403,25 @@ export function OpenLayersMap({
             </span>
           )}
         </div>
+        {resizableOnMobile && (
+          <div
+            role="button"
+            tabIndex={0}
+            onMouseDown={handlePointerDown}
+            onTouchStart={handlePointerDown}
+            className="flex shrink-0 cursor-grab active:cursor-grabbing touch-none justify-center py-2 bg-slate-100 hover:bg-slate-200 border-y border-slate-200"
+            aria-label="지도 높이 조절"
+          >
+            <span className="w-12 h-1 rounded-full bg-slate-400" />
+          </div>
+        )}
         <div
           ref={mapRef}
-          className={fullHeightOnMobile ? "min-h-0 flex-1 w-full md:flex-none md:h-56" : "h-56 w-full"}
+          className={
+            resizableOnMobile
+              ? "min-h-0 flex-1 w-full md:flex-none md:h-56"
+              : "h-56 w-full"
+          }
         />
       </div>
     </div>

@@ -338,6 +338,7 @@ export async function updateDriverAvailability(isAvailable: boolean) {
   }
 
   revalidatePath("/driver")
+  revalidatePath("/driver/available")
   return { success: true }
 }
 

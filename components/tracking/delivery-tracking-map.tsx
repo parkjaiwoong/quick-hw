@@ -64,6 +64,7 @@ export function DeliveryTrackingMap({
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<Map | null>(null)
   const vectorSourceRef = useRef<VectorSource<Feature> | null>(null)
+  const driverFeatureRef = useRef<Feature<Point> | null>(null)
   const [trackingData, setTrackingData] = useState<any[]>([])
 
   const pickup = parsePoint(delivery.pickup_location)
@@ -111,7 +112,7 @@ export function DeliveryTrackingMap({
     }
   }, [deliveryId])
 
-  const features = useMemo(() => {
+  const staticFeatures = useMemo(() => {
     const items: Array<Feature<Point | LineString>> = []
 
     if (pickup) {
@@ -161,51 +162,20 @@ export function DeliveryTrackingMap({
       items.push(f)
     }
 
-    if (latestDriverLocation) {
-      const f = new Feature({
-        geometry: new Point(
-          fromLonLat([latestDriverLocation.lng, latestDriverLocation.lat])
-        ),
+    if (pickup && deliveryLoc) {
+      const line = new Feature({
+        geometry: new LineString([
+          fromLonLat([pickup.lng, pickup.lat]),
+          fromLonLat([deliveryLoc.lng, deliveryLoc.lat]),
+        ]),
       })
-      f.setStyle(
+      line.setStyle(
         new Style({
-          image: new CircleStyle({
-            radius: 10,
-            fill: new Fill({ color: "#16a34a" }),
-            stroke: new Stroke({ color: "#15803d", width: 2 }),
-          }),
-          text: new Text({
-            text: "기사",
-            font: "bold 11px system-ui",
-            fill: new Fill({ color: "#15803d" }),
-            stroke: new Stroke({ color: "#fff", width: 2.5 }),
-            offsetY: -22,
+          stroke: new Stroke({
+            color: latestDriverLocation ? "#64748b" : "#2563eb",
+            width: latestDriverLocation ? 2 : 3,
           }),
         })
-      )
-      items.push(f)
-    }
-
-    if (pickup && deliveryLoc && !latestDriverLocation) {
-      const line = new Feature({
-        geometry: new LineString([
-          fromLonLat([pickup.lng, pickup.lat]),
-          fromLonLat([deliveryLoc.lng, deliveryLoc.lat]),
-        ]),
-      })
-      line.setStyle(
-        new Style({ stroke: new Stroke({ color: "#2563eb", width: 3 }) })
-      )
-      items.push(line)
-    } else if (pickup && deliveryLoc) {
-      const line = new Feature({
-        geometry: new LineString([
-          fromLonLat([pickup.lng, pickup.lat]),
-          fromLonLat([deliveryLoc.lng, deliveryLoc.lat]),
-        ]),
-      })
-      line.setStyle(
-        new Style({ stroke: new Stroke({ color: "#64748b", width: 2 }) })
       )
       items.push(line)
     }
@@ -213,10 +183,43 @@ export function DeliveryTrackingMap({
     return items
   }, [pickup, deliveryLoc, latestDriverLocation])
 
-  useEffect(() => {
-    if (!mapRef.current) return
+  const driverFeatureStyle = useMemo(
+    () =>
+      new Style({
+        image: new CircleStyle({
+          radius: 10,
+          fill: new Fill({ color: "#16a34a" }),
+          stroke: new Stroke({ color: "#15803d", width: 2 }),
+        }),
+        text: new Text({
+          text: "기사",
+          font: "bold 11px system-ui",
+          fill: new Fill({ color: "#15803d" }),
+          stroke: new Stroke({ color: "#fff", width: 2.5 }),
+          offsetY: -22,
+        }),
+      }),
+    [],
+  )
 
-    const vectorSource = new VectorSource({ features })
+  useEffect(() => {
+    if (!mapRef.current || !pickup || !deliveryLoc) return
+
+    const allFeatures = [...staticFeatures]
+    if (latestDriverLocation) {
+      const driverF = new Feature({
+        geometry: new Point(
+          fromLonLat([latestDriverLocation.lng, latestDriverLocation.lat]),
+        ),
+      })
+      driverF.setStyle(driverFeatureStyle)
+      driverFeatureRef.current = driverF
+      allFeatures.push(driverF)
+    } else {
+      driverFeatureRef.current = null
+    }
+
+    const vectorSource = new VectorSource({ features: allFeatures })
     vectorSourceRef.current = vectorSource
     const vectorLayer = new VectorLayer({ source: vectorSource })
 
@@ -233,7 +236,7 @@ export function DeliveryTrackingMap({
     })
     mapInstanceRef.current = map
 
-    const points = features
+    const points = allFeatures
       .map((f) => f.getGeometry())
       .filter((g): g is Point => g?.getType() === "Point")
       .map((g) => g.getCoordinates())
@@ -246,27 +249,32 @@ export function DeliveryTrackingMap({
       map.setTarget(undefined)
       mapInstanceRef.current = null
       vectorSourceRef.current = null
+      driverFeatureRef.current = null
     }
   }, [pickup, deliveryLoc])
 
   useEffect(() => {
-    if (!vectorSourceRef.current || !mapInstanceRef.current) return
-    vectorSourceRef.current.clear()
-    vectorSourceRef.current.addFeatures(features)
-    if (features.length > 0) {
-      const points = features
-        .map((f) => f.getGeometry())
-        .filter((g): g is Point => g?.getType() === "Point")
-        .map((g) => g.getCoordinates())
-      if (points.length > 0) {
-        const extent = boundingExtent(points)
-        mapInstanceRef.current.getView().fit(extent, {
-          padding: [48, 48, 48, 48],
-          maxZoom: 15,
-        })
+    if (!latestDriverLocation) return
+    const df = driverFeatureRef.current
+    const src = vectorSourceRef.current
+    if (df && src && src.getFeatures().includes(df)) {
+      const geom = df.getGeometry()
+      if (geom && geom.getType() === "Point") {
+        ;(geom as Point).setCoordinates(
+          fromLonLat([latestDriverLocation.lng, latestDriverLocation.lat]),
+        )
       }
+    } else if (src && mapInstanceRef.current) {
+      const driverF = new Feature({
+        geometry: new Point(
+          fromLonLat([latestDriverLocation.lng, latestDriverLocation.lat]),
+        ),
+      })
+      driverF.setStyle(driverFeatureStyle)
+      driverFeatureRef.current = driverF
+      src.addFeature(driverF)
     }
-  }, [features])
+  }, [latestDriverLocation, driverFeatureStyle])
 
   return (
     <div className="space-y-2">

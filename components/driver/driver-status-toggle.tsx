@@ -68,7 +68,8 @@ export function DriverStatusToggle({ initialStatus, redirectToOnTurnOff }: Drive
         return
       }
       setIsLoading(false)
-      router.push("/driver/available")
+      // prefetch 캐시를 우회해 서버에서 최신 is_available 반영된 배송대기중 페이지 로드
+      window.location.href = "/driver/available"
     } else {
       // 배송가능 OFF: DB 저장 후 메인으로 이동
       notifyAppAvailability(false)
