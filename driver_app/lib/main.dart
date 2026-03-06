@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
@@ -796,6 +797,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent('QuickHWDriverApp/1.0');
     _setupAndroidGeolocation(c);
+    _setupAndroidFileSelector(c);
     c
       ..addJavaScriptChannel(
         'DriverScreenChannel',
@@ -868,6 +870,36 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
       )
       ..loadRequest(Uri.parse(driverWebUrl));
     return c;
+  }
+
+  /// Android WebView에서 <input type="file" capture> 사용 시 카메라/갤러리 연동
+  void _setupAndroidFileSelector(WebViewController controller) {
+    if (!Platform.isAndroid) return;
+    final android = controller.platform;
+    if (android is! AndroidWebViewController) return;
+    android.setOnShowFileSelector((params) async {
+      final picker = ImagePicker();
+      XFile? file;
+      if (params.isCaptureEnabled) {
+        file = await picker.pickImage(
+          source: ImageSource.camera,
+          maxWidth: 2048,
+          maxHeight: 2048,
+          imageQuality: 85,
+        );
+      } else {
+        file = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 2048,
+          maxHeight: 2048,
+          imageQuality: 85,
+        );
+      }
+      if (file != null && file.path != null && file.path!.isNotEmpty) {
+        return [file.path!];
+      }
+      return [];
+    });
   }
 
   /// Android WebView에서 navigator.geolocation 사용 시 앱 위치 권한과 연동

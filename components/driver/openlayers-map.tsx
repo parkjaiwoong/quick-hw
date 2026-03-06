@@ -318,7 +318,7 @@ export function OpenLayersMap({
   }, [mapHeightPx])
 
   const handleDragMove = useCallback((clientY: number) => {
-    const delta = dragStartYRef.current - clientY
+    const delta = clientY - dragStartYRef.current
     const maxPx = Math.round((window.innerHeight * MAX_MAP_HEIGHT_VH) / 100)
     const next = Math.max(MIN_MAP_HEIGHT_PX, Math.min(maxPx, dragStartHeightRef.current + delta))
     setMapHeightPx(next)

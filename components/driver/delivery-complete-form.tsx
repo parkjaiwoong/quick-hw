@@ -4,6 +4,7 @@ import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { updateDeliveryStatus, uploadDeliveryProof } from "@/lib/actions/driver"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -130,20 +131,21 @@ export function DeliveryCompleteForm({
             accept="image/jpeg,image/png,image/webp,image/heic"
             capture="environment"
             onChange={handleFileChange}
-            className="hidden"
+            className="sr-only"
             id="delivery-proof-input"
             disabled={loading}
+            tabIndex={-1}
           />
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
+          <label
+            htmlFor="delivery-proof-input"
+            className={cn(
+              "flex items-center justify-center gap-2 w-full rounded-md border border-input bg-background px-4 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer",
+              loading && "pointer-events-none opacity-50",
+            )}
           >
-            <Camera className="mr-2 h-4 w-4" />
+            <Camera className="h-4 w-4" />
             {loading ? "업로드 중…" : "사진 촬영 (촬영 시 자동 업로드)"}
-          </Button>
+          </label>
           {preview && (
             <div className="relative rounded-lg border overflow-hidden bg-muted">
               <img

@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { updateDeliveryStatus } from "@/lib/actions/driver"
+import { useFormStatus } from "react-dom"
 import { Button } from "@/components/ui/button"
 
 interface StatusUpdateButtonProps {
@@ -13,41 +12,36 @@ interface StatusUpdateButtonProps {
 
 /**
  * 픽업 완료 / 배송 완료(사진 없음) 등 status 전환 버튼.
- * WebView에서 redirect()가 동작하지 않아 window.location.href로 강제 새로고침.
+ * 네이티브 form POST + API redirect 사용 (WebView에서 JS server action이 안 될 때 대응)
  */
+function SubmitBtn({ label, className }: { label: string; className?: string }) {
+  const { pending } = useFormStatus()
+  return (
+    <Button
+      type="submit"
+      disabled={pending}
+      className={className}
+      size="lg"
+    >
+      {pending ? "처리 중…" : label}
+    </Button>
+  )
+}
+
 export function StatusUpdateButton({
   deliveryId,
   nextStatus,
   label,
   className,
 }: StatusUpdateButtonProps) {
-  const [isLoading, setIsLoading] = useState(false)
-
-  async function handleClick() {
-    setIsLoading(true)
-    try {
-      const result = await updateDeliveryStatus(deliveryId, nextStatus)
-      if (result?.error) {
-        alert(result.error)
-        setIsLoading(false)
-        return
-      }
-      window.location.href = `/driver/delivery/${deliveryId}`
-    } catch (err) {
-      alert("처리 중 오류가 발생했습니다.")
-      setIsLoading(false)
-    }
-  }
-
   return (
-    <Button
-      type="button"
-      onClick={handleClick}
-      disabled={isLoading}
+    <form
+      action={`/api/driver/delivery/${deliveryId}/status`}
+      method="POST"
       className={className}
-      size="lg"
     >
-      {isLoading ? "처리 중…" : label}
-    </Button>
+      <input type="hidden" name="status" value={nextStatus} />
+      <SubmitBtn label={label} className="w-full" />
+    </form>
   )
 }
