@@ -8,10 +8,12 @@ import { MapPin, Navigation } from "lucide-react"
 
 interface DriverLocationUpdaterProps {
   deliveryId: string
+  /** true면 UI 없이 백그라운드로만 위치 전송 */
+  silent?: boolean
 }
 
-export function DriverLocationUpdater({ deliveryId }: DriverLocationUpdaterProps) {
-  const [isTracking, setIsTracking] = useState(false)
+export function DriverLocationUpdater({ deliveryId, silent = false }: DriverLocationUpdaterProps) {
+  const [isTracking, setIsTracking] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [error, setError] = useState<string>("")
 
@@ -47,6 +49,8 @@ export function DriverLocationUpdater({ deliveryId }: DriverLocationUpdaterProps
       }
     }
   }, [isTracking, deliveryId])
+
+  if (silent) return null
 
   return (
     <Card>

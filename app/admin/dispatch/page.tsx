@@ -45,7 +45,7 @@ export default async function DispatchPage({ searchParams }: PageProps) {
     supabase.from("deliveries").select("id", { count: "exact", head: true }),
     supabase
       .from("deliveries")
-      .select("id, created_at, status, pickup_address, delivery_address, customer_id, driver_id, driver_fee, total_fee")
+      .select("id, created_at, status, pickup_address, delivery_address, pickup_location, delivery_location, customer_id, driver_id, driver_fee, total_fee")
       .order("created_at", { ascending: false })
       .range(from, to),
   ])

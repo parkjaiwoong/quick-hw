@@ -44,12 +44,15 @@ interface OpenLayersMapProps {
   delivery: { lat: number; lng: number } | null
   /** 기사 화면에서 내 위치 표시 및 픽업까지 거리 표시 */
   showMyLocation?: boolean
+  /** 모바일에서 지도만 전체 화면 고정 (스크롤해도 지도 유지) */
+  fullHeightOnMobile?: boolean
 }
 
 export function OpenLayersMap({
   pickup,
   delivery,
   showMyLocation = false,
+  fullHeightOnMobile = false,
 }: OpenLayersMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null)
   const [myLocation, setMyLocation] = useState<{
@@ -64,46 +67,66 @@ export function OpenLayersMap({
     setLocationError(null)
     setLocationLoading(true)
 
-    // 기사앱 WebView: Flutter에 위치 권한 사전 요청 (앱 권한과 연동)
-    const reqChannel = typeof window !== "undefined" && (window as unknown as { RequestLocationPermission?: { postMessage: (m: string) => void } }).RequestLocationPermission
+    const onSuccess = (pos: GeolocationPosition) => {
+      setMyLocation({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      })
+      setLocationError(null)
+      setLocationLoading(false)
+    }
+    const onError = (err: GeolocationPositionError, isRetry?: boolean) => {
+      const code = err?.code
+      if (code === 1 && retryCount < 1 && !isRetry) {
+        setTimeout(() => fetchMyLocation(retryCount + 1), 800)
+      } else {
+        setLocationLoading(false)
+        if (code === 1) setLocationError("위치 권한이 거부되었습니다. 브라우저 설정에서 위치를 허용해 주세요.")
+        else if (code === 2) setLocationError("위치를 사용할 수 없습니다. 네트워크/GPS를 확인해 주세요.")
+        else if (code === 3) setLocationError("위치 조회 시간이 초과되었습니다. 아래 버튼으로 다시 시도해 주세요.")
+        else setLocationError("위치를 불러올 수 없습니다.")
+      }
+    }
+
+    navigator.geolocation.getCurrentPosition(onSuccess, (err) => onError(err), {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    })
+  }, [showMyLocation])
+
+  useEffect(() => {
+    if (!showMyLocation || typeof navigator === "undefined" || !navigator.geolocation) return
+
+    setLocationError(null)
+    setLocationLoading(true)
+    const reqChannel = (window as unknown as { RequestLocationPermission?: { postMessage: (m: string) => void } }).RequestLocationPermission
     if (reqChannel) reqChannel.postMessage("")
 
-    const attempt = () => {
-      navigator.geolocation.getCurrentPosition(
+    let watchId: number | null = null
+    const startWatch = () => {
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          setMyLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          })
+          setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
           setLocationError(null)
           setLocationLoading(false)
         },
         (err: GeolocationPositionError) => {
-          const code = err?.code
-          if (code === 1 && retryCount < 1) {
-            // 권한 거부: 기사앱에서 방금 허용했을 수 있음 → 800ms 후 1회 재시도
-            setTimeout(() => fetchMyLocation(retryCount + 1), 800)
-          } else {
-            setLocationLoading(false)
-            if (code === 1) setLocationError("위치 권한이 거부되었습니다. 브라우저 설정에서 위치를 허용해 주세요.")
-            else if (code === 2) setLocationError("위치를 사용할 수 없습니다. 네트워크/GPS를 확인해 주세요.")
-            else if (code === 3) setLocationError("위치 조회 시간이 초과되었습니다. 아래 버튼으로 다시 시도해 주세요.")
-            else setLocationError("위치를 불러올 수 없습니다.")
-          }
+          if (err.code === 1) setLocationError("위치 권한이 거부되었습니다.")
+          else setLocationError("위치를 불러올 수 없습니다.")
+          setLocationLoading(false)
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       )
     }
 
-    // 기사앱 WebView: 권한 요청 다이얼로그 표시 시간 확보
-    if (reqChannel) setTimeout(attempt, 500)
-    else attempt()
-  }, [showMyLocation])
+    if (reqChannel) setTimeout(startWatch, 500)
+    else startWatch()
 
-  useEffect(() => {
-    if (!showMyLocation) return
-    fetchMyLocation()
-  }, [showMyLocation, fetchMyLocation])
+    return () => {
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+    }
+  }, [showMyLocation])
 
   const distanceToPickupKm =
     myLocation && pickup
@@ -290,8 +313,14 @@ export function OpenLayersMap({
           </button>
         </div>
       )}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
-        <div className="flex items-center gap-4 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+      <div
+        className={
+          fullHeightOnMobile
+            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border-0 md:border border-slate-200 bg-slate-50 shadow-none md:shadow-sm sticky top-0 z-10 h-[100dvh] md:h-auto md:min-h-0"
+            : "overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm"
+        }
+      >
+        <div className="flex shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
             픽업
@@ -307,7 +336,10 @@ export function OpenLayersMap({
             </span>
           )}
         </div>
-        <div ref={mapRef} className="h-56 w-full" />
+        <div
+          ref={mapRef}
+          className={fullHeightOnMobile ? "min-h-0 flex-1 w-full md:flex-none md:h-56" : "h-56 w-full"}
+        />
       </div>
     </div>
   )

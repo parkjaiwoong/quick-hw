@@ -1,47 +1,97 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
+import Map from "ol/Map"
+import View from "ol/View"
+import TileLayer from "ol/layer/Tile"
+import VectorLayer from "ol/layer/Vector"
+import VectorSource from "ol/source/Vector"
+import OSM from "ol/source/OSM"
+import Feature from "ol/Feature"
+import Point from "ol/geom/Point"
+import LineString from "ol/geom/LineString"
+import { fromLonLat } from "ol/proj"
+import { boundingExtent } from "ol/extent"
+import Style from "ol/style/Style"
+import Stroke from "ol/style/Stroke"
+import Fill from "ol/style/Fill"
+import CircleStyle from "ol/style/Circle"
+import RegularShape from "ol/style/RegularShape"
+import Text from "ol/style/Text"
+import "ol/ol.css"
+
+function parsePoint(value: unknown): { lat: number; lng: number } | null {
+  if (!value) return null
+  if (typeof value === "object" && value !== null && "coordinates" in value) {
+    const coords = (value as { coordinates?: number[] }).coordinates
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const [lng, lat] = coords
+      return { lat: Number(lat), lng: Number(lng) }
+    }
+  }
+  if (typeof value === "object" && value !== null && "x" in value && "y" in value) {
+    const o = value as { x?: number; y?: number }
+    return { lng: Number(o.x), lat: Number(o.y) }
+  }
+  if (typeof value === "string") {
+    const m = value.match(/-?\d+(?:\.\d+)?/g)
+    if (m && m.length >= 2) {
+      const lng = Number(m[0])
+      const lat = Number(m[1])
+      return { lat, lng }
+    }
+  }
+  return null
+}
 
 interface DeliveryTrackingMapProps {
   deliveryId: string
-  delivery: any
+  delivery: {
+    pickup_location?: unknown
+    delivery_location?: unknown
+    status?: string
+  }
+  /** 모바일에서 지도 전체화면 고정 */
+  fullHeightOnMobile?: boolean
 }
 
-export function DeliveryTrackingMap({ deliveryId, delivery }: DeliveryTrackingMapProps) {
+export function DeliveryTrackingMap({
+  deliveryId,
+  delivery,
+  fullHeightOnMobile = false,
+}: DeliveryTrackingMapProps) {
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const mapInstanceRef = useRef<Map | null>(null)
+  const vectorSourceRef = useRef<VectorSource<Feature> | null>(null)
   const [trackingData, setTrackingData] = useState<any[]>([])
+
+  const pickup = parsePoint(delivery.pickup_location)
+  const deliveryLoc = parsePoint(delivery.delivery_location)
+
+  const latestDriverLocation = useMemo(() => {
+    if (trackingData.length === 0) return null
+    const latest = trackingData[0]
+    return parsePoint(latest?.location)
+  }, [trackingData])
 
   useEffect(() => {
     const supabase = createClient()
+    if (!supabase) return
 
-    if (!supabase) {
-      console.error("[v0] Supabase client not available for tracking")
-      return
-    }
-
-    // 초기 추적 데이터 로드
     async function loadTracking() {
-      try {
-        const { data } = await supabase
-          .from("delivery_tracking")
-          .select("*")
-          .eq("delivery_id", deliveryId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-
-        if (data) {
-          setTrackingData(data)
-        }
-      } catch (error) {
-        console.error("[v0] Error loading tracking data:", error)
-      }
+      const { data } = await supabase
+        .from("delivery_tracking")
+        .select("*")
+        .eq("delivery_id", deliveryId)
+        .order("created_at", { ascending: false })
+        .limit(20)
+      if (data) setTrackingData(data)
     }
-
     loadTracking()
 
-    // 실시간 구독
     const channel = supabase
-      .channel(`delivery-${deliveryId}`)
+      .channel(`delivery-tracking-${deliveryId}`)
       .on(
         "postgres_changes",
         {
@@ -51,9 +101,8 @@ export function DeliveryTrackingMap({ deliveryId, delivery }: DeliveryTrackingMa
           filter: `delivery_id=eq.${deliveryId}`,
         },
         (payload) => {
-          console.log("[v0] New tracking update:", payload)
-          setTrackingData([payload.new, ...trackingData.slice(0, 9)])
-        },
+          setTrackingData((prev) => [payload.new as any, ...prev.slice(0, 19)])
+        }
       )
       .subscribe()
 
@@ -62,41 +111,203 @@ export function DeliveryTrackingMap({ deliveryId, delivery }: DeliveryTrackingMa
     }
   }, [deliveryId])
 
+  const features = useMemo(() => {
+    const items: Array<Feature<Point | LineString>> = []
+
+    if (pickup) {
+      const f = new Feature({ geometry: new Point(fromLonLat([pickup.lng, pickup.lat])) })
+      f.setStyle(
+        new Style({
+          image: new RegularShape({
+            points: 3,
+            radius: 11,
+            fill: new Fill({ color: "#2563eb" }),
+            stroke: new Stroke({ color: "#1e40af", width: 2 }),
+          }),
+          text: new Text({
+            text: "픽업",
+            font: "bold 11px system-ui",
+            fill: new Fill({ color: "#1e40af" }),
+            stroke: new Stroke({ color: "#fff", width: 2.5 }),
+            offsetY: -18,
+          }),
+        })
+      )
+      items.push(f)
+    }
+
+    if (deliveryLoc) {
+      const f = new Feature({
+        geometry: new Point(fromLonLat([deliveryLoc.lng, deliveryLoc.lat])),
+      })
+      f.setStyle(
+        new Style({
+          image: new RegularShape({
+            points: 4,
+            radius: 10,
+            angle: Math.PI / 4,
+            fill: new Fill({ color: "#dc2626" }),
+            stroke: new Stroke({ color: "#b91c1c", width: 2 }),
+          }),
+          text: new Text({
+            text: "배송",
+            font: "bold 11px system-ui",
+            fill: new Fill({ color: "#b91c1c" }),
+            stroke: new Stroke({ color: "#fff", width: 2.5 }),
+            offsetY: -18,
+          }),
+        })
+      )
+      items.push(f)
+    }
+
+    if (latestDriverLocation) {
+      const f = new Feature({
+        geometry: new Point(
+          fromLonLat([latestDriverLocation.lng, latestDriverLocation.lat])
+        ),
+      })
+      f.setStyle(
+        new Style({
+          image: new CircleStyle({
+            radius: 10,
+            fill: new Fill({ color: "#16a34a" }),
+            stroke: new Stroke({ color: "#15803d", width: 2 }),
+          }),
+          text: new Text({
+            text: "기사",
+            font: "bold 11px system-ui",
+            fill: new Fill({ color: "#15803d" }),
+            stroke: new Stroke({ color: "#fff", width: 2.5 }),
+            offsetY: -22,
+          }),
+        })
+      )
+      items.push(f)
+    }
+
+    if (pickup && deliveryLoc && !latestDriverLocation) {
+      const line = new Feature({
+        geometry: new LineString([
+          fromLonLat([pickup.lng, pickup.lat]),
+          fromLonLat([deliveryLoc.lng, deliveryLoc.lat]),
+        ]),
+      })
+      line.setStyle(
+        new Style({ stroke: new Stroke({ color: "#2563eb", width: 3 }) })
+      )
+      items.push(line)
+    } else if (pickup && deliveryLoc) {
+      const line = new Feature({
+        geometry: new LineString([
+          fromLonLat([pickup.lng, pickup.lat]),
+          fromLonLat([deliveryLoc.lng, deliveryLoc.lat]),
+        ]),
+      })
+      line.setStyle(
+        new Style({ stroke: new Stroke({ color: "#64748b", width: 2 }) })
+      )
+      items.push(line)
+    }
+
+    return items
+  }, [pickup, deliveryLoc, latestDriverLocation])
+
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    const vectorSource = new VectorSource({ features })
+    vectorSourceRef.current = vectorSource
+    const vectorLayer = new VectorLayer({ source: vectorSource })
+
+    const map = new Map({
+      target: mapRef.current,
+      layers: [
+        new TileLayer({ source: new OSM() }),
+        vectorLayer,
+      ],
+      view: new View({
+        center: fromLonLat([126.978, 37.5665]),
+        zoom: 13,
+      }),
+    })
+    mapInstanceRef.current = map
+
+    const points = features
+      .map((f) => f.getGeometry())
+      .filter((g): g is Point => g?.getType() === "Point")
+      .map((g) => g.getCoordinates())
+    if (points.length > 0) {
+      const extent = boundingExtent(points)
+      map.getView().fit(extent, { padding: [48, 48, 48, 48], maxZoom: 15 })
+    }
+
+    return () => {
+      map.setTarget(undefined)
+      mapInstanceRef.current = null
+      vectorSourceRef.current = null
+    }
+  }, [pickup, deliveryLoc])
+
+  useEffect(() => {
+    if (!vectorSourceRef.current || !mapInstanceRef.current) return
+    vectorSourceRef.current.clear()
+    vectorSourceRef.current.addFeatures(features)
+    if (features.length > 0) {
+      const points = features
+        .map((f) => f.getGeometry())
+        .filter((g): g is Point => g?.getType() === "Point")
+        .map((g) => g.getCoordinates())
+      if (points.length > 0) {
+        const extent = boundingExtent(points)
+        mapInstanceRef.current.getView().fit(extent, {
+          padding: [48, 48, 48, 48],
+          maxZoom: 15,
+        })
+      }
+    }
+  }, [features])
+
   return (
-    <div className="space-y-4">
-      <div className="bg-accent/50 rounded-lg p-8 text-center">
-        <p className="text-muted-foreground mb-2">실시간 지도 추적</p>
-        <p className="text-sm text-muted-foreground">
-          실제 운영 시 카카오맵 API를 통합하여
-          <br />
-          배송원의 실시간 위치를 지도에 표시합니다
+    <div className="space-y-2">
+      {delivery.status === "pending" && !latestDriverLocation && (
+        <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded border border-amber-200">
+          배송원이 배정되면 실시간 추적이 시작됩니다
         </p>
-
-        {trackingData.length > 0 && (
-          <div className="mt-4 p-4 bg-background rounded-lg">
-            <p className="text-xs text-muted-foreground mb-1">최근 위치 업데이트</p>
-            <p className="text-sm font-mono">{trackingData[0].location}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {new Date(trackingData[0].created_at).toLocaleString("ko-KR")}
-            </p>
-          </div>
-        )}
-
-        {delivery.status === "pending" && (
-          <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
-            <p className="text-sm text-yellow-800">배송원이 배정되면 실시간 추적이 시작됩니다</p>
-          </div>
-        )}
-      </div>
-
-      <div className="text-xs text-muted-foreground space-y-1">
-        <p>💡 개발 참고사항:</p>
-        <ul className="list-disc list-inside space-y-1 ml-2">
-          <li>카카오맵 JavaScript API 연동 필요</li>
-          <li>배송원 앱에서 GPS 위치 자동 전송 구현</li>
-          <li>Supabase Realtime으로 실시간 업데이트 표시</li>
-          <li>경로 최적화 및 예상 도착 시간 계산</li>
-        </ul>
+      )}
+      {latestDriverLocation && (
+        <p className="text-xs text-muted-foreground">
+          최근 업데이트:{" "}
+          {trackingData[0]?.created_at
+            ? new Date(trackingData[0].created_at).toLocaleString("ko-KR")
+            : "-"}
+        </p>
+      )}
+      <div
+        className={
+          fullHeightOnMobile
+            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border border-slate-200 bg-slate-50 sticky top-0 z-10 h-[50dvh] md:h-[320px]"
+            : "overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+        }
+      >
+        <div className="flex shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+            픽업
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm bg-red-500 rotate-45" />
+            배송
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-green-600" />
+            기사
+          </span>
+        </div>
+        <div
+          ref={mapRef}
+          className={fullHeightOnMobile ? "min-h-0 flex-1 w-full" : "h-64 w-full"}
+        />
       </div>
     </div>
   )

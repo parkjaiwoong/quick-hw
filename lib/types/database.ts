@@ -84,6 +84,8 @@ export interface Delivery {
   delivered_at: string | null
   cancelled_at: string | null
 
+  delivery_proof_url?: string | null
+
   delivery_option?: string | null
   vehicle_type?: string | null
   urgency?: string | null

@@ -13,6 +13,7 @@ import Link from "next/link"
 import { acceptDelivery, updateDeliveryStatus } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import { OpenLayersMap } from "@/components/driver/openlayers-map"
+import { DeliveryCompleteForm } from "@/components/driver/delivery-complete-form"
 import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 
@@ -146,21 +147,30 @@ export default async function DriverDeliveryDetailPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId ?? null} />
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">출발지(픽업) 입력칸</p>
-              <Input value={delivery.pickup_address} readOnly />
+      {/* 모바일: 지도 전체화면, 스크롤해도 상단 고정(sticky) */}
+      <div className="w-full">
+        <OpenLayersMap
+          pickup={pickupCoords}
+          delivery={deliveryCoords}
+          showMyLocation
+          fullHeightOnMobile
+        />
+      </div>
+      <div className="p-4">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">출발지(픽업) 입력칸</p>
+                <Input value={delivery.pickup_address} readOnly />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">도착지(배송) 입력칸</p>
+                <Input value={delivery.delivery_address} readOnly />
+              </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">도착지(배송) 입력칸</p>
-              <Input value={delivery.delivery_address} readOnly />
-            </div>
-          </div>
-          <OpenLayersMap pickup={pickupCoords} delivery={deliveryCoords} showMyLocation />
           <div className="space-y-2 pt-2">
             <p className="text-sm font-medium text-muted-foreground">배송 옵션</p>
             <div className="flex flex-wrap items-center gap-2">
@@ -198,8 +208,8 @@ export default async function DriverDeliveryDetailPage({
           </div>
         </div>
 
-        {/* 위치추적: 나중에 사용할 수 있도록 코드 유지, 표시만 비활성화 */}
-        {false && isAssignedToMe && <DriverLocationUpdater deliveryId={delivery.id} />}
+        {/* 배송 수락 후 위치 자동 전송 (관리자/고객 실시간 추적용, UI 없이 백그라운드) */}
+        {isAssignedToMe && <DriverLocationUpdater deliveryId={delivery.id} silent />}
 
         <Card>
           <CardHeader>
@@ -374,8 +384,25 @@ export default async function DriverDeliveryDetailPage({
         )}
 
         {delivery.status === "delivered" && (
-          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            배송이 완료되었습니다. 이 건은 더 이상 수정할 수 없습니다.
+          <div className="space-y-3">
+            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              배송이 완료되었습니다. 이 건은 더 이상 수정할 수 없습니다.
+            </div>
+            {delivery.delivery_proof_url && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">배송 완료 인증</CardTitle>
+                  <CardDescription>업로드한 인증 사진입니다</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <img
+                    src={delivery.delivery_proof_url}
+                    alt="배송 완료 인증"
+                    className="w-full max-h-64 object-contain rounded-lg border"
+                  />
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
@@ -390,24 +417,33 @@ export default async function DriverDeliveryDetailPage({
               </SubmitButtonPending>
             </form>
           ) : statusActionConfig[delivery.status as keyof typeof statusActionConfig] ? (
-            <form action={handleUpdateStatus} className="flex-1">
-              <input
-                type="hidden"
-                name="status"
-                value={statusActionConfig[delivery.status as keyof typeof statusActionConfig].next}
+            statusActionConfig[delivery.status as keyof typeof statusActionConfig].next ===
+            "delivered" ? (
+              <DeliveryCompleteForm
+                deliveryId={delivery.id}
+                label={statusActionConfig[delivery.status as keyof typeof statusActionConfig].label}
+                className="flex-1 w-full"
               />
-              <SubmitButtonPending className="w-full" size="lg">
-                {statusActionConfig[delivery.status as keyof typeof statusActionConfig].label}
-              </SubmitButtonPending>
-            </form>
+            ) : (
+              <form action={handleUpdateStatus} className="flex-1">
+                <input
+                  type="hidden"
+                  name="status"
+                  value={statusActionConfig[delivery.status as keyof typeof statusActionConfig].next}
+                />
+                <SubmitButtonPending className="w-full" size="lg">
+                  {statusActionConfig[delivery.status as keyof typeof statusActionConfig].label}
+                </SubmitButtonPending>
+              </form>
+            )
           ) : (
             <Button className="flex-1" size="lg" disabled>
               처리 완료
             </Button>
           )}
         </div>
-
       </div>
+    </div>
     </div>
   )
 }

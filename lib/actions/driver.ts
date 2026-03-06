@@ -1,7 +1,16 @@
 "use server"
 
+import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+
+function getServiceRoleClient() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) return null
+  return createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, key, {
+    auth: { persistSession: false },
+  })
+}
 
 export async function getAvailableDeliveries() {
   const supabase = await getSupabaseServerClient()
@@ -142,12 +151,70 @@ export async function acceptDelivery(deliveryId: string) {
   return { success: true }
 }
 
-export async function updateDeliveryStatus(deliveryId: string, status: string) {
+/** 기사: 배송 완료 인증 사진 업로드 → public URL 반환 */
+export async function uploadDeliveryProof(deliveryId: string, formData: FormData) {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "인증이 필요합니다." }
+
+  const { data: delivery } = await supabase
+    .from("deliveries")
+    .select("driver_id")
+    .eq("id", deliveryId)
+    .single()
+  if (!delivery || delivery.driver_id !== user.id) {
+    return { error: "이 배송의 담당 기사만 사진을 업로드할 수 있습니다." }
+  }
+
+  const file = formData.get("file") as File | null
+  if (!file || file.size === 0) return { error: "파일을 선택해주세요." }
+  if (!["image/jpeg", "image/png", "image/webp", "image/heic"].includes(file.type)) {
+    return { error: "JPG, PNG, WEBP, HEIC 형식만 업로드 가능합니다." }
+  }
+  if (file.size > 5 * 1024 * 1024) return { error: "파일 크기는 5MB 이하여야 합니다." }
+
+  const svc = getServiceRoleClient()
+  const client = svc ?? supabase
+
+  const ext = file.name.split(".").pop() || "jpg"
+  const path = `${deliveryId}/${Date.now()}.${ext}`
+  const arrayBuffer = await file.arrayBuffer()
+  const buffer = new Uint8Array(arrayBuffer)
+
+  const { error: uploadError } = await client.storage
+    .from("delivery-proofs")
+    .upload(path, buffer, { contentType: file.type, upsert: true })
+
+  if (uploadError) return { error: "파일 업로드에 실패했습니다." }
+
+  const { data: urlData } = client.storage.from("delivery-proofs").getPublicUrl(path)
+  return { success: true, url: urlData.publicUrl }
+}
+
+export async function updateDeliveryStatus(
+  deliveryId: string,
+  status: string,
+  deliveryProofUrl?: string
+) {
   const supabase = await getSupabaseServerClient()
 
-  const { data: current } = await supabase.from("deliveries").select("status, customer_id").eq("id", deliveryId).single()
+  const { data: current } = await supabase
+    .from("deliveries")
+    .select("status, customer_id, driver_id")
+    .eq("id", deliveryId)
+    .single()
   if (current?.status === "delivered") {
     return { error: "이미 배송 완료된 건은 변경할 수 없습니다." }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "인증이 필요합니다." }
+  if (current?.driver_id && current.driver_id !== user.id) {
+    return { error: "이 배송의 담당 기사만 완료 처리할 수 있습니다." }
   }
 
   const updateData: Record<string, unknown> = { status }
@@ -155,6 +222,7 @@ export async function updateDeliveryStatus(deliveryId: string, status: string) {
     updateData.picked_up_at = new Date().toISOString()
   } else if (status === "delivered") {
     updateData.delivered_at = new Date().toISOString()
+    if (deliveryProofUrl) updateData.delivery_proof_url = deliveryProofUrl
   }
 
   // 상태 업데이트 먼저 실행
@@ -189,11 +257,15 @@ export async function updateDeliveryStatus(deliveryId: string, status: string) {
 
   revalidatePath("/driver")
   revalidatePath(`/driver/delivery/${deliveryId}`)
+  revalidatePath(`/customer/delivery/${deliveryId}`)
   return { success: true }
 }
 
 /** accepted 상태에서 픽업완료 → 배송완료를 한 번에 처리 */
-export async function completeDeliveryFromAccepted(deliveryId: string) {
+export async function completeDeliveryFromAccepted(
+  deliveryId: string,
+  deliveryProofUrl?: string
+) {
   const supabase = await getSupabaseServerClient()
 
   const { data: current } = await supabase
@@ -206,11 +278,16 @@ export async function completeDeliveryFromAccepted(deliveryId: string) {
   if (current.status === "delivered") return { error: "이미 배송 완료된 건입니다." }
 
   const now = new Date().toISOString()
+  const updatePayload: Record<string, unknown> = {
+    status: "delivered",
+    picked_up_at: now,
+    delivered_at: now,
+  }
+  if (deliveryProofUrl) updatePayload.delivery_proof_url = deliveryProofUrl
 
-  // picked_up + delivered 를 한 번의 update로 처리
   const { error } = await supabase
     .from("deliveries")
-    .update({ status: "delivered", picked_up_at: now, delivered_at: now })
+    .update(updatePayload)
     .eq("id", deliveryId)
 
   if (error) return { error: error.message }
@@ -239,6 +316,7 @@ export async function completeDeliveryFromAccepted(deliveryId: string) {
 
   revalidatePath("/driver")
   revalidatePath(`/driver/delivery/${deliveryId}`)
+  revalidatePath(`/customer/delivery/${deliveryId}`)
   return { success: true }
 }
 

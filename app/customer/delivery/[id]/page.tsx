@@ -10,6 +10,7 @@ import Link from "next/link"
 import { getOrderPaymentSummaryByDelivery } from "@/lib/actions/finance"
 import { TossPaymentButton } from "@/components/customer/toss-payment-button"
 import { DeliveryStatusRealtime } from "@/components/customer/delivery-status-realtime"
+import { DeliveryTrackingMap } from "@/components/tracking/delivery-tracking-map"
 import { CancelDeliveryButton } from "@/components/customer/cancel-delivery-button"
 import { ReceiptButton } from "@/components/customer/receipt-button"
 import { getCompanyInfo } from "@/lib/actions/company"
@@ -130,6 +131,13 @@ export default async function DeliveryDetailPage({
             기사가 배송 요청을 수락하면 배정됩니다. 잠시만 기다려 주세요.
           </p>
         )}
+
+        {/* 실시간 기사 위치 지도 (픽업/배송지 + 기사 마커) */}
+        <DeliveryTrackingMap
+          deliveryId={id}
+          delivery={delivery}
+          fullHeightOnMobile
+        />
 
         {["pending", "accepted"].includes(delivery.status) && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-4 space-y-2">
@@ -295,6 +303,29 @@ export default async function DeliveryDetailPage({
             <DeliveryStatusTimeline delivery={delivery} />
           </CardContent>
         </Card>
+
+        {delivery.status === "delivered" && delivery.delivery_proof_url && (
+          <Card>
+            <CardHeader>
+              <CardTitle>배송 완료 인증</CardTitle>
+              <CardDescription>기사가 촬영한 배송 완료 사진입니다</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <a
+                href={delivery.delivery_proof_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg overflow-hidden border hover:opacity-90 transition"
+              >
+                <img
+                  src={delivery.delivery_proof_url}
+                  alt="배송 완료 인증 사진"
+                  className="w-full max-h-96 object-contain"
+                />
+              </a>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
