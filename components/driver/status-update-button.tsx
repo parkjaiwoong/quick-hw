@@ -1,6 +1,7 @@
 "use client"
 
-import { useFormStatus } from "react-dom"
+import { useState, startTransition } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 interface StatusUpdateButtonProps {
@@ -12,36 +13,50 @@ interface StatusUpdateButtonProps {
 
 /**
  * 픽업 완료 / 배송 완료(사진 없음) 등 status 전환 버튼.
- * 네이티브 form POST + API redirect 사용 (WebView에서 JS server action이 안 될 때 대응)
+ * fetch + router.refresh()로 부분 갱신 (전체 화면 리로드 없음)
  */
-function SubmitBtn({ label, className }: { label: string; className?: string }) {
-  const { pending } = useFormStatus()
-  return (
-    <Button
-      type="submit"
-      disabled={pending}
-      className={className}
-      size="lg"
-    >
-      {pending ? "처리 중…" : label}
-    </Button>
-  )
-}
-
 export function StatusUpdateButton({
   deliveryId,
   nextStatus,
   label,
   className,
 }: StatusUpdateButtonProps) {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+
+  async function handleClick() {
+    setIsLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append("status", nextStatus)
+      const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
+        method: "POST",
+        body: formData,
+        headers: { Accept: "application/json" },
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data?.error || "처리 중 오류가 발생했습니다.")
+        setIsLoading(false)
+        return
+      }
+      startTransition(() => router.refresh())
+    } catch {
+      alert("처리 중 오류가 발생했습니다.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
-    <form
-      action={`/api/driver/delivery/${deliveryId}/status`}
-      method="POST"
+    <Button
+      type="button"
+      onClick={handleClick}
+      disabled={isLoading}
       className={className}
+      size="lg"
     >
-      <input type="hidden" name="status" value={nextStatus} />
-      <SubmitBtn label={label} className="w-full" />
-    </form>
+      {isLoading ? "처리 중…" : label}
+    </Button>
   )
 }

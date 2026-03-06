@@ -853,12 +853,14 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
               });
             }
             _handleLaunchUrl();
-            // 배송상세 페이지: 위치 권한 사전 요청 (내 위치 지도 표시를 위해)
+            // 배송상세 페이지: 위치/카메라 권한 사전 요청 (내 위치 지도, 배송완료 사진 촬영)
             if (Platform.isAndroid && (url.contains('/driver/delivery/') || url.contains('/driver/delivery'))) {
-              var status = await Permission.location.status;
-              if (!status.isGranted) {
-                status = await Permission.location.request();
-                if (kDebugMode) debugPrint('[기사앱] 배송상세 진입 → 위치 권한 사전 요청: ${status.isGranted ? "허용" : "거부"}');
+              for (final p in [Permission.location, Permission.camera]) {
+                final status = await p.status;
+                if (!status.isGranted) {
+                  await p.request();
+                  if (kDebugMode) debugPrint('[기사앱] 배송상세 진입 → ${p.toString()} 권한 요청');
+                }
               }
             }
           },

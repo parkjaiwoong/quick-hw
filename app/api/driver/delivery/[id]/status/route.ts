@@ -21,12 +21,17 @@ export async function POST(
     if (!["picked_up", "in_transit", "delivered"].includes(status)) {
       return NextResponse.json({ error: "invalid status" }, { status: 400 })
     }
+    const deliveryProofUrl = String(formData.get("delivery_proof_url") || "").trim() || undefined
 
-    const result = await updateDeliveryStatus(deliveryId, status)
+    const result = await updateDeliveryStatus(deliveryId, status, deliveryProofUrl)
     if (result?.error) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
 
+    const wantsJson = req.headers.get("accept")?.includes("application/json")
+    if (wantsJson) {
+      return NextResponse.json({ success: true })
+    }
     return NextResponse.redirect(
       new URL(`/driver/delivery/${deliveryId}`, req.url),
       302

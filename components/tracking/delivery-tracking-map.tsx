@@ -120,9 +120,8 @@ export function DeliveryTrackingMap({
     }
   }, [deliveryId])
 
-  const staticFeatures = useMemo(() => {
-    const items: Array<Feature<Point | LineString>> = []
-
+  const staticFeaturesNoLine = useMemo(() => {
+    const items: Array<Feature<Point>> = []
     if (pickup) {
       const f = new Feature({ geometry: new Point(fromLonLat([pickup.lng, pickup.lat])) })
       f.setStyle(
@@ -169,27 +168,24 @@ export function DeliveryTrackingMap({
       )
       items.push(f)
     }
-
-    if (pickup && deliveryLoc) {
-      const line = new Feature({
-        geometry: new LineString([
-          fromLonLat([pickup.lng, pickup.lat]),
-          fromLonLat([deliveryLoc.lng, deliveryLoc.lat]),
-        ]),
-      })
-      line.setStyle(
-        new Style({
-          stroke: new Stroke({
-            color: latestDriverLocation ? "#64748b" : "#2563eb",
-            width: latestDriverLocation ? 2 : 3,
-          }),
-        })
-      )
-      items.push(line)
-    }
-
     return items
-  }, [pickup, deliveryLoc, latestDriverLocation])
+  }, [pickup, deliveryLoc])
+
+  const lineFeature = useMemo(() => {
+    if (!pickup || !deliveryLoc) return null
+    const line = new Feature({
+      geometry: new LineString([
+        fromLonLat([pickup.lng, pickup.lat]),
+        fromLonLat([deliveryLoc.lng, deliveryLoc.lat]),
+      ]),
+    })
+    line.setStyle(
+      new Style({
+        stroke: new Stroke({ color: "#64748b", width: 2 }),
+      })
+    )
+    return line
+  }, [pickup, deliveryLoc])
 
   const driverFeatureStyle = useMemo(
     () =>
@@ -219,7 +215,8 @@ export function DeliveryTrackingMap({
   useEffect(() => {
     if (!mapRef.current || !hasValidCoords) return
 
-    const allFeatures = [...staticFeatures]
+    const allFeatures: Array<Feature<Point | LineString>> = [...staticFeaturesNoLine]
+    if (lineFeature) allFeatures.push(lineFeature)
     if (latestDriverLocation) {
       const driverF = new Feature({
         geometry: new Point(
