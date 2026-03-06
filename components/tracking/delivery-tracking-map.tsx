@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import Map from "ol/Map"
 import View from "ol/View"
+import { defaults as defaultInteractions } from "ol/interaction"
 import TileLayer from "ol/layer/Tile"
 import VectorLayer from "ol/layer/Vector"
 import VectorSource from "ol/source/Vector"
@@ -45,6 +46,10 @@ function parsePoint(value: unknown): { lat: number; lng: number } | null {
   return null
 }
 
+const MIN_MAP_HEIGHT_PX = 100
+const MAX_MAP_HEIGHT_VH = 95
+const DEFAULT_MAP_HEIGHT_VH = 50
+
 interface DeliveryTrackingMapProps {
   deliveryId: string
   delivery: {
@@ -52,7 +57,7 @@ interface DeliveryTrackingMapProps {
     delivery_location?: unknown
     status?: string
   }
-  /** 모바일에서 지도 전체화면 고정 */
+  /** 모바일에서 지도 전체화면 고정 + 드래그/더블클릭으로 크기 토글 */
   fullHeightOnMobile?: boolean
 }
 
@@ -66,6 +71,9 @@ export function DeliveryTrackingMap({
   const vectorSourceRef = useRef<VectorSource<Feature> | null>(null)
   const driverFeatureRef = useRef<Feature<Point> | null>(null)
   const [trackingData, setTrackingData] = useState<any[]>([])
+  const [mapHeightPx, setMapHeightPx] = useState<number | null>(null)
+  const dragStartYRef = useRef(0)
+  const dragStartHeightRef = useRef(0)
 
   const pickup = parsePoint(delivery.pickup_location)
   const deliveryLoc = parsePoint(delivery.delivery_location)
@@ -202,8 +210,14 @@ export function DeliveryTrackingMap({
     [],
   )
 
+  const pickupLat = pickup?.lat
+  const pickupLng = pickup?.lng
+  const deliveryLat = deliveryLoc?.lat
+  const deliveryLng = deliveryLoc?.lng
+  const hasValidCoords = pickupLat != null && pickupLng != null && deliveryLat != null && deliveryLng != null
+
   useEffect(() => {
-    if (!mapRef.current || !pickup || !deliveryLoc) return
+    if (!mapRef.current || !hasValidCoords) return
 
     const allFeatures = [...staticFeatures]
     if (latestDriverLocation) {
@@ -225,6 +239,9 @@ export function DeliveryTrackingMap({
 
     const map = new Map({
       target: mapRef.current,
+      interactions: fullHeightOnMobile
+        ? defaultInteractions({ doubleClickZoom: false })
+        : undefined,
       layers: [
         new TileLayer({ source: new OSM() }),
         vectorLayer,
@@ -251,7 +268,75 @@ export function DeliveryTrackingMap({
       vectorSourceRef.current = null
       driverFeatureRef.current = null
     }
-  }, [pickup, deliveryLoc])
+  }, [pickupLat, pickupLng, deliveryLat, deliveryLng, hasValidCoords, fullHeightOnMobile])
+
+  const resizableOnMobile = fullHeightOnMobile && typeof window !== "undefined"
+  useEffect(() => {
+    if (resizableOnMobile) {
+      setMapHeightPx(Math.round((window.innerHeight * DEFAULT_MAP_HEIGHT_VH) / 100))
+    }
+  }, [resizableOnMobile])
+
+  useEffect(() => {
+    if (resizableOnMobile && mapHeightPx != null) {
+      mapInstanceRef.current?.updateSize()
+    }
+  }, [resizableOnMobile, mapHeightPx])
+
+  const handleDragStart = useCallback((clientY: number) => {
+    dragStartYRef.current = clientY
+    dragStartHeightRef.current =
+      mapHeightPx ?? Math.round((window.innerHeight * DEFAULT_MAP_HEIGHT_VH) / 100)
+  }, [mapHeightPx])
+
+  const handleDragMove = useCallback((clientY: number) => {
+    const delta = dragStartYRef.current - clientY
+    const maxPx = Math.round((window.innerHeight * MAX_MAP_HEIGHT_VH) / 100)
+    const next = Math.max(
+      MIN_MAP_HEIGHT_PX,
+      Math.min(maxPx, dragStartHeightRef.current + delta),
+    )
+    setMapHeightPx(next)
+  }, [])
+
+  const handlePointerDown = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      if (!resizableOnMobile) return
+      const y = "touches" in e ? e.touches[0]?.clientY : e.clientY
+      if (y == null) return
+      handleDragStart(y)
+      const onMove = (ev: MouseEvent | TouchEvent) => {
+        const yy = "touches" in ev ? (ev as TouchEvent).touches[0]?.clientY : (ev as MouseEvent).clientY
+        if (yy != null) handleDragMove(yy)
+      }
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove)
+        document.removeEventListener("mouseup", onUp)
+        document.removeEventListener("touchmove", onMove, { passive: true })
+        document.removeEventListener("touchend", onUp)
+        document.body.style.touchAction = ""
+        document.body.style.userSelect = ""
+      }
+      document.body.style.touchAction = "none"
+      document.body.style.userSelect = "none"
+      document.addEventListener("mousemove", onMove)
+      document.addEventListener("mouseup", onUp)
+      document.addEventListener("touchmove", onMove, { passive: true })
+      document.addEventListener("touchend", onUp)
+    },
+    [resizableOnMobile, handleDragStart, handleDragMove],
+  )
+
+  const handleDoubleClick = useCallback(() => {
+    if (!resizableOnMobile) return
+    setMapHeightPx((prev) => {
+      const maxPx = typeof window !== "undefined"
+        ? Math.round((window.innerHeight * MAX_MAP_HEIGHT_VH) / 100)
+        : 400
+      if (prev == null || prev <= MIN_MAP_HEIGHT_PX) return maxPx
+      return MIN_MAP_HEIGHT_PX
+    })
+  }, [resizableOnMobile])
 
   useEffect(() => {
     if (!latestDriverLocation) return
@@ -294,8 +379,15 @@ export function DeliveryTrackingMap({
       <div
         className={
           fullHeightOnMobile
-            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border border-slate-200 bg-slate-50 sticky top-0 z-10 h-[50dvh] md:h-[320px]"
+            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border border-slate-200 bg-slate-50 sticky top-0 z-10 md:h-[320px]"
             : "overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+        }
+        style={
+          fullHeightOnMobile && mapHeightPx != null
+            ? { height: `${mapHeightPx}px` }
+            : fullHeightOnMobile
+              ? { height: `${DEFAULT_MAP_HEIGHT_VH}dvh` }
+              : undefined
         }
       >
         <div className="flex shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
@@ -314,8 +406,26 @@ export function DeliveryTrackingMap({
         </div>
         <div
           ref={mapRef}
-          className={fullHeightOnMobile ? "min-h-0 flex-1 w-full" : "h-64 w-full"}
+          onDoubleClick={handleDoubleClick}
+          className={
+            fullHeightOnMobile
+              ? "min-h-0 flex-1 w-full min-h-[80px]"
+              : "h-64 w-full"
+          }
         />
+        {fullHeightOnMobile && (
+          <div
+            role="button"
+            tabIndex={0}
+            onMouseDown={handlePointerDown}
+            onTouchStart={handlePointerDown}
+            onDoubleClick={handleDoubleClick}
+            className="flex shrink-0 cursor-grab active:cursor-grabbing touch-none justify-center py-3 bg-slate-100 hover:bg-slate-200 border-t border-slate-200"
+            aria-label="지도 높이 조절 (드래그) 또는 더블클릭으로 전체/숨김"
+          >
+            <span className="w-12 h-1.5 rounded-full bg-slate-400" />
+          </div>
+        )}
       </div>
     </div>
   )
