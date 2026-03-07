@@ -61,6 +61,9 @@ export function OpenLayersMap({
 }: OpenLayersMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<InstanceType<typeof Map> | null>(null)
+  const vectorSourceRef = useRef<VectorSource<Feature> | null>(null)
+  const myLocationFeatureRef = useRef<Feature<Point> | null>(null)
+  const lineToPickupFeatureRef = useRef<Feature<LineString> | null>(null)
   const dragStartYRef = useRef(0)
   const dragStartHeightRef = useRef(0)
 
@@ -143,9 +146,8 @@ export function OpenLayersMap({
       ? haversineKm(myLocation.lat, myLocation.lng, pickup.lat, pickup.lng)
       : null
 
-  const features = useMemo(() => {
+  const staticFeatures = useMemo(() => {
     const items: Array<Feature<Point | LineString>> = []
-
     if (pickup) {
       const pickupFeature = new Feature({
         geometry: new Point(fromLonLat([pickup.lng, pickup.lat])),
@@ -170,7 +172,6 @@ export function OpenLayersMap({
       )
       items.push(pickupFeature)
     }
-
     if (delivery) {
       const deliveryFeature = new Feature({
         geometry: new Point(fromLonLat([delivery.lng, delivery.lat])),
@@ -195,65 +196,12 @@ export function OpenLayersMap({
       )
       items.push(deliveryFeature)
     }
-
-    if (myLocation) {
-      const myFeature = new Feature({
-        geometry: new Point(fromLonLat([myLocation.lng, myLocation.lat])),
-      })
-      myFeature.setStyle(
-        new Style({
-          image: new CircleStyle({
-            radius: 8,
-            fill: new Fill({ color: "#16a34a" }),
-            stroke: new Stroke({ color: "#15803d", width: 2 }),
-          }),
-          text: new Text({
-            text: "내 위치",
-            font: "bold 11px system-ui, sans-serif",
-            fill: new Fill({ color: "#15803d" }),
-            stroke: new Stroke({ color: "#ffffff", width: 2.5 }),
-            offsetY: -18,
-          }),
-        })
-      )
-      items.push(myFeature)
-
-      if (pickup) {
-        const myPoint = fromLonLat([myLocation.lng, myLocation.lat])
-        const pickupPoint = fromLonLat([pickup.lng, pickup.lat])
-        const lineToPickup = new Feature({
-          geometry: new LineString([myPoint, pickupPoint]),
-        })
-        lineToPickup.setStyle(
-          new Style({
-            stroke: new Stroke({
-              color: "rgba(22, 163, 74, 0.8)",
-              width: 4,
-              lineDash: [8, 6],
-            }),
-          })
-        )
-        items.push(lineToPickup)
-      }
-    }
-
-    if (pickup && delivery && !myLocation) {
-      const pickupPoint = fromLonLat([pickup.lng, pickup.lat])
-      const deliveryPoint = fromLonLat([delivery.lng, delivery.lat])
+    if (pickup && delivery) {
       const lineFeature = new Feature({
-        geometry: new LineString([pickupPoint, deliveryPoint]),
-      })
-      lineFeature.setStyle(
-        new Style({
-          stroke: new Stroke({ color: "#2563eb", width: 3 }),
-        })
-      )
-      items.push(lineFeature)
-    } else if (pickup && delivery) {
-      const pickupPoint = fromLonLat([pickup.lng, pickup.lat])
-      const deliveryPoint = fromLonLat([delivery.lng, delivery.lat])
-      const lineFeature = new Feature({
-        geometry: new LineString([pickupPoint, deliveryPoint]),
+        geometry: new LineString([
+          fromLonLat([pickup.lng, pickup.lat]),
+          fromLonLat([delivery.lng, delivery.lat]),
+        ]),
       })
       lineFeature.setStyle(
         new Style({
@@ -262,22 +210,80 @@ export function OpenLayersMap({
       )
       items.push(lineFeature)
     }
-
     return items
-  }, [pickup, delivery, myLocation])
+  }, [pickup, delivery])
+
+  const myLocationFeatureStyle = useMemo(
+    () =>
+      new Style({
+        image: new CircleStyle({
+          radius: 8,
+          fill: new Fill({ color: "#16a34a" }),
+          stroke: new Stroke({ color: "#15803d", width: 2 }),
+        }),
+        text: new Text({
+          text: "내 위치",
+          font: "bold 11px system-ui, sans-serif",
+          fill: new Fill({ color: "#15803d" }),
+          stroke: new Stroke({ color: "#ffffff", width: 2.5 }),
+          offsetY: -18,
+        }),
+      }),
+    [],
+  )
+
+  const pickupLng = pickup?.lng
+  const pickupLat = pickup?.lat
+  const deliveryLng = delivery?.lng
+  const deliveryLat = delivery?.lat
+  const hasCoords = pickupLng != null && pickupLat != null && deliveryLng != null && deliveryLat != null
 
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!mapRef.current || !hasCoords) return
 
-    const vectorSource = new VectorSource({ features })
+    const allFeatures: Array<Feature<Point | LineString>> = [...staticFeatures]
+    if (myLocation) {
+      const myF = new Feature({
+        geometry: new Point(fromLonLat([myLocation.lng, myLocation.lat])),
+      })
+      myF.setStyle(myLocationFeatureStyle)
+      myLocationFeatureRef.current = myF
+      allFeatures.push(myF)
+      if (pickup) {
+        const lineF = new Feature({
+          geometry: new LineString([
+            fromLonLat([myLocation.lng, myLocation.lat]),
+            fromLonLat([pickup.lng, pickup.lat]),
+          ]),
+        })
+        lineF.setStyle(
+          new Style({
+            stroke: new Stroke({
+              color: "rgba(22, 163, 74, 0.8)",
+              width: 4,
+              lineDash: [8, 6],
+            }),
+          })
+        )
+        lineToPickupFeatureRef.current = lineF
+        allFeatures.push(lineF)
+      }
+    } else {
+      myLocationFeatureRef.current = null
+      lineToPickupFeatureRef.current = null
+    }
+
+    const vectorSource = new VectorSource({ features: allFeatures })
+    vectorSourceRef.current = vectorSource
     const vectorLayer = new VectorLayer({ source: vectorSource })
 
     const map = new Map({
       target: mapRef.current!,
+      interactions: resizableOnMobile
+        ? defaultInteractions({ doubleClickZoom: false })
+        : undefined,
       layers: [
-        new TileLayer({
-          source: new OSM(),
-        }),
+        new TileLayer({ source: new OSM() }),
         vectorLayer,
       ],
       view: new View({
@@ -286,7 +292,7 @@ export function OpenLayersMap({
       }),
     })
 
-    const pointGeometries = features
+    const pointGeometries = allFeatures
       .map((f) => f.getGeometry())
       .filter((g): g is Point => g?.getType() === "Point")
       .map((g) => g.getCoordinates())
@@ -299,8 +305,51 @@ export function OpenLayersMap({
     return () => {
       map.setTarget(undefined)
       mapInstanceRef.current = null
+      vectorSourceRef.current = null
+      myLocationFeatureRef.current = null
     }
-  }, [features, resizableOnMobile])
+  }, [pickupLng, pickupLat, deliveryLng, deliveryLat, hasCoords, resizableOnMobile])
+
+  useEffect(() => {
+    if (!myLocation || !pickup) return
+    const mf = myLocationFeatureRef.current
+    const lineF = lineToPickupFeatureRef.current
+    const src = vectorSourceRef.current
+    const coords = fromLonLat([myLocation.lng, myLocation.lat])
+    const pickupCoords = fromLonLat([pickup.lng, pickup.lat])
+    if (mf && src && src.getFeatures().includes(mf)) {
+      const geom = mf.getGeometry()
+      if (geom && geom.getType() === "Point") {
+        ;(geom as Point).setCoordinates(coords)
+      }
+    } else if (src && mapInstanceRef.current) {
+      const myF = new Feature({ geometry: new Point(coords) })
+      myF.setStyle(myLocationFeatureStyle)
+      myLocationFeatureRef.current = myF
+      src.addFeature(myF)
+      const lineFeature = new Feature({
+        geometry: new LineString([coords, pickupCoords]),
+      })
+      lineFeature.setStyle(
+        new Style({
+          stroke: new Stroke({
+            color: "rgba(22, 163, 74, 0.8)",
+            width: 4,
+            lineDash: [8, 6],
+          }),
+        })
+      )
+      lineToPickupFeatureRef.current = lineFeature
+      src.addFeature(lineFeature)
+      return
+    }
+    if (lineF && src && src.getFeatures().includes(lineF)) {
+      const geom = lineF.getGeometry()
+      if (geom && geom.getType() === "LineString") {
+        ;(geom as LineString).setCoordinates([coords, pickupCoords])
+      }
+    }
+  }, [myLocation, myLocationFeatureStyle, pickup])
 
   useEffect(() => {
     if (!resizableOnMobile || typeof window === "undefined") return
