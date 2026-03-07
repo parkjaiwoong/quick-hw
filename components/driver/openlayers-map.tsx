@@ -490,7 +490,7 @@ export function OpenLayersMap({
             onMouseDown={handlePointerDown}
             onTouchStart={handlePointerDown}
             onDoubleClick={handleDoubleClick}
-            className="flex shrink-0 cursor-grab active:cursor-grabbing justify-center py-4 bg-slate-100 hover:bg-slate-200 border-t-2 border-slate-300 min-h-[44px] touch-manipulation select-none"
+            className="flex shrink-0 cursor-grab active:cursor-grabbing justify-center py-4 bg-slate-100 hover:bg-slate-200 border-t-2 border-slate-300 min-h-[44px] touch-manipulation select-none sticky bottom-[88px] z-[25] md:sticky md:bottom-0 md:z-auto shadow-[0_-2px_8px_rgba(0,0,0,0.1)] md:shadow-none"
             aria-label="지도 높이 조절 (드래그) 또는 더블클릭으로 전체/숨김"
           >
             <span className="w-14 h-1.5 rounded-full bg-slate-500 block" />

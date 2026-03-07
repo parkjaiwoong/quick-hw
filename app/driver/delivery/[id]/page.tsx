@@ -17,6 +17,7 @@ import { DeliveryCompleteForm } from "@/components/driver/delivery-complete-form
 import { StatusUpdateButton } from "@/components/driver/status-update-button"
 import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
+import { AddressWithTmap } from "@/components/driver/address-with-tmap"
 
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
@@ -220,7 +221,12 @@ export default async function DriverDeliveryDetailPage({
               <TableBody>
                 <TableRow>
                   <TableCell className="font-semibold">픽업</TableCell>
-                  <TableCell>{delivery.pickup_address}</TableCell>
+                  <TableCell>
+                    <AddressWithTmap
+                      address={delivery.pickup_address ?? ""}
+                      coords={pickupCoords}
+                    />
+                  </TableCell>
                   <TableCell>{delivery.pickup_contact_name}</TableCell>
                   <TableCell>
                     <Button asChild size="sm" variant="outline">
@@ -231,7 +237,12 @@ export default async function DriverDeliveryDetailPage({
                 </TableRow>
                 <TableRow>
                   <TableCell className="font-semibold">배송</TableCell>
-                  <TableCell>{delivery.delivery_address}</TableCell>
+                  <TableCell>
+                    <AddressWithTmap
+                      address={delivery.delivery_address ?? ""}
+                      coords={deliveryCoords}
+                    />
+                  </TableCell>
                   <TableCell>{delivery.delivery_contact_name}</TableCell>
                   <TableCell>
                     <Button asChild size="sm" variant="outline">
