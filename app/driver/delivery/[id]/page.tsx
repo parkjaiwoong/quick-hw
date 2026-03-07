@@ -140,7 +140,7 @@ export default async function DriverDeliveryDetailPage({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId ?? null} />
-      {/* 모바일: 지도 전체화면, 스크롤해도 상단 고정(sticky) */}
+      {/* 모바일: 지도 확대 가능, 하단 액션바가 항상 노출되도록 pb-24 */}
       <div className="w-full">
         <OpenLayersMap
           pickup={pickupCoords}
@@ -149,7 +149,7 @@ export default async function DriverDeliveryDetailPage({
           resizableOnMobile
         />
       </div>
-      <div className="p-4">
+      <div className="p-4 pb-24 md:pb-4">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
@@ -397,7 +397,8 @@ export default async function DriverDeliveryDetailPage({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3">
+        {/* 액션 버튼: 모바일에서는 하단 고정(z-20)으로 지도에 가려지지 않도록 */}
+        <div className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-between gap-3 p-4 bg-white/95 backdrop-blur border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] md:static md:z-auto md:bg-transparent md:backdrop-blur-none md:border-0 md:shadow-none md:p-0">
           <Button asChild variant="outline" size="lg" className="flex-1">
             <Link href="/driver">넘기기</Link>
           </Button>

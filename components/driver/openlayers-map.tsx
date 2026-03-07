@@ -357,6 +357,14 @@ export function OpenLayersMap({
   }, [resizableOnMobile])
 
   useEffect(() => {
+    if (!resizableOnMobile) return
+    return () => {
+      document.body.style.touchAction = ""
+      document.body.style.userSelect = ""
+    }
+  }, [resizableOnMobile])
+
+  useEffect(() => {
     if (!resizableOnMobile || mapHeightPx == null) return
     mapInstanceRef.current?.updateSize()
   }, [resizableOnMobile, mapHeightPx])
@@ -395,20 +403,22 @@ export function OpenLayersMap({
         const yy = "touches" in ev ? ev.touches[0]?.clientY : ev.clientY
         if (yy != null) handleDragMove(yy)
       }
-      const onUp = () => {
+      const cleanup = () => {
         document.removeEventListener("mousemove", onMove)
-        document.removeEventListener("mouseup", onUp)
+        document.removeEventListener("mouseup", cleanup)
         document.removeEventListener("touchmove", onMove, { passive: true })
-        document.removeEventListener("touchend", onUp)
+        document.removeEventListener("touchend", cleanup)
+        document.removeEventListener("touchcancel", cleanup)
         document.body.style.touchAction = ""
         document.body.style.userSelect = ""
       }
       document.body.style.touchAction = "none"
       document.body.style.userSelect = "none"
       document.addEventListener("mousemove", onMove)
-      document.addEventListener("mouseup", onUp)
+      document.addEventListener("mouseup", cleanup)
       document.addEventListener("touchmove", onMove, { passive: true })
-      document.addEventListener("touchend", onUp)
+      document.addEventListener("touchend", cleanup)
+      document.addEventListener("touchcancel", cleanup)
     },
     [resizableOnMobile, handleDragStart, handleDragMove],
   )
@@ -439,7 +449,7 @@ export function OpenLayersMap({
       <div
         className={
           resizableOnMobile
-            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border-0 md:border border-slate-200 bg-slate-50 shadow-none md:shadow-sm sticky top-0 z-10 md:h-auto"
+            ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border-0 md:border border-slate-200 bg-slate-50 shadow-none md:shadow-sm md:sticky md:top-0 md:z-10 md:h-auto"
             : "overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm"
         }
         style={
