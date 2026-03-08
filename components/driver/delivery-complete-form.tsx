@@ -56,6 +56,7 @@ export function DeliveryCompleteForm({
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [permissionRetrying, setPermissionRetrying] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -72,7 +73,8 @@ export function DeliveryCompleteForm({
     }
   }, [])
 
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (isRetry = false) => {
+    if (isRetry) setPermissionRetrying(true)
     setCameraError(null)
     setPermissionDenied(false)
     setCameraReady(false)
@@ -87,13 +89,17 @@ export function DeliveryCompleteForm({
     } catch (e: unknown) {
       const err = e as DOMException
       if (err?.name === "NotAllowedError" || err?.code === 1) {
-        setCameraError("카메라 접근이 거부되었습니다. 아래 버튼으로 권한을 허용해 주세요.")
+        setCameraError(
+          "카메라 권한이 거부되었습니다. 브라우저 또는 앱 설정에서 카메라를 허용해 주세요. 허용 후 다시 시도하세요."
+        )
         setPermissionDenied(true)
       } else if (err?.name === "NotFoundError") {
         setCameraError("카메라를 찾을 수 없습니다.")
       } else {
         setCameraError("카메라에 접근할 수 없습니다. 브라우저 설정에서 권한을 확인해 주세요.")
       }
+    } finally {
+      setPermissionRetrying(false)
     }
   }, [stopCamera])
 
@@ -228,6 +234,7 @@ export function DeliveryCompleteForm({
     setCameraReady(false)
     setCameraError(null)
     setPermissionDenied(false)
+    setPermissionRetrying(false)
     setOpen(false)
     setPreview(null)
     setUploadedUrl(null)
@@ -240,7 +247,7 @@ export function DeliveryCompleteForm({
     setCameraModalOpen(true)
     setCameraError(null)
     setPermissionDenied(false)
-    startCamera()
+    startCamera(false)
   }
 
   const closeCameraModal = () => {
@@ -372,10 +379,39 @@ export function DeliveryCompleteForm({
                 </div>
                 <p className="text-sm text-slate-700">{cameraError}</p>
                 {permissionDenied && (
-                  <Button type="button" onClick={startCamera} className="gap-2">
-                    <Video className="h-4 w-4" />
-                    카메라 접근 권한 허용 요청
-                  </Button>
+                  <div className="flex flex-col gap-2 w-full max-w-xs">
+                    <Button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        startCamera(true)
+                      }}
+                      disabled={permissionRetrying}
+                      className="gap-2 w-full"
+                    >
+                      {permissionRetrying ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                          권한 요청 중…
+                        </>
+                      ) : (
+                        <>
+                          <Video className="h-4 w-4" />
+                          다시 권한 요청
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={closeCameraModal}
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      취소하고 갤러리에서 선택
+                    </Button>
+                  </div>
                 )}
               </div>
             ) : cameraReady && streamRef.current ? (
