@@ -17,10 +17,12 @@ import { Camera, Image as ImageIcon, Video } from "lucide-react"
 
 interface DeliveryCompleteFormProps {
   deliveryId: string
-  label?: string
+  label?: React.ReactNode
   variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive"
   size?: "default" | "sm" | "lg" | "icon"
   className?: string
+  /** accepted → delivered 한 번에 처리 (대시보드 등) */
+  fromAccepted?: boolean
 }
 
 async function uploadBlob(deliveryId: string, blob: Blob): Promise<string> {
@@ -41,6 +43,7 @@ export function DeliveryCompleteForm({
   variant = "default",
   size = "lg",
   className,
+  fromAccepted = false,
 }: DeliveryCompleteFormProps) {
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
@@ -271,6 +274,7 @@ export function DeliveryCompleteForm({
         >
           <input type="hidden" name="status" value="delivered" />
           <input type="hidden" name="delivery_proof_url" value={uploadedUrl ?? ""} />
+          {fromAccepted && <input type="hidden" name="from_accepted" value="1" />}
           <div className="space-y-4">
             {/* 촬영한 사진 미리보기: 모달에서 바로 확인 */}
             {preview && (

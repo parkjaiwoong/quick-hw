@@ -4,10 +4,10 @@ import type { Delivery } from "@/lib/types/database"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Phone, Bike, Clock, Calendar, Zap, CheckCircle2 } from "lucide-react"
-import { updateDeliveryStatus, completeDeliveryFromAccepted } from "@/lib/actions/driver"
 import { useRouter } from "next/navigation"
-import { useState, startTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
+import { DeliveryCompleteForm } from "@/components/driver/delivery-complete-form"
 
 interface AssignedDeliveriesProps {
   deliveries: Delivery[]
@@ -21,43 +21,32 @@ const statusConfig = {
 
 export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
   const router = useRouter()
-  // loadingId: 처리 중인 배송 ID
   const [loadingId, setLoadingId] = useState<string | null>(null)
-  // completedIds: 완료 처리된 배송 ID 목록 (낙관적 UI — 서버 갱신 전 즉시 숨김)
-  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
 
-  const visibleDeliveries = deliveries.filter((d) => !completedIds.has(d.id))
-
-  async function handleUpdateStatus(deliveryId: string, newStatus: string) {
+  async function handlePickupComplete(deliveryId: string) {
     setLoadingId(deliveryId)
-    const result = await updateDeliveryStatus(deliveryId, newStatus)
-    if (result.error) {
+    try {
+      const fd = new FormData()
+      fd.set("status", "picked_up")
+      const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
+        method: "POST",
+        body: fd,
+        credentials: "same-origin",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data?.error || "처리 중 오류가 발생했습니다.")
+        return
+      }
+      router.refresh()
+    } catch {
+      alert("네트워크 오류. 다시 시도해 주세요.")
+    } finally {
       setLoadingId(null)
-      alert(result.error)
-      return
     }
-    if (newStatus === "delivered") {
-      setCompletedIds((prev) => new Set(prev).add(deliveryId))
-    }
-    setLoadingId(null)
-    startTransition(() => router.refresh())
   }
 
-  // accepted → picked_up + delivered 한 번에 처리 (단일 서버 액션)
-  async function handleCompleteFromAccepted(deliveryId: string) {
-    setLoadingId(deliveryId)
-    const result = await completeDeliveryFromAccepted(deliveryId)
-    if (result.error) {
-      setLoadingId(null)
-      alert(result.error)
-      return
-    }
-    setCompletedIds((prev) => new Set(prev).add(deliveryId))
-    setLoadingId(null)
-    startTransition(() => router.refresh())
-  }
-
-  if (visibleDeliveries.length === 0) {
+  if (deliveries.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">진행 중인 배송이 없습니다</p>
@@ -67,7 +56,7 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
 
   return (
     <div className="space-y-4">
-      {visibleDeliveries.map((delivery) => {
+      {deliveries.map((delivery) => {
         const config = statusConfig[delivery.status as keyof typeof statusConfig]
         const isLoading = loadingId === delivery.id
 
@@ -151,7 +140,7 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
               {/* 픽업완료 버튼 (accepted 상태만) */}
               {delivery.status === "accepted" && (
                 <Button
-                  onClick={() => handleUpdateStatus(delivery.id, "picked_up")}
+                  onClick={() => handlePickupComplete(delivery.id)}
                   disabled={isLoading}
                   size="sm"
                   variant="outline"
@@ -161,26 +150,19 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
                 </Button>
               )}
 
-              {/* 배송완료 버튼 */}
-              <Button
-                onClick={() =>
-                  delivery.status === "accepted"
-                    ? handleCompleteFromAccepted(delivery.id)
-                    : handleUpdateStatus(delivery.id, "delivered")
-                }
-                disabled={isLoading}
-                size="sm"
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-1"
-              >
-                {isLoading ? (
-                  "처리중..."
-                ) : (
+              {/* 배송완료: 사진 촬영 모달 팝업 */}
+              <DeliveryCompleteForm
+                deliveryId={delivery.id}
+                fromAccepted={delivery.status === "accepted"}
+                label={
                   <>
                     <CheckCircle2 className="h-4 w-4" />
                     배송 완료
                   </>
-                )}
-              </Button>
+                }
+                size="sm"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-1"
+              />
             </div>
           </div>
         )

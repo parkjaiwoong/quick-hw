@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { updateDeliveryStatus } from "@/lib/actions/driver"
+import { updateDeliveryStatus, completeDeliveryFromAccepted } from "@/lib/actions/driver"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 
 /**
@@ -24,8 +24,14 @@ export async function POST(
       return NextResponse.json({ error: "invalid status" }, { status: 400 })
     }
     const deliveryProofUrl = String(formData.get("delivery_proof_url") || "").trim() || undefined
+    const fromAccepted = formData.get("from_accepted") === "1"
 
-    const result = await updateDeliveryStatus(deliveryId, status, deliveryProofUrl)
+    let result: { error?: string } | { success?: boolean }
+    if (status === "delivered" && fromAccepted) {
+      result = await completeDeliveryFromAccepted(deliveryId, deliveryProofUrl)
+    } else {
+      result = await updateDeliveryStatus(deliveryId, status, deliveryProofUrl)
+    }
     if (result?.error) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
