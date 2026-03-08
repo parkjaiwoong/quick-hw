@@ -11,29 +11,27 @@ interface AddressWithKakaoMapProps {
 
 /**
  * 차량/오토바이 길찾기 (대중교통 제외).
- * kakaomap://route = 카카오맵 앱 자동차 경로안내. Android: intent, 미설치 시 카카오맵 웹 fallback.
+ * Android: 카카오맵 앱 시도, 미설치 시 구글맵 fallback.
+ * 기타: 구글맵 (안정적 동작).
  */
 function getMapUrl(address: string, coords: { lat: number; lng: number } | null | undefined) {
   if (!address && !coords) return null
+  const dest = coords ? `${coords.lat},${coords.lng}` : encodeURIComponent(address)
+  const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`
 
-  // 카카오맵 웹: 좌표 있으면 /link/to/장소명,위도,경도, 없으면 검색
-  const kakaoWebUrl = coords
-    ? `https://map.kakao.com/link/to/${encodeURIComponent(address || "목적지")},${coords.lat},${coords.lng}`
-    : `https://map.kakao.com/?q=${encodeURIComponent(address)}`
-
-  if (typeof navigator === "undefined") return kakaoWebUrl
+  if (typeof navigator === "undefined") return googleUrl
   const ua = navigator.userAgent || ""
   const isAndroid = /Android/i.test(ua)
   if (isAndroid && coords) {
     const ep = `${coords.lat},${coords.lng}`
-    const intent = `intent://route?ep=${ep}&by=car#Intent;scheme=kakaomap;package=net.daum.android.map;S.browser_fallback_url=${encodeURIComponent(kakaoWebUrl)};end`
+    const intent = `intent://route?ep=${ep}&by=car#Intent;scheme=kakaomap;package=net.daum.android.map;S.browser_fallback_url=${encodeURIComponent(googleUrl)};end`
     return intent
   }
-  return kakaoWebUrl
+  return googleUrl
 }
 
 /**
- * 주소 셀: 클릭 시 클립보드 복사, 지도 앱 링크 (Android→카카오맵/웹, 기타→카카오맵 웹)
+ * 주소 셀: 클릭 시 클립보드 복사, 지도 앱 링크 (Android→카카오맵/구글맵 fallback, 기타→구글맵)
  */
 export function AddressWithKakaoMap({ address, coords }: AddressWithKakaoMapProps) {
   const [copied, setCopied] = useState(false)
