@@ -71,11 +71,13 @@ interface DeliveryCompleteFormProps {
 }
 
 async function uploadBlob(deliveryId: string, blob: Blob): Promise<string> {
+  const file = new File([blob], "capture.jpg", { type: "image/jpeg" })
   const formData = new FormData()
-  formData.append("file", blob, "capture.jpg")
+  formData.append("file", file)
   const res = await fetch(`/api/driver/delivery/${deliveryId}/upload-proof`, {
     method: "POST",
     body: formData,
+    credentials: "include",
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data?.error || "업로드에 실패했습니다.")
@@ -177,12 +179,18 @@ export function DeliveryCompleteForm({
   const handleCapture = useCallback(async () => {
     const video = videoRef.current
     if (!video || !video.srcObject || video.readyState < 2) return
+    const w = video.videoWidth || 640
+    const h = video.videoHeight || 480
+    if (w < 1 || h < 1) {
+      setCameraModalError("카메라 화면을 불러오는 중입니다. 잠시 후 다시 시도해주세요.")
+      return
+    }
     setLoading(true)
     setCameraModalError(null)
     try {
       const canvas = canvasRef.current || document.createElement("canvas")
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
+      canvas.width = w
+      canvas.height = h
       const ctx = canvas.getContext("2d")
       if (!ctx) throw new Error("Canvas not available")
       ctx.drawImage(video, 0, 0)
