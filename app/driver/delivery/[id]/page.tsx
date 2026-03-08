@@ -1,14 +1,12 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getDeliveryForDriver } from "@/lib/actions/tracking"
 import { DriverLocationUpdater } from "@/components/driver/driver-location-updater"
 import { DeliveryStatusTimeline } from "@/components/tracking/delivery-status-timeline"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Phone, Bike, Clock, Calendar, Zap } from "lucide-react"
+import { MapPin, Bike, Clock, Calendar, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { acceptDelivery } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
@@ -135,18 +133,7 @@ export default async function DriverDeliveryDetailPage({
       >
       <div className="p-4 pb-24 md:pb-4">
         <div className="max-w-4xl mx-auto space-y-6">
-          <div className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">출발지(픽업) 입력칸</p>
-                <Input value={delivery.pickup_address} readOnly />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">도착지(배송) 입력칸</p>
-                <Input value={delivery.delivery_address} readOnly />
-              </div>
-            </div>
-          <div className="space-y-2 pt-2">
+          <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">배송 옵션</p>
             <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="gap-1">
@@ -189,53 +176,59 @@ export default async function DriverDeliveryDetailPage({
         <Card>
           <CardHeader>
             <CardTitle>픽업/배송 정보</CardTitle>
+            <CardDescription className="sr-only md:not-sr-only">
+              담당자, 연락처, 메모가 아래에 함께 표시됩니다
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[90px]">구분</TableHead>
-                  <TableHead>주소</TableHead>
-                  <TableHead className="w-[140px]">담당자</TableHead>
-                  <TableHead className="w-[140px]">연락처</TableHead>
-                  <TableHead>메모</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-semibold">픽업</TableCell>
-                  <TableCell>
-                    <AddressWithKakaoMap
-                      address={delivery.pickup_address ?? ""}
-                      coords={pickupCoords}
-                    />
-                  </TableCell>
-                  <TableCell>{delivery.pickup_contact_name}</TableCell>
-                  <TableCell>
-                    <Button asChild size="sm" variant="outline">
-                      <a href={`tel:${delivery.pickup_contact_phone}`}>{delivery.pickup_contact_phone}</a>
-                    </Button>
-                  </TableCell>
-                  <TableCell>{delivery.pickup_notes || "없음"}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-semibold">배송</TableCell>
-                  <TableCell>
-                    <AddressWithKakaoMap
-                      address={delivery.delivery_address ?? ""}
-                      coords={deliveryCoords}
-                    />
-                  </TableCell>
-                  <TableCell>{delivery.delivery_contact_name}</TableCell>
-                  <TableCell>
-                    <Button asChild size="sm" variant="outline">
-                      <a href={`tel:${delivery.delivery_contact_phone}`}>{delivery.delivery_contact_phone}</a>
-                    </Button>
-                  </TableCell>
-                  <TableCell>{delivery.delivery_notes || "없음"}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+          <CardContent className="space-y-4">
+            {/* 픽업 */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <p className="text-sm font-semibold flex items-center gap-1">
+                <MapPin className="h-4 w-4 text-blue-600" />
+                픽업
+              </p>
+              <div>
+                <AddressWithKakaoMap
+                  address={delivery.pickup_address ?? ""}
+                  coords={pickupCoords}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span className="text-muted-foreground">담당자</span>
+                <span>{delivery.pickup_contact_name}</span>
+                <span className="text-muted-foreground">연락처</span>
+                <Button asChild size="sm" variant="outline" className="h-7">
+                  <a href={`tel:${delivery.pickup_contact_phone}`}>{delivery.pickup_contact_phone}</a>
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium">메모</span> {delivery.pickup_notes || "없음"}
+              </p>
+            </div>
+            {/* 배송 */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <p className="text-sm font-semibold flex items-center gap-1">
+                <MapPin className="h-4 w-4 text-red-600" />
+                배송
+              </p>
+              <div>
+                <AddressWithKakaoMap
+                  address={delivery.delivery_address ?? ""}
+                  coords={deliveryCoords}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span className="text-muted-foreground">담당자</span>
+                <span>{delivery.delivery_contact_name}</span>
+                <span className="text-muted-foreground">연락처</span>
+                <Button asChild size="sm" variant="outline" className="h-7">
+                  <a href={`tel:${delivery.delivery_contact_phone}`}>{delivery.delivery_contact_phone}</a>
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium">메모</span> {delivery.delivery_notes || "없음"}
+              </p>
+            </div>
           </CardContent>
         </Card>
 

@@ -107,7 +107,6 @@ export function DeliveryCompleteForm({
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null)
   const [capturedUploadedUrl, setCapturedUploadedUrl] = useState<string | null>(null)
   const [cameraModalError, setCameraModalError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -215,48 +214,6 @@ export function DeliveryCompleteForm({
     }
   }, [deliveryId, stopCamera])
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    setError(null)
-    if (!f) return
-
-    if (!["image/jpeg", "image/png", "image/webp", "image/heic"].includes(f.type)) {
-      setError("JPG, PNG, WEBP, HEIC 형식만 가능합니다.")
-      return
-    }
-    if (f.size > 5 * 1024 * 1024) {
-      setError("파일 크기는 5MB 이하여야 합니다.")
-      return
-    }
-
-    setPreview(URL.createObjectURL(f))
-    setLoading(true)
-
-    try {
-      const formData = new FormData()
-      formData.append("file", f)
-      const res = await fetch(`/api/driver/delivery/${deliveryId}/upload-proof`, {
-        method: "POST",
-        body: formData,
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data?.error || "업로드에 실패했습니다.")
-        setPreview(null)
-        setLoading(false)
-        return
-      }
-      setUploadedUrl(data.url)
-    } catch {
-      setError("업로드에 실패했습니다.")
-      setPreview(null)
-    } finally {
-      setLoading(false)
-    }
-
-    if (fileInputRef.current) fileInputRef.current.value = ""
-  }
-
   const handleComplete = async (e: React.MouseEvent) => {
     e.preventDefault()
     if (loading || submitting) return
@@ -362,7 +319,6 @@ export function DeliveryCompleteForm({
     }
   }
 
-  const inputId = `delivery-proof-input-${deliveryId}`
   const isMobile = typeof window !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
   return (
@@ -376,7 +332,7 @@ export function DeliveryCompleteForm({
         <DialogHeader>
           <DialogTitle>배송 완료 인증</DialogTitle>
           <DialogDescription>
-            인증 사진을 촬영하거나 선택하세요. (선택 사항)
+            인증 사진을 촬영하세요. (선택 사항)
           </DialogDescription>
         </DialogHeader>
         <form
@@ -404,37 +360,16 @@ export function DeliveryCompleteForm({
             )}
 
             {!preview && (
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-center gap-2"
-                  onClick={openCameraModal}
-                  disabled={loading}
-                >
-                  <Video className="h-4 w-4" />
-                  카메라로 촬영
-                </Button>
-                <label
-                  htmlFor={inputId}
-                  className={cn(
-                    "flex items-center justify-center gap-2 w-full rounded-md border border-input bg-background px-4 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer",
-                    loading && "pointer-events-none opacity-50",
-                  )}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/heic"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id={inputId}
-                    disabled={loading}
-                  />
-                  <ImageIcon className="h-4 w-4 shrink-0" />
-                  갤러리에서 선택
-                </label>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-center gap-2"
+                onClick={openCameraModal}
+                disabled={loading}
+              >
+                <Video className="h-4 w-4" />
+                카메라로 촬영
+              </Button>
             )}
 
             {preview && (
