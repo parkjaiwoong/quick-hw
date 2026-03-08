@@ -13,7 +13,40 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Camera, Image as ImageIcon, Video } from "lucide-react"
+import { Camera, ExternalLink, Image as ImageIcon, Video } from "lucide-react"
+
+/** 플랫폼별 권한 가이드 및 설정 열기 URL */
+function getCameraPermissionGuide() {
+  if (typeof navigator === "undefined") return { guide: "", helpUrl: "" }
+  const ua = navigator.userAgent
+  const isIOS = /iPhone|iPad|iPod/i.test(ua)
+  const isAndroid = /Android/i.test(ua)
+  const isSafari = /Safari/i.test(ua) && !/Chrome/i.test(ua)
+  const isChrome = /Chrome|CriOS/i.test(ua)
+
+  if (isIOS) {
+    return {
+      guide: "1. 설정 → Safari → 카메라 허용\n2. 또는 설정 → 사이트 설정에서 이 사이트의 카메라 허용",
+      helpUrl: "https://support.apple.com/ko-kr/HT203033",
+    }
+  }
+  if (isAndroid && isChrome) {
+    return {
+      guide: "1. 주소창 왼쪽 자물쇠 아이콘 탭\n2. 사이트 설정 → 권한 → 카메라 허용\n3. 또는 설정 → 사이트 설정 → 카메라",
+      helpUrl: "https://support.google.com/chrome/answer/2693767?hl=ko",
+    }
+  }
+  if (isChrome) {
+    return {
+      guide: "1. 주소창 왼쪽 자물쇠(또는 아이콘) 클릭\n2. 사이트 설정 → 카메라 허용\n3. 또는 Chrome 설정 → 개인정보 및 보안 → 사이트 설정 → 카메라",
+      helpUrl: "https://support.google.com/chrome/answer/2693767?hl=ko",
+    }
+  }
+  return {
+    guide: "브라우저 설정에서 이 사이트의 카메라 권한을 허용해 주세요.",
+    helpUrl: "https://support.google.com/chrome/answer/2693767?hl=ko",
+  }
+}
 
 interface DeliveryCompleteFormProps {
   deliveryId: string
@@ -102,6 +135,20 @@ export function DeliveryCompleteForm({
       setPermissionRetrying(false)
     }
   }, [stopCamera])
+
+  /** 권한 거부 시 도움말 페이지 자동 열기 (1회) */
+  const hasAutoOpenedHelp = useRef(false)
+  useEffect(() => {
+    if (!permissionDenied || hasAutoOpenedHelp.current || !cameraModalOpen) return
+    hasAutoOpenedHelp.current = true
+    const { helpUrl } = getCameraPermissionGuide()
+    if (helpUrl) {
+      const w = window.open(helpUrl, "_blank", "noopener,noreferrer")
+      if (!w) {
+        window.location.href = helpUrl
+      }
+    }
+  }, [permissionDenied, cameraModalOpen])
 
   useEffect(() => {
     if (!cameraModalOpen || !cameraReady || !videoRef.current) return
@@ -235,6 +282,7 @@ export function DeliveryCompleteForm({
     setCameraError(null)
     setPermissionDenied(false)
     setPermissionRetrying(false)
+    hasAutoOpenedHelp.current = false
     setOpen(false)
     setPreview(null)
     setUploadedUrl(null)
@@ -256,6 +304,8 @@ export function DeliveryCompleteForm({
     setCameraReady(false)
     setCameraError(null)
     setPermissionDenied(false)
+    setPermissionRetrying(false)
+    hasAutoOpenedHelp.current = false
   }
 
   const inputId = `delivery-proof-input-${deliveryId}`
@@ -379,7 +429,23 @@ export function DeliveryCompleteForm({
                 </div>
                 <p className="text-sm text-slate-700">{cameraError}</p>
                 {permissionDenied && (
-                  <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <div className="flex flex-col gap-3 w-full max-w-xs">
+                    <div className="text-left bg-slate-800/50 rounded-lg p-3 text-xs text-slate-300 whitespace-pre-line">
+                      <p className="font-medium text-slate-200 mb-1">카메라 권한 허용 방법</p>
+                      {getCameraPermissionGuide().guide}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="gap-2 w-full"
+                      onClick={() => {
+                        const { helpUrl } = getCameraPermissionGuide()
+                        if (helpUrl) window.open(helpUrl, "_blank", "noopener,noreferrer")
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      설정·도움말 페이지 열기
+                    </Button>
                     <Button
                       type="button"
                       onClick={(e) => {
