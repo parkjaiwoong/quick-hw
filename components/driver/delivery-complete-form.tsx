@@ -17,34 +17,46 @@ import { Camera, ExternalLink, Image as ImageIcon, Video } from "lucide-react"
 
 /** 플랫폼별 권한 가이드 및 설정 열기 URL */
 function getCameraPermissionGuide() {
-  if (typeof navigator === "undefined") return { guide: "", helpUrl: "" }
+  if (typeof navigator === "undefined") return { guide: "", helpUrl: "", isInApp: false }
   const ua = navigator.userAgent
+  const isInApp = /QuickHWDriverApp/i.test(ua)
   const isIOS = /iPhone|iPad|iPod/i.test(ua)
   const isAndroid = /Android/i.test(ua)
   const isSafari = /Safari/i.test(ua) && !/Chrome/i.test(ua)
   const isChrome = /Chrome|CriOS/i.test(ua)
 
+  if (isInApp) {
+    return {
+      guide: "1. 기기 설정 → 앱 → 언넌 → 권한\n2. 카메라를 허용으로 변경\n3. 앱으로 돌아와 다시 시도",
+      helpUrl: "",
+      isInApp: true,
+    }
+  }
   if (isIOS) {
     return {
       guide: "1. 설정 → Safari → 카메라 허용\n2. 또는 설정 → 사이트 설정에서 이 사이트의 카메라 허용",
       helpUrl: "https://support.apple.com/ko-kr/HT203033",
+      isInApp: false,
     }
   }
   if (isAndroid && isChrome) {
     return {
       guide: "1. 주소창 왼쪽 자물쇠 아이콘 탭\n2. 사이트 설정 → 권한 → 카메라 허용\n3. 또는 설정 → 사이트 설정 → 카메라",
       helpUrl: "https://support.google.com/chrome/answer/2693767?hl=ko",
+      isInApp: false,
     }
   }
   if (isChrome) {
     return {
       guide: "1. 주소창 왼쪽 자물쇠(또는 아이콘) 클릭\n2. 사이트 설정 → 카메라 허용\n3. 또는 Chrome 설정 → 개인정보 및 보안 → 사이트 설정 → 카메라",
       helpUrl: "https://support.google.com/chrome/answer/2693767?hl=ko",
+      isInApp: false,
     }
   }
   return {
     guide: "브라우저 설정에서 이 사이트의 카메라 권한을 허용해 주세요.",
     helpUrl: "https://support.google.com/chrome/answer/2693767?hl=ko",
+    isInApp: false,
   }
 }
 
@@ -136,13 +148,13 @@ export function DeliveryCompleteForm({
     }
   }, [stopCamera])
 
-  /** 권한 거부 시 도움말 페이지 자동 열기 (1회) */
+  /** 권한 거부 시 도움말 페이지 자동 열기 (1회, 웹 전용·앱 내 WebView는 스킵) */
   const hasAutoOpenedHelp = useRef(false)
   useEffect(() => {
     if (!permissionDenied || hasAutoOpenedHelp.current || !cameraModalOpen) return
     hasAutoOpenedHelp.current = true
-    const { helpUrl } = getCameraPermissionGuide()
-    if (helpUrl) {
+    const { helpUrl, isInApp } = getCameraPermissionGuide()
+    if (helpUrl && !isInApp) {
       const w = window.open(helpUrl, "_blank", "noopener,noreferrer")
       if (!w) {
         window.location.href = helpUrl
@@ -434,18 +446,20 @@ export function DeliveryCompleteForm({
                       <p className="font-medium text-slate-200 mb-1">카메라 권한 허용 방법</p>
                       {getCameraPermissionGuide().guide}
                     </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="gap-2 w-full"
-                      onClick={() => {
-                        const { helpUrl } = getCameraPermissionGuide()
-                        if (helpUrl) window.open(helpUrl, "_blank", "noopener,noreferrer")
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      설정·도움말 페이지 열기
-                    </Button>
+                    {!getCameraPermissionGuide().isInApp && getCameraPermissionGuide().helpUrl && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="gap-2 w-full"
+                        onClick={() => {
+                          const { helpUrl } = getCameraPermissionGuide()
+                          if (helpUrl) window.open(helpUrl, "_blank", "noopener,noreferrer")
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        설정·도움말 페이지 열기
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       onClick={(e) => {

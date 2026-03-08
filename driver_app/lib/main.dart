@@ -798,6 +798,7 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
       ..setUserAgent('QuickHWDriverApp/1.0');
     _setupAndroidGeolocation(c);
     _setupAndroidFileSelector(c);
+    _setupAndroidMediaPermissions(c);
     c
       ..addJavaScriptChannel(
         'DriverScreenChannel',
@@ -901,6 +902,48 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
         return [file.path!];
       }
       return [];
+    });
+  }
+
+  /// Android WebView에서 getUserMedia(카메라/마이크) 사용 시 앱 권한과 연동
+  void _setupAndroidMediaPermissions(WebViewController controller) {
+    if (!Platform.isAndroid) return;
+    final android = controller.platform;
+    if (android is! AndroidWebViewController) return;
+    android.setOnPlatformPermissionRequest((request) async {
+      var allow = true;
+      final types = request.types;
+      if (types.isEmpty) {
+        allow = false;
+      } else {
+        for (final t in types) {
+          final name = t.toString().toLowerCase();
+          if (name.contains('video') || name.contains('camera')) {
+            var status = await Permission.camera.status;
+            if (!status.isGranted) status = await Permission.camera.request();
+            if (!status.isGranted) {
+              if (status.isPermanentlyDenied) await openAppSettings();
+              allow = false;
+              break;
+            }
+          } else if (name.contains('audio') || name.contains('microphone')) {
+            var status = await Permission.microphone.status;
+            if (!status.isGranted) status = await Permission.microphone.request();
+            if (!status.isGranted) {
+              allow = false;
+              break;
+            }
+          }
+        }
+      }
+      if (kDebugMode) {
+        developer.log('[기사앱] MediaPermission types=$types → ${allow ? "허용" : "거부"}');
+      }
+      if (allow) {
+        await request.grant();
+      } else {
+        await request.deny();
+      }
     });
   }
 
