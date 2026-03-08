@@ -253,6 +253,7 @@ export function DeliveryCompleteForm({
     }
 
     if (fileInputRef.current) fileInputRef.current.value = ""
+    if (cameraInputRef.current) cameraInputRef.current.value = ""
   }
 
   const handleComplete = async (e: React.MouseEvent) => {
@@ -321,6 +322,15 @@ export function DeliveryCompleteForm({
   }
 
   const inputId = `delivery-proof-input-${deliveryId}`
+  const cameraInputId = `delivery-proof-camera-${deliveryId}`
+
+  const handleCameraClick = () => {
+    if (isInApp) {
+      cameraInputRef.current?.click()
+    } else {
+      openCameraModal()
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : resetAndClose())}>
@@ -373,25 +383,24 @@ export function DeliveryCompleteForm({
                   카메라로 촬영
                 </Button>
                 <label
-                      htmlFor={inputId}
-                      className={cn(
-                        "flex items-center justify-center gap-2 w-full rounded-md border border-input bg-background px-4 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer",
-                        loading && "pointer-events-none opacity-50",
-                      )}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/heic"
-                        capture="environment"
-                        onChange={handleFileChange}
-                        className="hidden"
-                        id={inputId}
-                        disabled={loading}
-                      />
-                      <ImageIcon className="h-4 w-4 shrink-0" />
-                      갤러리에서 선택
-                    </label>
+                  htmlFor={inputId}
+                  className={cn(
+                    "flex items-center justify-center gap-2 w-full rounded-md border border-input bg-background px-4 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer",
+                    loading && "pointer-events-none opacity-50",
+                  )}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id={inputId}
+                    disabled={loading}
+                  />
+                  <ImageIcon className="h-4 w-4 shrink-0" />
+                  갤러리에서 선택
+                </label>
               </div>
             )}
 

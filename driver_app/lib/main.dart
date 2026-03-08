@@ -793,7 +793,18 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
   }
 
   WebViewController _createController() {
-    final c = WebViewController()
+    final c = WebViewController(
+      onPermissionRequest: (request) async {
+        if (!Platform.isAndroid) return;
+        var status = await Permission.camera.status;
+        if (!status.isGranted) status = await Permission.camera.request();
+        if (status.isGranted) {
+          await request.grant();
+        } else {
+          await request.deny();
+        }
+      },
+    )
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent('QuickHWDriverApp/1.0');
     _setupAndroidGeolocation(c);
@@ -905,41 +916,16 @@ class _DriverWebViewPageState extends State<DriverWebViewPage> with WidgetsBindi
     });
   }
 
-  /// Android WebView에서 getUserMedia(카메라/마이크) 사용 시 앱 권한과 연동
+  /// Android WebView에서 getUserMedia(카메라) 사용 시 앱 권한 연동 - 모달 내 카메라 스트림용
   void _setupAndroidMediaPermissions(WebViewController controller) {
     if (!Platform.isAndroid) return;
     final android = controller.platform;
     if (android is! AndroidWebViewController) return;
+    android.setMediaPlaybackRequiresUserGesture(false);
     android.setOnPlatformPermissionRequest((request) async {
-      var allow = true;
-      final types = request.types;
-      if (types.isEmpty) {
-        allow = false;
-      } else {
-        for (final t in types) {
-          final name = t.toString().toLowerCase();
-          if (name.contains('video') || name.contains('camera')) {
-            var status = await Permission.camera.status;
-            if (!status.isGranted) status = await Permission.camera.request();
-            if (!status.isGranted) {
-              if (status.isPermanentlyDenied) await openAppSettings();
-              allow = false;
-              break;
-            }
-          } else if (name.contains('audio') || name.contains('microphone')) {
-            var status = await Permission.microphone.status;
-            if (!status.isGranted) status = await Permission.microphone.request();
-            if (!status.isGranted) {
-              allow = false;
-              break;
-            }
-          }
-        }
-      }
-      if (kDebugMode) {
-        developer.log('[기사앱] MediaPermission types=$types → ${allow ? "허용" : "거부"}');
-      }
-      if (allow) {
+      var status = await Permission.camera.status;
+      if (!status.isGranted) status = await Permission.camera.request();
+      if (status.isGranted) {
         await request.grant();
       } else {
         await request.deny();
