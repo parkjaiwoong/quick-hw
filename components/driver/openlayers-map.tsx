@@ -317,6 +317,7 @@ export function OpenLayersMap({
     const mf = myLocationFeatureRef.current
     const lineF = lineToPickupFeatureRef.current
     const src = vectorSourceRef.current
+    const map = mapInstanceRef.current
     const coords = fromLonLat([myLocation.lng, myLocation.lat])
     const pickupCoords = fromLonLat([pickup.lng, pickup.lat])
     if (mf && src && src.getFeatures().includes(mf)) {
@@ -324,7 +325,7 @@ export function OpenLayersMap({
       if (geom && geom.getType() === "Point") {
         ;(geom as Point).setCoordinates(coords)
       }
-    } else if (src && mapInstanceRef.current) {
+    } else if (src && map) {
       const myF = new Feature({ geometry: new Point(coords) })
       myF.setStyle(myLocationFeatureStyle)
       myLocationFeatureRef.current = myF
@@ -343,7 +344,6 @@ export function OpenLayersMap({
       )
       lineToPickupFeatureRef.current = lineFeature
       src.addFeature(lineFeature)
-      return
     }
     if (lineF && src && src.getFeatures().includes(lineF)) {
       const geom = lineF.getGeometry()
@@ -351,7 +351,17 @@ export function OpenLayersMap({
         ;(geom as LineString).setCoordinates([coords, pickupCoords])
       }
     }
-  }, [myLocation, myLocationFeatureStyle, pickup])
+    // 내 위치 로드 후 픽업·배송·내위치 3점 모두 화면에 보이도록 refit (padding 확대)
+    if (map && pickup && delivery) {
+      const points = [
+        coords,
+        pickupCoords,
+        fromLonLat([delivery.lng, delivery.lat]),
+      ]
+      const extent = boundingExtent(points)
+      map.getView().fit(extent, { padding: [56, 56, 56, 56], maxZoom: 14 })
+    }
+  }, [myLocation, myLocationFeatureStyle, pickup, delivery])
 
   useEffect(() => {
     if (!resizableOnMobile || typeof window === "undefined") return
