@@ -49,7 +49,10 @@ export function DeliveryCompleteForm({
   const [submitting, setSubmitting] = useState(false)
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
-  const [cameraActive, setCameraActive] = useState(false)
+  const [cameraModalOpen, setCameraModalOpen] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -64,31 +67,41 @@ export function DeliveryCompleteForm({
     if (videoRef.current?.srcObject) {
       videoRef.current.srcObject = null
     }
-    setCameraActive(false)
   }, [])
 
   const startCamera = useCallback(async () => {
-    setError(null)
+    setCameraError(null)
+    setPermissionDenied(false)
+    setCameraReady(false)
+    stopCamera()
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       })
       streamRef.current = stream
-      setCameraActive(true)
-    } catch (e) {
-      setError("카메라에 접근할 수 없습니다. 갤러리에서 사진을 선택해 주세요.")
+      setCameraReady(true)
+    } catch (e: unknown) {
+      const err = e as DOMException
+      if (err?.name === "NotAllowedError" || err?.code === 1) {
+        setCameraError("카메라 접근이 거부되었습니다. 아래 버튼으로 권한을 허용해 주세요.")
+        setPermissionDenied(true)
+      } else if (err?.name === "NotFoundError") {
+        setCameraError("카메라를 찾을 수 없습니다.")
+      } else {
+        setCameraError("카메라에 접근할 수 없습니다. 브라우저 설정에서 권한을 확인해 주세요.")
+      }
     }
-  }, [])
+  }, [stopCamera])
 
   useEffect(() => {
-    if (!cameraActive || !streamRef.current) return
+    if (!cameraModalOpen || !cameraReady || !videoRef.current) return
     const video = videoRef.current
-    if (video) video.srcObject = streamRef.current
+    if (streamRef.current) video.srcObject = streamRef.current
     return () => {
       if (video?.srcObject) video.srcObject = null
     }
-  }, [cameraActive])
+  }, [cameraModalOpen, cameraReady])
 
   const handleCapture = useCallback(async () => {
     const video = videoRef.current
@@ -112,9 +125,11 @@ export function DeliveryCompleteForm({
           try {
             const url = await uploadBlob(deliveryId, blob)
             const dataUrl = URL.createObjectURL(blob)
+            stopCamera()
+            setCameraModalOpen(false)
+            setCameraReady(false)
             setPreview(dataUrl)
             setUploadedUrl(url)
-            stopCamera()
           } catch (err) {
             setError(err instanceof Error ? err.message : "업로드에 실패했습니다.")
           } finally {
@@ -206,13 +221,31 @@ export function DeliveryCompleteForm({
 
   const resetAndClose = () => {
     stopCamera()
+    setCameraModalOpen(false)
+    setCameraReady(false)
+    setCameraError(null)
+    setPermissionDenied(false)
     setOpen(false)
     setPreview(null)
     setUploadedUrl(null)
     setSubmitting(false)
     setError(null)
-    setCameraActive(false)
     if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  const openCameraModal = () => {
+    setCameraModalOpen(true)
+    setCameraError(null)
+    setPermissionDenied(false)
+    startCamera()
+  }
+
+  const closeCameraModal = () => {
+    stopCamera()
+    setCameraModalOpen(false)
+    setCameraReady(false)
+    setCameraError(null)
+    setPermissionDenied(false)
   }
 
   const inputId = `delivery-proof-input-${deliveryId}`
@@ -255,21 +288,18 @@ export function DeliveryCompleteForm({
             )}
 
             {!preview && (
-              <>
-                {/* 전용 카메라 촬영: 앱 내 카메라 영상 + 촬영 버튼 */}
-                {!cameraActive ? (
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-center gap-2"
-                      onClick={startCamera}
-                      disabled={loading}
-                    >
-                      <Video className="h-4 w-4" />
-                      카메라로 촬영
-                    </Button>
-                    <label
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-center gap-2"
+                  onClick={openCameraModal}
+                  disabled={loading}
+                >
+                  <Video className="h-4 w-4" />
+                  카메라로 촬영
+                </Button>
+                <label
                       htmlFor={inputId}
                       className={cn(
                         "flex items-center justify-center gap-2 w-full rounded-md border border-input bg-background px-4 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer",
@@ -289,52 +319,7 @@ export function DeliveryCompleteForm({
                       <ImageIcon className="h-4 w-4 shrink-0" />
                       갤러리에서 선택
                     </label>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* 촬영 영역: 사각형 프레임이 있는 카메라 뷰 */}
-                    <div className="relative rounded-lg overflow-hidden bg-black aspect-[4/3]">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
-                      />
-                      {/* 촬영 사각형 프레임 (뷰파인더) */}
-                      <div
-                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                        aria-hidden
-                      >
-                        <div className="w-[88%] aspect-[4/3] border-2 border-white rounded-lg shadow-[0_0_0_0_9999px_rgba(0,0,0,0.35)]" />
-                      </div>
-                    </div>
-                    {/* 촬영 방법 안내 */}
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 space-y-1">
-                      <p className="font-medium text-slate-700">📷 촬영 방법</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-slate-600">
-                        <li>화면 안 사각형 안에 배송된 물품이 보이도록 맞춰 주세요</li>
-                        <li>아래 &quot;촬영&quot; 버튼을 눌러 사진을 저장합니다</li>
-                        <li>흔들리지 않도록 장치를 고정한 뒤 촬영해 주세요</li>
-                      </ul>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" className="flex-1" onClick={stopCamera}>
-                        취소
-                      </Button>
-                      <Button
-                        type="button"
-                        className="flex-1 gap-2"
-                        onClick={handleCapture}
-                        disabled={loading}
-                      >
-                        <Camera className="h-4 w-4" />
-                        {loading ? "업로드 중…" : "촬영"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
 
             {preview && (
@@ -365,6 +350,71 @@ export function DeliveryCompleteForm({
         </form>
         <canvas ref={canvasRef} className="hidden" />
       </DialogContent>
+
+      {/* 카메라 촬영 전용 모달 (겹침 시 최상단) */}
+      <Dialog open={cameraModalOpen} onOpenChange={(v) => !v && closeCameraModal()}>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg p-0 overflow-hidden gap-0 z-[100]">
+          <div className="px-4 pt-4 pb-2">
+            <DialogTitle className="text-base">카메라로 촬영</DialogTitle>
+            <DialogDescription className="text-sm">
+              배송된 물품이 보이도록 사각형 안에 맞춰 촬영하세요
+            </DialogDescription>
+          </div>
+          <div className="relative bg-black min-h-[280px] flex items-center justify-center">
+            {cameraError ? (
+              <div className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+                  <Video className="h-8 w-8 text-amber-600" />
+                </div>
+                <p className="text-sm text-slate-700">{cameraError}</p>
+                {permissionDenied && (
+                  <Button type="button" onClick={startCamera} className="gap-2">
+                    <Video className="h-4 w-4" />
+                    카메라 접근 권한 허용 요청
+                  </Button>
+                )}
+              </div>
+            ) : cameraReady && streamRef.current ? (
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full max-h-[60vh] object-cover"
+                />
+                <div
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  aria-hidden
+                >
+                  <div className="w-[88%] aspect-[4/3] border-2 border-white rounded-lg shadow-[0_0_0_0_9999px_rgba(0,0,0,0.35)]" />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-white/80 py-12">
+                <div className="w-10 h-10 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                <p className="text-sm">카메라 준비 중…</p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 p-4 border-t bg-background">
+            <Button type="button" variant="outline" className="flex-1" onClick={closeCameraModal}>
+              취소
+            </Button>
+            {cameraReady && !cameraError && (
+              <Button
+                type="button"
+                className="flex-1 gap-2"
+                onClick={handleCapture}
+                disabled={loading}
+              >
+                <Camera className="h-4 w-4" />
+                {loading ? "업로드 중…" : "촬영"}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
