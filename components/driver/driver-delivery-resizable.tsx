@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 
-const MIN_MAP_PX = 0
+const MIN_MAP_PX = 120
 const MAX_MAP_VH = 95
 const DEFAULT_MAP_VH = 45
 const DESKTOP_MAP_HEIGHT = 224
@@ -101,7 +101,9 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
           isMobile
             ? {
                 height:
-                  mapHeightPx != null ? `${mapHeightPx}px` : `${DEFAULT_MAP_VH}dvh`,
+                  mapHeightPx != null
+                    ? `${Math.max(MIN_MAP_PX, mapHeightPx)}px`
+                    : "45dvh",
                 minHeight: MIN_MAP_PX,
               }
             : { height: DESKTOP_MAP_HEIGHT }

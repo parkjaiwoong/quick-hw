@@ -10,9 +10,9 @@ interface AddressWithTmapProps {
 }
 
 /**
- * tmap:// 은 브라우저에서 ERR_UNKNOWN_URL_SCHEME 발생.
- * Android: intent URL (TMAP 앱 → 미설치 시 구글맵 fallback)
- * 기타: 구글맵 URL 사용 (브라우저에서 항상 동작)
+ * 차량/오토바이 길찾기 (대중교통 제외).
+ * tmap://route = TMAP 앱 자동차 경로안내. Android: intent, 미설치 시 구글맵 fallback.
+ * 구글맵: travelmode=driving (차량 경로만).
  */
 function getMapUrl(address: string, coords: { lat: number; lng: number } | null | undefined) {
   if (!address && !coords) return null
@@ -82,7 +82,7 @@ export function AddressWithTmap({ address, coords }: AddressWithTmapProps) {
           className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
         >
           <MapPin className="h-3.5 w-3.5" />
-          지도로 길찾기
+          차량 길찾기
         </a>
       )}
     </div>

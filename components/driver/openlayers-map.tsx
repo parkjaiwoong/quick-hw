@@ -239,7 +239,7 @@ export function OpenLayersMap({
   const pickupLat = pickup?.lat
   const deliveryLng = delivery?.lng
   const deliveryLat = delivery?.lat
-  const hasCoords = pickupLng != null && pickupLat != null && deliveryLng != null && deliveryLat != null
+  const hasCoords = (pickupLng != null && pickupLat != null) || (deliveryLng != null && deliveryLat != null)
 
   useEffect(() => {
     if (!mapRef.current || !hasCoords) return
