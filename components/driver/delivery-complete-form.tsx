@@ -33,6 +33,7 @@ export function DeliveryCompleteForm({
   const [preview, setPreview] = useState<string | null>(null)
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -81,11 +82,12 @@ export function DeliveryCompleteForm({
 
   const handleComplete = (e: React.MouseEvent) => {
     e.preventDefault()
-    if (loading) return
+    if (loading || submitting) return
     const form = formRef.current
     if (!form) return
     const urlInput = form.querySelector<HTMLInputElement>('input[name="delivery_proof_url"]')
     if (urlInput) urlInput.value = uploadedUrl ?? ""
+    setSubmitting(true)
     form.submit()
   }
 
@@ -93,6 +95,7 @@ export function DeliveryCompleteForm({
     setOpen(false)
     setPreview(null)
     setUploadedUrl(null)
+    setSubmitting(false)
     setError(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
@@ -157,11 +160,11 @@ export function DeliveryCompleteForm({
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={resetAndClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={resetAndClose} disabled={loading || submitting}>
               취소
             </Button>
-            <Button type="button" onClick={handleComplete} disabled={loading}>
-              {loading ? "처리 중…" : "배송 완료"}
+            <Button type="button" onClick={handleComplete} disabled={loading || submitting}>
+              {submitting ? "완료 중…" : "배송 완료"}
             </Button>
           </DialogFooter>
         </form>

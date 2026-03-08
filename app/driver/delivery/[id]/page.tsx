@@ -18,6 +18,7 @@ import { StatusUpdateButton } from "@/components/driver/status-update-button"
 import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 import { AddressWithTmap } from "@/components/driver/address-with-tmap"
+import { DriverDeliveryResizable } from "@/components/driver/driver-delivery-resizable"
 
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
@@ -141,15 +142,16 @@ export default async function DriverDeliveryDetailPage({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId ?? null} />
-      {/* 모바일: 지도 확대 가능, 하단 액션바가 항상 노출되도록 pb-24 */}
-      <div className="w-full">
-        <OpenLayersMap
-          pickup={pickupCoords}
-          delivery={deliveryCoords}
-          showMyLocation
-          resizableOnMobile
-        />
-      </div>
+      <DriverDeliveryResizable
+        mapNode={
+          <OpenLayersMap
+            pickup={pickupCoords}
+            delivery={deliveryCoords}
+            showMyLocation
+            fillContainer
+          />
+        }
+      >
       <div className="p-4 pb-24 md:pb-4">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="space-y-3">
@@ -442,7 +444,8 @@ export default async function DriverDeliveryDetailPage({
           )}
         </div>
       </div>
-    </div>
+      </div>
+      </DriverDeliveryResizable>
     </div>
   )
 }

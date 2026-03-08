@@ -47,6 +47,8 @@ interface OpenLayersMapProps {
   showMyLocation?: boolean
   /** 모바일에서 드래그로 지도 높이 조절 (전체화면~최소) */
   resizableOnMobile?: boolean
+  /** 외부 컨테이너에 맞춤 (DriverDeliveryResizable 등) */
+  fillContainer?: boolean
 }
 
 const MIN_MAP_HEIGHT_PX = 80
@@ -58,6 +60,7 @@ export function OpenLayersMap({
   delivery,
   showMyLocation = false,
   resizableOnMobile = false,
+  fillContainer = false,
 }: OpenLayersMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<InstanceType<typeof Map> | null>(null)
@@ -369,6 +372,17 @@ export function OpenLayersMap({
     mapInstanceRef.current?.updateSize()
   }, [resizableOnMobile, mapHeightPx])
 
+  // 외부에서 높이가 제어될 때(예: DriverDeliveryResizable) 컨테이너 리사이즈 감지
+  useEffect(() => {
+    const el = mapRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      mapInstanceRef.current?.updateSize()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const handleDragStart = useCallback((clientY: number) => {
     dragStartYRef.current = clientY
     dragStartHeightRef.current = mapHeightPx ?? Math.round((window.innerHeight * DEFAULT_MAP_HEIGHT_VH) / 100)
@@ -431,7 +445,7 @@ export function OpenLayersMap({
           <span className="font-bold tabular-nums">약 {distanceToPickupKm} km</span>
         </div>
       )}
-      {showMyLocation && locationError && (
+      {showMyLocation && !fillContainer && locationError && (
         <div className="flex flex-col gap-1.5">
           <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
             {locationError}
@@ -450,6 +464,8 @@ export function OpenLayersMap({
         className={
           resizableOnMobile
             ? "flex flex-col overflow-hidden rounded-none md:rounded-xl border-0 md:border border-slate-200 bg-slate-50 shadow-none md:shadow-sm md:sticky md:top-0 md:z-10 md:h-auto"
+            : fillContainer
+            ? "flex flex-col overflow-hidden flex-1 min-h-0 border-0"
             : "overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm"
         }
         style={
@@ -480,6 +496,8 @@ export function OpenLayersMap({
           className={
             resizableOnMobile
               ? "min-h-0 flex-1 w-full md:flex-none md:h-56"
+              : fillContainer
+              ? "min-h-0 flex-1 w-full"
               : "h-56 w-full"
           }
         />

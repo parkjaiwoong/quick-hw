@@ -5,12 +5,33 @@ import { Copy, MapPin, Check } from "lucide-react"
 
 interface AddressWithTmapProps {
   address: string
-  /** { lat, lng } for TMAP navigation */
+  /** { lat, lng } for map navigation */
   coords?: { lat: number; lng: number } | null
 }
 
 /**
- * 주소 셀: 클릭 시 클립보드 복사, TMAP 링크
+ * tmap:// 은 브라우저에서 ERR_UNKNOWN_URL_SCHEME 발생.
+ * Android: intent URL (TMAP 앱 → 미설치 시 구글맵 fallback)
+ * 기타: 구글맵 URL 사용 (브라우저에서 항상 동작)
+ */
+function getMapUrl(address: string, coords: { lat: number; lng: number } | null | undefined) {
+  if (!address && !coords) return null
+  const dest = coords ? `${coords.lat},${coords.lng}` : encodeURIComponent(address)
+  const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`
+
+  if (typeof navigator === "undefined") return googleUrl
+  const ua = navigator.userAgent || ""
+  const isAndroid = /Android/i.test(ua)
+  if (isAndroid && coords) {
+    const name = encodeURIComponent(address || "목적지")
+    const intent = `intent://route?goalname=${name}&goalx=${coords.lng}&goaly=${coords.lat}#Intent;scheme=tmap;package=com.skt.tmap.ku;S.browser_fallback_url=${encodeURIComponent(googleUrl)};end`
+    return intent
+  }
+  return googleUrl
+}
+
+/**
+ * 주소 셀: 클릭 시 클립보드 복사, 지도 앱 링크 (Android→TMAP/구글맵, 기타→구글맵)
  */
 export function AddressWithTmap({ address, coords }: AddressWithTmapProps) {
   const [copied, setCopied] = useState(false)
@@ -23,7 +44,6 @@ export function AddressWithTmap({ address, coords }: AddressWithTmapProps) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // fallback for older browsers
       const ta = document.createElement("textarea")
       ta.value = address
       document.body.appendChild(ta)
@@ -35,11 +55,7 @@ export function AddressWithTmap({ address, coords }: AddressWithTmapProps) {
     }
   }
 
-  const tmapUrl = (() => {
-    if (!address || !coords) return null
-    const name = encodeURIComponent(address)
-    return `tmap://route?goalname=${name}&goalx=${coords.lng}&goaly=${coords.lat}`
-  })()
+  const mapUrl = getMapUrl(address, coords)
 
   if (!address) return <span className="text-muted-foreground">-</span>
 
@@ -58,15 +74,15 @@ export function AddressWithTmap({ address, coords }: AddressWithTmapProps) {
           <Copy className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0" />
         )}
       </button>
-      {tmapUrl && (
+      {mapUrl && (
         <a
-          href={tmapUrl}
+          href={mapUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
         >
           <MapPin className="h-3.5 w-3.5" />
-          TMAP으로 길찾기
+          지도로 길찾기
         </a>
       )}
     </div>
