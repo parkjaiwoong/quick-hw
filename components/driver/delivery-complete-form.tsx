@@ -102,6 +102,9 @@ export function DeliveryCompleteForm({
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [permissionRetrying, setPermissionRetrying] = useState(false)
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null)
+  const [capturedUploadedUrl, setCapturedUploadedUrl] = useState<string | null>(null)
+  const [cameraModalError, setCameraModalError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -175,7 +178,7 @@ export function DeliveryCompleteForm({
     const video = videoRef.current
     if (!video || !video.srcObject || video.readyState < 2) return
     setLoading(true)
-    setError(null)
+    setCameraModalError(null)
     try {
       const canvas = canvasRef.current || document.createElement("canvas")
       canvas.width = video.videoWidth
@@ -183,32 +186,23 @@ export function DeliveryCompleteForm({
       const ctx = canvas.getContext("2d")
       if (!ctx) throw new Error("Canvas not available")
       ctx.drawImage(video, 0, 0)
-      canvas.toBlob(
-        async (blob) => {
-          if (!blob) {
-            setError("촬영 실패")
-            setLoading(false)
-            return
-          }
-          try {
-            const url = await uploadBlob(deliveryId, blob)
-            const dataUrl = URL.createObjectURL(blob)
-            stopCamera()
-            setCameraModalOpen(false)
-            setCameraReady(false)
-            setPreview(dataUrl)
-            setUploadedUrl(url)
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "업로드에 실패했습니다.")
-          } finally {
-            setLoading(false)
-          }
-        },
-        "image/jpeg",
-        0.9
-      )
-    } catch {
-      setError("촬영에 실패했습니다.")
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", 0.9)
+      })
+      if (!blob) {
+        setCameraModalError("촬영 실패")
+        setLoading(false)
+        return
+      }
+      const url = await uploadBlob(deliveryId, blob)
+      const dataUrl = URL.createObjectURL(blob)
+      stopCamera()
+      setCameraReady(false)
+      setCapturedPreview(dataUrl)
+      setCapturedUploadedUrl(url)
+    } catch (err) {
+      setCameraModalError(err instanceof Error ? err.message : "업로드에 실패했습니다.")
+    } finally {
       setLoading(false)
     }
   }, [deliveryId, stopCamera])
@@ -253,7 +247,6 @@ export function DeliveryCompleteForm({
     }
 
     if (fileInputRef.current) fileInputRef.current.value = ""
-    if (cameraInputRef.current) cameraInputRef.current.value = ""
   }
 
   const handleComplete = async (e: React.MouseEvent) => {
@@ -295,6 +288,9 @@ export function DeliveryCompleteForm({
     setCameraError(null)
     setPermissionDenied(false)
     setPermissionRetrying(false)
+    setCapturedPreview(null)
+    setCapturedUploadedUrl(null)
+    setCameraModalError(null)
     hasAutoOpenedHelp.current = false
     setOpen(false)
     setPreview(null)
@@ -318,19 +314,48 @@ export function DeliveryCompleteForm({
     setCameraError(null)
     setPermissionDenied(false)
     setPermissionRetrying(false)
+    setCapturedPreview(null)
+    setCapturedUploadedUrl(null)
+    setCameraModalError(null)
     hasAutoOpenedHelp.current = false
   }
 
-  const inputId = `delivery-proof-input-${deliveryId}`
-  const cameraInputId = `delivery-proof-camera-${deliveryId}`
-
-  const handleCameraClick = () => {
-    if (isInApp) {
-      cameraInputRef.current?.click()
-    } else {
-      openCameraModal()
+  const handleCameraConfirm = async () => {
+    if (!capturedUploadedUrl) return
+    setPreview(capturedPreview)
+    setUploadedUrl(capturedUploadedUrl)
+    closeCameraModal()
+    setSubmitting(true)
+    setError(null)
+    try {
+      const form = formRef.current
+      if (!form) return
+      const fd = new FormData(form)
+      fd.set("delivery_proof_url", capturedUploadedUrl)
+      const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
+        method: "POST",
+        body: fd,
+      })
+      if (res.redirected && res.ok) {
+        router.replace(new URL(res.url).pathname)
+        return
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data?.error || "처리 중 오류가 발생했습니다.")
+        setSubmitting(false)
+        return
+      }
+      router.refresh()
+      resetAndClose()
+    } catch {
+      setError("네트워크 오류. 다시 시도해 주세요.")
+      setSubmitting(false)
     }
   }
+
+  const inputId = `delivery-proof-input-${deliveryId}`
+  const isMobile = typeof window !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : resetAndClose())}>
@@ -433,16 +458,23 @@ export function DeliveryCompleteForm({
         <canvas ref={canvasRef} className="hidden" />
       </DialogContent>
 
-      {/* 카메라 촬영 전용 모달 (겹침 시 최상단) */}
+      {/* 카메라 촬영 전용 모달 (모바일 전체화면, 겹침 시 최상단) */}
       <Dialog open={cameraModalOpen} onOpenChange={(v) => !v && closeCameraModal()}>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg p-0 overflow-hidden gap-0 z-[100]">
-          <div className="px-4 pt-4 pb-2">
+        <DialogContent
+          className={cn(
+            "p-0 overflow-hidden gap-0 z-[100] flex flex-col",
+            isMobile
+              ? "inset-0 top-0 left-0 translate-x-0 translate-y-0 w-[100vw] h-[100dvh] max-w-[100vw] rounded-none"
+              : "max-w-lg max-h-[90vh]"
+          )}
+        >
+          <div className="px-4 pt-4 pb-2 shrink-0">
             <DialogTitle className="text-base">카메라로 촬영</DialogTitle>
             <DialogDescription className="text-sm">
-              배송된 물품이 보이도록 사각형 안에 맞춰 촬영하세요
+              {capturedPreview ? "촬영한 사진을 확인하세요" : "배송된 물품이 보이도록 사각형 안에 맞춰 촬영하세요"}
             </DialogDescription>
           </div>
-          <div className="relative bg-black min-h-[280px] flex items-center justify-center">
+          <div className="relative bg-black min-h-[280px] flex-1 flex items-center justify-center overflow-hidden">
             {cameraError ? (
               <div className="flex flex-col items-center justify-center gap-4 p-6 text-center">
                 <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
@@ -503,6 +535,12 @@ export function DeliveryCompleteForm({
                   </div>
                 )}
               </div>
+            ) : capturedPreview ? (
+              <img
+                src={capturedPreview}
+                alt="촬영한 사진"
+                className="w-full max-h-[70vh] sm:max-h-[60vh] object-contain"
+              />
             ) : cameraReady && streamRef.current ? (
               <>
                 <video
@@ -510,7 +548,7 @@ export function DeliveryCompleteForm({
                   autoPlay
                   playsInline
                   muted
-                  className="w-full max-h-[60vh] object-cover"
+                  className="w-full max-h-[60vh] sm:max-h-[50vh] object-cover"
                 />
                 <div
                   className="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -526,20 +564,36 @@ export function DeliveryCompleteForm({
               </div>
             )}
           </div>
-          <div className="flex gap-2 p-4 border-t bg-background">
-            <Button type="button" variant="outline" className="flex-1" onClick={closeCameraModal}>
-              취소
-            </Button>
-            {cameraReady && !cameraError && (
-              <Button
-                type="button"
-                className="flex-1 gap-2"
-                onClick={handleCapture}
-                disabled={loading}
-              >
-                <Camera className="h-4 w-4" />
-                {loading ? "업로드 중…" : "촬영"}
-              </Button>
+          {cameraModalError && (
+            <p className="text-sm text-destructive px-4 pb-2">{cameraModalError}</p>
+          )}
+          <div className="flex gap-2 p-4 border-t bg-background shrink-0">
+            {capturedPreview ? (
+              <>
+                <Button type="button" variant="outline" className="flex-1" onClick={() => { setCapturedPreview(null); setCapturedUploadedUrl(null); startCamera(false) }}>
+                  다시 촬영
+                </Button>
+                <Button type="button" className="flex-1 gap-2" onClick={handleCameraConfirm} disabled={submitting}>
+                  {submitting ? "완료 중…" : "확인"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" className="flex-1" onClick={closeCameraModal}>
+                  취소
+                </Button>
+                {cameraReady && !cameraError && (
+                  <Button
+                    type="button"
+                    className="flex-1 gap-2"
+                    onClick={handleCapture}
+                    disabled={loading}
+                  >
+                    <Camera className="h-4 w-4" />
+                    {loading ? "업로드 중…" : "촬영"}
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </DialogContent>
