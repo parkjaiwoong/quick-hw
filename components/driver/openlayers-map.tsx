@@ -116,31 +116,41 @@ export function OpenLayersMap({
 
     setLocationError(null)
     setLocationLoading(true)
-    const reqChannel = (window as unknown as { RequestLocationPermission?: { postMessage: (m: string) => void } }).RequestLocationPermission
+    const reqChannel = (window as unknown as { RequestLocationPermission?: { postMessage: (m: string) => void } })
+      .RequestLocationPermission
     if (reqChannel) reqChannel.postMessage("")
 
-    let watchId: number | null = null
-    const startWatch = () => {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-          setLocationError(null)
-          setLocationLoading(false)
-        },
-        (err: GeolocationPositionError) => {
-          if (err.code === 1) setLocationError("위치 권한이 거부되었습니다.")
-          else setLocationError("위치를 불러올 수 없습니다.")
-          setLocationLoading(false)
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      )
+    const onPosition = (pos: GeolocationPosition) => {
+      setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+      setLocationError(null)
+      setLocationLoading(false)
+    }
+    const onError = (err: GeolocationPositionError) => {
+      if (err.code === 1) setLocationError("위치 권한이 거부되었습니다.")
+      else setLocationError("위치를 불러올 수 없습니다.")
+      setLocationLoading(false)
     }
 
-    if (reqChannel) setTimeout(startWatch, 500)
-    else startWatch()
+    // 1) 즉시: 캐시된 위치(10초 이내)가 있으면 바로 표시
+    navigator.geolocation.getCurrentPosition(onPosition, () => {}, {
+      enableHighAccuracy: false,
+      timeout: 2000,
+      maximumAge: 10000,
+    })
+
+    const watchIdRef = { current: null as number | null }
+    const startAfter = reqChannel ? 200 : 0
+    const t = setTimeout(() => {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        onPosition,
+        onError,
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 3000 }
+      )
+    }, startAfter)
 
     return () => {
-      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+      clearTimeout(t)
+      if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current)
     }
   }, [showMyLocation])
 

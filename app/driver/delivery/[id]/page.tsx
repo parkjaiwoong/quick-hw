@@ -50,44 +50,32 @@ export default async function DriverDeliveryDetailPage({
   searchParams?: Promise<{ accept_delivery?: string }>
 }) {
   const supabase = await getSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/auth/login")
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  const roleOverride = await getRoleOverride()
-  const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
-
-  if (!canActAsDriver) {
-    redirect("/")
-  }
-
-  const { id } = await params
-  const sp = await searchParams
+  const [{ id }, sp] = await Promise.all([params, searchParams ?? Promise.resolve(undefined)])
   const acceptDeliveryId = id && sp?.accept_delivery === id ? id : null
-  const { delivery } = await getDeliveryForDriver(id)
 
-  const { data: settlement } = await supabase
-    .from("settlements")
-    .select("settlement_status, settlement_amount")
-    .eq("delivery_id", id)
-    .maybeSingle()
+  const [profileRes, roleOverride, deliveryRes, settlementRes, driverInfoRes] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).single(),
+    getRoleOverride(),
+    getDeliveryForDriver(id),
+    supabase.from("settlements").select("settlement_status, settlement_amount").eq("delivery_id", id).maybeSingle(),
+    supabase.from("driver_info").select("current_location").eq("id", user.id).maybeSingle(),
+  ])
 
-  if (!delivery) {
-    redirect("/driver")
-  }
+  const { data: profile } = profileRes
+  const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
+  if (!canActAsDriver) redirect("/")
 
+  const { delivery } = deliveryRes
+  if (!delivery) redirect("/driver")
+
+  const { data: settlement } = settlementRes
+  const { data: driverInfo } = driverInfoRes
   const isPending = delivery.status === "pending" && !delivery.driver_id
   const isAssignedToMe = delivery.driver_id === user.id
-
-  if (!isPending && !isAssignedToMe) {
-    redirect("/driver")
-  }
+  if (!isPending && !isAssignedToMe) redirect("/driver")
 
   const parsePoint = (value: any) => {
     if (!value) return null
@@ -112,13 +100,6 @@ export default async function DriverDeliveryDetailPage({
   const pickupCoords = parsePoint(delivery.pickup_location)
   const deliveryCoords = parsePoint(delivery.delivery_location)
   const baseDriverFee = Number(delivery.driver_fee ?? delivery.total_fee ?? 0)
-
-  // 기사 현재 위치 → 픽업장소 거리 계산 (하버사인)
-  const { data: driverInfo } = await supabase
-    .from("driver_info")
-    .select("current_location")
-    .eq("id", user.id)
-    .maybeSingle()
 
   const driverCoords = parsePoint(driverInfo?.current_location)
   const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
