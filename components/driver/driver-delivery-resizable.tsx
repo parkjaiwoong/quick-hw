@@ -6,6 +6,8 @@ const MIN_MAP_PX = 120
 const MAX_MAP_VH = 95
 const DEFAULT_MAP_VH = 45
 const DESKTOP_MAP_HEIGHT = 224
+/** 모바일 하단 고정 버튼(약 88px) + 핸들(44px) 위로 지도가 가리지 않도록 여유 확보 */
+const RESERVED_BOTTOM_PX = 132
 
 interface DriverDeliveryResizableProps {
   mapNode: React.ReactNode
@@ -53,8 +55,8 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
       const onMove = (ev: MouseEvent | TouchEvent) => {
         const yy = "touches" in ev ? ev.touches[0]?.clientY : ev.clientY
         if (yy == null) return
-        const delta = yy - dragStartYRef.current
-        const maxPx = Math.round((window.innerHeight * MAX_MAP_VH) / 100)
+        const rawMax = Math.round((window.innerHeight * MAX_MAP_VH) / 100)
+        const maxPx = Math.min(rawMax, window.innerHeight - RESERVED_BOTTOM_PX)
         const next = Math.max(
           MIN_MAP_PX,
           Math.min(maxPx, dragStartHeightRef.current + delta)
@@ -83,10 +85,9 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
 
   const handleDoubleClick = useCallback(() => {
     setMapHeightPx((prev) => {
-      const maxPx =
-        typeof window !== "undefined"
-          ? Math.round((window.innerHeight * MAX_MAP_VH) / 100)
-          : 400
+      if (typeof window === "undefined") return MIN_MAP_PX
+      const rawMax = Math.round((window.innerHeight * MAX_MAP_VH) / 100)
+      const maxPx = Math.min(rawMax, window.innerHeight - RESERVED_BOTTOM_PX)
       if (prev == null || prev <= MIN_MAP_PX) return maxPx
       return MIN_MAP_PX
     })
@@ -103,7 +104,7 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
                 height:
                   mapHeightPx != null
                     ? `${Math.max(MIN_MAP_PX, mapHeightPx)}px`
-                    : "45dvh",
+                    : "45vh",
                 minHeight: MIN_MAP_PX,
               }
             : { height: DESKTOP_MAP_HEIGHT }
@@ -112,14 +113,14 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
         {mapNode}
       </div>
 
-      {/* 리사이즈 핸들: 콘텐츠 상단, 지도 바로 아래 (모바일 전용) */}
+      {/* 리사이즈 핸들: 콘텐츠 상단, 지도 바로 아래 (모바일 전용) - z-30으로 액션 버튼 위에 표시 */}
       <div
         role="button"
         tabIndex={0}
         onMouseDown={handlePointerDown}
         onTouchStart={handlePointerDown}
         onDoubleClick={handleDoubleClick}
-        className="flex shrink-0 cursor-grab active:cursor-grabbing justify-center py-3 bg-slate-100 hover:bg-slate-200 border-y-2 border-slate-300 min-h-[44px] touch-manipulation select-none md:hidden"
+        className="relative z-30 flex shrink-0 cursor-grab active:cursor-grabbing justify-center py-3 bg-slate-100 hover:bg-slate-200 border-y-2 border-slate-300 min-h-[44px] touch-manipulation select-none md:hidden"
         aria-label="드래그 위로: 지도 숨김, 아래로: 지도 전체"
       >
         <span className="w-14 h-1.5 rounded-full bg-slate-500 block" />

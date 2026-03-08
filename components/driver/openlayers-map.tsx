@@ -239,10 +239,9 @@ export function OpenLayersMap({
   const pickupLat = pickup?.lat
   const deliveryLng = delivery?.lng
   const deliveryLat = delivery?.lat
-  const hasCoords = (pickupLng != null && pickupLat != null) || (deliveryLng != null && deliveryLat != null)
 
   useEffect(() => {
-    if (!mapRef.current || !hasCoords) return
+    if (!mapRef.current) return
 
     const allFeatures: Array<Feature<Point | LineString>> = [...staticFeatures]
     if (myLocation) {
@@ -311,7 +310,7 @@ export function OpenLayersMap({
       vectorSourceRef.current = null
       myLocationFeatureRef.current = null
     }
-  }, [pickupLng, pickupLat, deliveryLng, deliveryLat, hasCoords, resizableOnMobile])
+  }, [pickupLng, pickupLat, deliveryLng, deliveryLat, staticFeatures, resizableOnMobile])
 
   useEffect(() => {
     if (!myLocation || !pickup) return
@@ -438,7 +437,13 @@ export function OpenLayersMap({
   )
 
   return (
-    <div className="space-y-2">
+    <div
+      className={
+        fillContainer
+          ? "h-full flex flex-col min-h-0 gap-2"
+          : "space-y-2"
+      }
+    >
       {showMyLocation && distanceToPickupKm != null && (
         <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 border border-emerald-200">
           <span className="font-medium">픽업 장소까지 거리</span>
@@ -470,7 +475,7 @@ export function OpenLayersMap({
         }
         style={
           resizableOnMobile
-            ? { height: mapHeightPx != null ? `${mapHeightPx}px` : `${DEFAULT_MAP_HEIGHT_VH}dvh` }
+            ? { height: mapHeightPx != null ? `${mapHeightPx}px` : `${DEFAULT_MAP_HEIGHT_VH}vh` }
             : undefined
         }
       >
@@ -497,7 +502,7 @@ export function OpenLayersMap({
             resizableOnMobile
               ? "min-h-0 flex-1 w-full md:flex-none md:h-56"
               : fillContainer
-              ? "min-h-0 flex-1 w-full"
+              ? "min-h-[120px] flex-1 w-full"
               : "h-56 w-full"
           }
         />
