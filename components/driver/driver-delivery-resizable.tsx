@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 
-const MIN_MAP_PX = 120
+/** 지도 숨김 상태일 때 높이 0 (완전히 안 보이도록) */
+const MIN_MAP_PX = 0
 const MAX_MAP_VH = 95
 const DEFAULT_MAP_VH = 45
 const DESKTOP_MAP_HEIGHT = 224
-/** 모바일 하단 고정 버튼(약 88px) + 핸들(44px) 위로 지도가 가리지 않도록 여유 확보 */
-const RESERVED_BOTTOM_PX = 132
+/** 모바일 하단 고정 버튼 + 핸들 위로 지도가 가리지 않도록 - 최소한만 확보해서 지도가 더 넓게 보이도록 */
+const RESERVED_BOTTOM_PX = 120
 
 interface DriverDeliveryResizableProps {
   mapNode: React.ReactNode

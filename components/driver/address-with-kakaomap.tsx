@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Copy, MapPin, Check } from "lucide-react"
 
-interface AddressWithTmapProps {
+interface AddressWithKakaoMapProps {
   address: string
   /** { lat, lng } for map navigation */
   coords?: { lat: number; lng: number } | null
@@ -11,29 +11,31 @@ interface AddressWithTmapProps {
 
 /**
  * 차량/오토바이 길찾기 (대중교통 제외).
- * tmap://route = TMAP 앱 자동차 경로안내. Android: intent, 미설치 시 구글맵 fallback.
- * 구글맵: travelmode=driving (차량 경로만).
+ * kakaomap://route = 카카오맵 앱 자동차 경로안내. Android: intent, 미설치 시 카카오맵 웹 fallback.
  */
 function getMapUrl(address: string, coords: { lat: number; lng: number } | null | undefined) {
   if (!address && !coords) return null
-  const dest = coords ? `${coords.lat},${coords.lng}` : encodeURIComponent(address)
-  const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`
 
-  if (typeof navigator === "undefined") return googleUrl
+  // 카카오맵 웹: 좌표 있으면 /link/to/장소명,위도,경도, 없으면 검색
+  const kakaoWebUrl = coords
+    ? `https://map.kakao.com/link/to/${encodeURIComponent(address || "목적지")},${coords.lat},${coords.lng}`
+    : `https://map.kakao.com/?q=${encodeURIComponent(address)}`
+
+  if (typeof navigator === "undefined") return kakaoWebUrl
   const ua = navigator.userAgent || ""
   const isAndroid = /Android/i.test(ua)
   if (isAndroid && coords) {
-    const name = encodeURIComponent(address || "목적지")
-    const intent = `intent://route?goalname=${name}&goalx=${coords.lng}&goaly=${coords.lat}#Intent;scheme=tmap;package=com.skt.tmap.ku;S.browser_fallback_url=${encodeURIComponent(googleUrl)};end`
+    const ep = `${coords.lat},${coords.lng}`
+    const intent = `intent://route?ep=${ep}&by=car#Intent;scheme=kakaomap;package=net.daum.android.map;S.browser_fallback_url=${encodeURIComponent(kakaoWebUrl)};end`
     return intent
   }
-  return googleUrl
+  return kakaoWebUrl
 }
 
 /**
- * 주소 셀: 클릭 시 클립보드 복사, 지도 앱 링크 (Android→TMAP/구글맵, 기타→구글맵)
+ * 주소 셀: 클릭 시 클립보드 복사, 지도 앱 링크 (Android→카카오맵/웹, 기타→카카오맵 웹)
  */
-export function AddressWithTmap({ address, coords }: AddressWithTmapProps) {
+export function AddressWithKakaoMap({ address, coords }: AddressWithKakaoMapProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async (e: React.MouseEvent) => {

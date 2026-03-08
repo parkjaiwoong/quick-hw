@@ -17,7 +17,7 @@ import { DeliveryCompleteForm } from "@/components/driver/delivery-complete-form
 import { StatusUpdateButton } from "@/components/driver/status-update-button"
 import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
-import { AddressWithTmap } from "@/components/driver/address-with-tmap"
+import { AddressWithKakaoMap } from "@/components/driver/address-with-kakaomap"
 import { DriverDeliveryResizable } from "@/components/driver/driver-delivery-resizable"
 
 const statusConfig = {
@@ -224,7 +224,7 @@ export default async function DriverDeliveryDetailPage({
                 <TableRow>
                   <TableCell className="font-semibold">픽업</TableCell>
                   <TableCell>
-                    <AddressWithTmap
+                    <AddressWithKakaoMap
                       address={delivery.pickup_address ?? ""}
                       coords={pickupCoords}
                     />
@@ -240,7 +240,7 @@ export default async function DriverDeliveryDetailPage({
                 <TableRow>
                   <TableCell className="font-semibold">배송</TableCell>
                   <TableCell>
-                    <AddressWithTmap
+                    <AddressWithKakaoMap
                       address={delivery.delivery_address ?? ""}
                       coords={deliveryCoords}
                     />
