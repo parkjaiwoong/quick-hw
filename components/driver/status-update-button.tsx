@@ -36,17 +36,19 @@ export function StatusUpdateButton({
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
+        redirect: "follow",
+        credentials: "same-origin",
       })
-      if (res.redirected && res.ok) {
-        router.replace(new URL(res.url).pathname)
-        return
-      }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setError(data?.error || "처리 중 오류가 발생했습니다.")
-      } else {
-        router.refresh()
+        return
       }
+      if (res.redirected && res.url) {
+        const path = new URL(res.url).pathname
+        router.replace(path)
+      }
+      router.refresh()
     } catch {
       setError("네트워크 오류. 다시 시도해 주세요.")
     } finally {
