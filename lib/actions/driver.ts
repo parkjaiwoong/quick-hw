@@ -1,5 +1,6 @@
 "use server"
 
+import { after } from "next/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
@@ -229,30 +230,28 @@ export async function updateDeliveryStatus(
   const { error } = await supabase.from("deliveries").update(updateData).eq("id", deliveryId)
   if (error) return { error: error.message }
 
-  // 배송 완료 시 후처리 (포인트, 정산, 주문상태 동기화) — 병렬 실행
+  const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+  await syncOrderStatusForDelivery(deliveryId, status)
+
+  // 배송 완료 시 포인트·정산·추천인보상은 after()로 즉시 응답 후 백그라운드 처리
   if (status === "delivered" && current?.customer_id) {
     const customerId = current.customer_id
-    const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
-    const { createSettlementForDelivery, syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
-
-    // 첫 배송 완료 여부 확인 (추천인 보상용)
-    const { data: customerDeliveries } = await supabase
-      .from("deliveries")
-      .select("id")
-      .eq("customer_id", customerId)
-      .eq("status", "delivered")
-
-    const isFirstDelivery = customerDeliveries && customerDeliveries.length === 1
-
-    await Promise.all([
-      earnPoints(customerId, 100, "delivery", deliveryId, "배송 완료 포인트"),
-      isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
-      createSettlementForDelivery(deliveryId),
-      syncOrderStatusForDelivery(deliveryId, "delivered"),
-    ])
-  } else {
-    const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
-    await syncOrderStatusForDelivery(deliveryId, status)
+    after(async () => {
+      const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
+      const { createSettlementForDelivery } = await import("@/lib/actions/finance")
+      const s = await getSupabaseServerClient()
+      const { data: customerDeliveries } = await s
+        .from("deliveries")
+        .select("id")
+        .eq("customer_id", customerId)
+        .eq("status", "delivered")
+      const isFirstDelivery = customerDeliveries && customerDeliveries.length === 1
+      await Promise.all([
+        earnPoints(customerId, 100, "delivery", deliveryId, "배송 완료 포인트"),
+        isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
+        createSettlementForDelivery(deliveryId),
+      ])
+    })
   }
 
   revalidatePath("/driver")
@@ -292,26 +291,27 @@ export async function completeDeliveryFromAccepted(
 
   if (error) return { error: error.message }
 
-  // 배송 완료 후처리
+  const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
+  await syncOrderStatusForDelivery(deliveryId, "delivered")
+
   if (current.customer_id) {
     const customerId = current.customer_id
-    const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
-    const { createSettlementForDelivery, syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
-
-    const { data: customerDeliveries } = await supabase
-      .from("deliveries")
-      .select("id")
-      .eq("customer_id", customerId)
-      .eq("status", "delivered")
-
-    const isFirstDelivery = customerDeliveries && customerDeliveries.length === 1
-
-    await Promise.all([
-      earnPoints(customerId, 100, "delivery", deliveryId, "배송 완료 포인트"),
-      isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
-      createSettlementForDelivery(deliveryId),
-      syncOrderStatusForDelivery(deliveryId, "delivered"),
-    ])
+    after(async () => {
+      const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
+      const { createSettlementForDelivery } = await import("@/lib/actions/finance")
+      const s = await getSupabaseServerClient()
+      const { data: customerDeliveries } = await s
+        .from("deliveries")
+        .select("id")
+        .eq("customer_id", customerId)
+        .eq("status", "delivered")
+      const isFirstDelivery = customerDeliveries && customerDeliveries.length === 1
+      await Promise.all([
+        earnPoints(customerId, 100, "delivery", deliveryId, "배송 완료 포인트"),
+        isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
+        createSettlementForDelivery(deliveryId),
+      ])
+    })
   }
 
   revalidatePath("/driver")

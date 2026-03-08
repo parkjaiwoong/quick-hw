@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 interface StatusUpdateButtonProps {
@@ -12,7 +13,7 @@ interface StatusUpdateButtonProps {
 
 /**
  * 픽업 완료 / 배송 완료(사진 없음) 등 status 전환 버튼.
- * form submit 사용 (WebView/모바일 환경에서 fetch보다 안정적)
+ * fetch로 즉시 처리 후 페이지 전환 (풀 페이지 리로드 없음)
  */
 export function StatusUpdateButton({
   deliveryId,
@@ -21,18 +22,44 @@ export function StatusUpdateButton({
   className,
 }: StatusUpdateButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isLoading) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const fd = new FormData()
+      fd.set("status", nextStatus)
+      const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
+        method: "POST",
+        body: fd,
+      })
+      if (res.redirected && res.ok) {
+        router.replace(new URL(res.url).pathname)
+        return
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data?.error || "처리 중 오류가 발생했습니다.")
+      } else {
+        router.refresh()
+      }
+    } catch {
+      setError("네트워크 오류. 다시 시도해 주세요.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
-    <form
-      action={`/api/driver/delivery/${deliveryId}/status`}
-      method="POST"
-      className={className}
-      onSubmit={() => setIsLoading(true)}
-    >
-      <input type="hidden" name="status" value={nextStatus} />
+    <form className={className} onSubmit={handleSubmit}>
       <Button type="submit" disabled={isLoading} className="w-full" size="lg">
         {isLoading ? "처리 중…" : label}
       </Button>
+      {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
     </form>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -46,6 +47,7 @@ export function DeliveryCompleteForm({
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [cameraActive, setCameraActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -170,15 +172,36 @@ export function DeliveryCompleteForm({
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  const handleComplete = (e: React.MouseEvent) => {
+  const handleComplete = async (e: React.MouseEvent) => {
     e.preventDefault()
     if (loading || submitting) return
     const form = formRef.current
     if (!form) return
-    const urlInput = form.querySelector<HTMLInputElement>('input[name="delivery_proof_url"]')
-    if (urlInput) urlInput.value = uploadedUrl ?? ""
     setSubmitting(true)
-    form.submit()
+    setError(null)
+    try {
+      const fd = new FormData(form)
+      fd.set("delivery_proof_url", uploadedUrl ?? "")
+      const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
+        method: "POST",
+        body: fd,
+      })
+      if (res.redirected && res.ok) {
+        router.replace(new URL(res.url).pathname)
+        return
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data?.error || "처리 중 오류가 발생했습니다.")
+        setSubmitting(false)
+        return
+      }
+      router.refresh()
+      resetAndClose()
+    } catch (err) {
+      setError("네트워크 오류. 다시 시도해 주세요.")
+      setSubmitting(false)
+    }
   }
 
   const resetAndClose = () => {
