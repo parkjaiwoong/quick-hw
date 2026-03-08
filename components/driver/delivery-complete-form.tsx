@@ -70,8 +70,9 @@ interface DeliveryCompleteFormProps {
   fromAccepted?: boolean
 }
 
-async function uploadBlob(deliveryId: string, blob: Blob): Promise<string> {
-  const file = new File([blob], "capture.jpg", { type: "image/jpeg" })
+async function uploadBlob(deliveryId: string, blob: Blob, mime = "image/png"): Promise<string> {
+  const ext = mime === "image/jpeg" ? "jpg" : "png"
+  const file = new File([blob], `capture.${ext}`, { type: mime })
   const formData = new FormData()
   formData.append("file", file)
   const res = await fetch(`/api/driver/delivery/${deliveryId}/upload-proof`, {
@@ -187,21 +188,41 @@ export function DeliveryCompleteForm({
     setLoading(true)
     setCameraModalError(null)
     try {
+      // 프레임 준비 대기 (WebView/모바일에서 첫 프레임 렌더 보장)
+      await new Promise<void>((resolve) => {
+        if (typeof (video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }).requestVideoFrameCallback === "function") {
+          ;(video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => number }).requestVideoFrameCallback(() => resolve())
+        } else {
+          video.readyState >= 2 ? setTimeout(resolve, 150) : video.addEventListener("loadeddata", () => setTimeout(resolve, 150), { once: true })
+        }
+      })
       const canvas = canvasRef.current || document.createElement("canvas")
-      canvas.width = w
-      canvas.height = h
+      // 업로드 안정화: 해상도 상한 (일부 WebView에서 고해상도 toBlob 실패 방지)
+      const maxDim = 1280
+      const scale = Math.min(1, maxDim / Math.max(w, h))
+      canvas.width = Math.round(w * scale)
+      canvas.height = Math.round(h * scale)
       const ctx = canvas.getContext("2d")
       if (!ctx) throw new Error("Canvas not available")
-      ctx.drawImage(video, 0, 0)
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", 0.9)
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      // PNG 우선 (WebView/Android에서 JPEG toBlob 불안정 시 대비)
+      let blob: Blob | null = null
+      let mime = "image/png"
+      blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/png")
       })
-      if (!blob) {
-        setCameraModalError("촬영 실패")
+      if (!blob || blob.size === 0) {
+        blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob(resolve, "image/jpeg", 0.85)
+        })
+        mime = "image/jpeg"
+      }
+      if (!blob || blob.size === 0) {
+        setCameraModalError("촬영 실패 (이미지 생성 오류)")
         setLoading(false)
         return
       }
-      const url = await uploadBlob(deliveryId, blob)
+      const url = await uploadBlob(deliveryId, blob, mime)
       const dataUrl = URL.createObjectURL(blob)
       stopCamera()
       setCameraReady(false)
@@ -262,7 +283,6 @@ export function DeliveryCompleteForm({
     setUploadedUrl(null)
     setSubmitting(false)
     setError(null)
-    if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
   const openCameraModal = () => {
@@ -318,8 +338,6 @@ export function DeliveryCompleteForm({
       setSubmitting(false)
     }
   }
-
-  const isMobile = typeof window !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : resetAndClose())}>
@@ -406,9 +424,8 @@ export function DeliveryCompleteForm({
         <DialogContent
           className={cn(
             "p-0 overflow-hidden gap-0 z-[100] flex flex-col",
-            isMobile
-              ? "inset-0 top-0 left-0 translate-x-0 translate-y-0 w-[100vw] h-[100dvh] max-w-[100vw] rounded-none"
-              : "max-w-lg max-h-[90vh]"
+            "max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-[100vw] max-sm:rounded-none",
+            "sm:max-w-lg sm:max-h-[90vh]"
           )}
         >
           <div className="px-4 pt-4 pb-2 shrink-0">
@@ -473,7 +490,7 @@ export function DeliveryCompleteForm({
                       onClick={closeCameraModal}
                     >
                       <ImageIcon className="h-4 w-4" />
-                      취소하고 갤러리에서 선택
+                      닫기
                     </Button>
                   </div>
                 )}
