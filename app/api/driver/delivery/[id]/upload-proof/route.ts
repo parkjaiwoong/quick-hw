@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { uploadDeliveryProof } from "@/lib/actions/driver"
+import { uploadDeliveryProof, uploadDeliveryProofFromBase64 } from "@/lib/actions/driver"
 
 /**
  * POST /api/driver/delivery/[id]/upload-proof
- * FormData: file (image)
- * WebView에서 form POST로 사진 업로드 (server action 대신)
+ * - FormData: file (image)
+ * - JSON: { dataUrl: "data:image/png;base64,..." } — WebView FormData 이슈 회피용
  */
 export async function POST(
   req: NextRequest,
@@ -14,6 +14,20 @@ export async function POST(
     const { id: deliveryId } = await params
     if (!deliveryId) {
       return NextResponse.json({ error: "delivery id required" }, { status: 400 })
+    }
+
+    const contentType = req.headers.get("content-type") ?? ""
+    if (contentType.includes("application/json")) {
+      const body = await req.json()
+      const dataUrl = body?.dataUrl
+      if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+        return NextResponse.json({ error: "dataUrl 형식이 올바르지 않습니다." }, { status: 400 })
+      }
+      const result = await uploadDeliveryProofFromBase64(deliveryId, dataUrl)
+      if (result?.error) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
+      return NextResponse.json({ success: true, url: result.url })
     }
 
     const formData = await req.formData()

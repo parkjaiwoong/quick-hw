@@ -71,13 +71,16 @@ interface DeliveryCompleteFormProps {
 }
 
 async function uploadBlob(deliveryId: string, blob: Blob, mime = "image/png"): Promise<string> {
-  const ext = mime === "image/jpeg" ? "jpg" : "png"
-  const file = new File([blob], `capture.${ext}`, { type: mime })
-  const formData = new FormData()
-  formData.append("file", file)
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error("이미지 변환 실패"))
+    reader.readAsDataURL(blob)
+  })
   const res = await fetch(`/api/driver/delivery/${deliveryId}/upload-proof`, {
     method: "POST",
-    body: formData,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dataUrl }),
     credentials: "include",
   })
   const data = await res.json()

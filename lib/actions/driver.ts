@@ -194,6 +194,48 @@ export async function uploadDeliveryProof(deliveryId: string, formData: FormData
   return { success: true, url: urlData.publicUrl }
 }
 
+/** Base64 dataUrl 업로드 (WebView FormData 이슈 회피용) */
+export async function uploadDeliveryProofFromBase64(deliveryId: string, dataUrl: string) {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "인증이 필요합니다." }
+
+  const { data: delivery } = await supabase
+    .from("deliveries")
+    .select("driver_id")
+    .eq("id", deliveryId)
+    .single()
+  if (!delivery || delivery.driver_id !== user.id) {
+    return { error: "이 배송의 담당 기사만 사진을 업로드할 수 있습니다." }
+  }
+
+  const match = dataUrl.match(/^data:image\/(jpeg|png|webp);base64,(.+)$/)
+  if (!match) return { error: "지원하지 않는 이미지 형식입니다." }
+  const [, ext, base64] = match
+  const extMap = { jpeg: "jpg", png: "png", webp: "webp" } as const
+  const contentType = `image/${ext}`
+  const suffix = extMap[ext as keyof typeof extMap] ?? "png"
+
+  const raw = Buffer.from(base64, "base64")
+  if (raw.length === 0) return { error: "파일이 비어 있습니다." }
+  if (raw.length > 5 * 1024 * 1024) return { error: "파일 크기는 5MB 이하여야 합니다." }
+
+  const svc = getServiceRoleClient()
+  const client = svc ?? supabase
+  const path = `${deliveryId}/${Date.now()}.${suffix}`
+
+  const { error: uploadError } = await client.storage
+    .from("delivery-proofs")
+    .upload(path, raw, { contentType, upsert: true })
+
+  if (uploadError) return { error: "파일 업로드에 실패했습니다." }
+
+  const { data: urlData } = client.storage.from("delivery-proofs").getPublicUrl(path)
+  return { success: true, url: urlData.publicUrl }
+}
+
 export async function updateDeliveryStatus(
   deliveryId: string,
   status: string,
