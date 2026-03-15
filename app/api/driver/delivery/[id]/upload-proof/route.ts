@@ -37,10 +37,9 @@ export async function POST(
     }
     return NextResponse.json({ success: true, url: result.url })
   } catch (e) {
-    console.error("upload delivery proof error:", e)
-    return NextResponse.json(
-      { error: "업로드에 실패했습니다." },
-      { status: 500 }
-    )
+    const err = e instanceof Error ? e : new Error(String(e))
+    console.error("upload delivery proof error:", err)
+    const message = err.message && !err.message.includes("fetch") ? err.message : "업로드에 실패했습니다."
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

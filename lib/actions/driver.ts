@@ -13,6 +13,20 @@ function getServiceRoleClient() {
   })
 }
 
+function decodeBase64ToUint8Array(base64: string): Uint8Array | null {
+  try {
+    if (typeof Buffer !== "undefined") {
+      return new Uint8Array(Buffer.from(base64, "base64"))
+    }
+    const binary = atob(base64)
+    const arr = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+    return arr
+  } catch {
+    return null
+  }
+}
+
 export async function getAvailableDeliveries() {
   const supabase = await getSupabaseServerClient()
 
@@ -188,7 +202,12 @@ export async function uploadDeliveryProof(deliveryId: string, formData: FormData
     .from("delivery-proofs")
     .upload(path, buffer, { contentType: file.type, upsert: true })
 
-  if (uploadError) return { error: "파일 업로드에 실패했습니다." }
+  if (uploadError) {
+    const msg = uploadError.message || String(uploadError)
+    return { error: msg.includes("row-level security") || msg.includes("policy")
+      ? "저장소 권한이 없습니다. Supabase 대시보드에서 delivery-proofs 버킷과 저장 정책을 확인해 주세요."
+      : "파일 업로드에 실패했습니다." }
+  }
 
   const { data: urlData } = client.storage.from("delivery-proofs").getPublicUrl(path)
   return { success: true, url: urlData.publicUrl }
@@ -218,8 +237,8 @@ export async function uploadDeliveryProofFromBase64(deliveryId: string, dataUrl:
   const contentType = `image/${ext}`
   const suffix = extMap[ext as keyof typeof extMap] ?? "png"
 
-  const raw = Buffer.from(base64, "base64")
-  if (raw.length === 0) return { error: "파일이 비어 있습니다." }
+  const raw = decodeBase64ToUint8Array(base64)
+  if (!raw || raw.length === 0) return { error: "파일이 비어 있습니다." }
   if (raw.length > 5 * 1024 * 1024) return { error: "파일 크기는 5MB 이하여야 합니다." }
 
   const svc = getServiceRoleClient()
@@ -230,7 +249,14 @@ export async function uploadDeliveryProofFromBase64(deliveryId: string, dataUrl:
     .from("delivery-proofs")
     .upload(path, raw, { contentType, upsert: true })
 
-  if (uploadError) return { error: "파일 업로드에 실패했습니다." }
+  if (uploadError) {
+    const msg = uploadError.message || String(uploadError)
+    if (msg.includes("Bucket not found") || msg.includes("bucket"))
+      return { error: "저장 버킷(delivery-proofs)이 없습니다. Supabase Storage에서 버킷을 생성해 주세요." }
+    if (msg.includes("row-level security") || msg.includes("policy") || msg.includes("violates"))
+      return { error: "저장소 권한이 없습니다. Supabase에서 delivery-proofs 버킷 저장 정책을 추가해 주세요." }
+    return { error: "파일 업로드에 실패했습니다." }
+  }
 
   const { data: urlData } = client.storage.from("delivery-proofs").getPublicUrl(path)
   return { success: true, url: urlData.publicUrl }
