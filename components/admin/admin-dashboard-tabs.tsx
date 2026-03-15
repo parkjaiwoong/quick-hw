@@ -118,9 +118,14 @@ export default function AdminDashboardTabs({
             ) : (
               <p className="text-sm text-muted-foreground mb-4">주문 로그가 없습니다.</p>
             )}
-            <Link href="/admin/dispatch">
-              <Button className="w-full">연결 로그 상세 보기</Button>
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/admin/dispatch">
+                <Button className="w-full sm:w-auto">연결 로그 상세 보기</Button>
+              </Link>
+              <Link href="/admin/late-deliveries">
+                <Button variant="outline" className="w-full sm:w-auto">예상시간 초과 배송</Button>
+              </Link>
+            </div>
           </CardContent>
         </div>
       </TabsContent>

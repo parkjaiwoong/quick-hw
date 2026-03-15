@@ -5,12 +5,29 @@ import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+const BUCKET_DELIVERY_PROOFS = "delivery-proofs"
+
 function getServiceRoleClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!key) return null
   return createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, key, {
     auth: { persistSession: false },
   })
+}
+
+/** delivery-proofs 버킷이 없으면 서비스 롤로 생성 (업로드 실패 시 1회 자동 시도용) */
+async function ensureDeliveryProofsBucket(): Promise<{ ok: boolean; error?: string }> {
+  const client = getServiceRoleClient()
+  if (!client) return { ok: false, error: "SERVICE_ROLE 없음" }
+  const { error } = await client.storage.createBucket(BUCKET_DELIVERY_PROOFS, {
+    public: true,
+    fileSizeLimit: "5MB",
+  })
+  if (error) {
+    if (String(error).includes("already exists") || String(error).includes("duplicate")) return { ok: true }
+    return { ok: false, error: error.message }
+  }
+  return { ok: true }
 }
 
 function decodeBase64ToUint8Array(base64: string): Uint8Array | null {
@@ -198,10 +215,17 @@ export async function uploadDeliveryProof(deliveryId: string, formData: FormData
   const arrayBuffer = await file.arrayBuffer()
   const buffer = new Uint8Array(arrayBuffer)
 
-  const { error: uploadError } = await client.storage
-    .from("delivery-proofs")
-    .upload(path, buffer, { contentType: file.type, upsert: true })
-
+  let uploadError = (await client.storage.from(BUCKET_DELIVERY_PROOFS).upload(path, buffer, { contentType: file.type, upsert: true })).error
+  if (uploadError) {
+    const msg = uploadError.message || String(uploadError)
+    const isBucketMissing = msg.includes("Bucket not found") || msg.includes("bucket") || msg.includes("not found")
+    if (isBucketMissing && getServiceRoleClient()) {
+      const ensured = await ensureDeliveryProofsBucket()
+      if (ensured.ok) {
+        uploadError = (await client.storage.from(BUCKET_DELIVERY_PROOFS).upload(path, buffer, { contentType: file.type, upsert: true })).error
+      }
+    }
+  }
   if (uploadError) {
     const msg = uploadError.message || String(uploadError)
     return { error: msg.includes("row-level security") || msg.includes("policy")
@@ -209,7 +233,7 @@ export async function uploadDeliveryProof(deliveryId: string, formData: FormData
       : "파일 업로드에 실패했습니다." }
   }
 
-  const { data: urlData } = client.storage.from("delivery-proofs").getPublicUrl(path)
+  const { data: urlData } = client.storage.from(BUCKET_DELIVERY_PROOFS).getPublicUrl(path)
   return { success: true, url: urlData.publicUrl }
 }
 
@@ -245,20 +269,27 @@ export async function uploadDeliveryProofFromBase64(deliveryId: string, dataUrl:
   const client = svc ?? supabase
   const path = `${deliveryId}/${Date.now()}.${suffix}`
 
-  const { error: uploadError } = await client.storage
-    .from("delivery-proofs")
-    .upload(path, raw, { contentType, upsert: true })
-
+  let uploadError = (await client.storage.from(BUCKET_DELIVERY_PROOFS).upload(path, raw, { contentType, upsert: true })).error
   if (uploadError) {
     const msg = uploadError.message || String(uploadError)
-    if (msg.includes("Bucket not found") || msg.includes("bucket"))
+    const isBucketMissing = msg.includes("Bucket not found") || msg.includes("bucket") || msg.includes("not found")
+    if (isBucketMissing && getServiceRoleClient()) {
+      const ensured = await ensureDeliveryProofsBucket()
+      if (ensured.ok) {
+        uploadError = (await client.storage.from(BUCKET_DELIVERY_PROOFS).upload(path, raw, { contentType, upsert: true })).error
+      }
+    }
+  }
+  if (uploadError) {
+    const msg = uploadError.message || String(uploadError)
+    if (msg.includes("Bucket not found") || msg.includes("bucket") || msg.includes("not found"))
       return { error: "저장 버킷(delivery-proofs)이 없습니다. Supabase Storage에서 버킷을 생성해 주세요." }
     if (msg.includes("row-level security") || msg.includes("policy") || msg.includes("violates"))
       return { error: "저장소 권한이 없습니다. Supabase에서 delivery-proofs 버킷 저장 정책을 추가해 주세요." }
     return { error: "파일 업로드에 실패했습니다." }
   }
 
-  const { data: urlData } = client.storage.from("delivery-proofs").getPublicUrl(path)
+  const { data: urlData } = client.storage.from(BUCKET_DELIVERY_PROOFS).getPublicUrl(path)
   return { success: true, url: urlData.publicUrl }
 }
 

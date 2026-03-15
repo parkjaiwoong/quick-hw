@@ -90,6 +90,7 @@ export interface Delivery {
   vehicle_type?: string | null
   urgency?: string | null
   scheduled_pickup_at?: string | null
+  expected_delivery_minutes?: number | null
 
   customer_rating: number | null
   customer_review: string | null

@@ -17,6 +17,7 @@ import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 import { AddressWithKakaoMap } from "@/components/driver/address-with-kakaomap"
 import { DriverDeliveryResizable } from "@/components/driver/driver-delivery-resizable"
+import { ExpectedTimeBanner, ExceededCompleteMessage } from "@/components/driver/expected-time-banner"
 
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
@@ -171,6 +172,27 @@ export default async function DriverDeliveryDetailPage({
 
         {/* 배송 수락 후 위치 자동 전송 (관리자/고객 실시간 추적용, UI 없이 백그라운드) */}
         {isAssignedToMe && <DriverLocationUpdater deliveryId={delivery.id} silent />}
+
+        {/* 예상시간 기준 진행 중/초과 안내 (배송 완료 전에만) */}
+        {isAssignedToMe && (
+          <ExpectedTimeBanner
+            status={delivery.status}
+            acceptedAt={delivery.accepted_at}
+            expectedDeliveryMinutes={delivery.expected_delivery_minutes ?? null}
+            urgency={delivery.urgency ?? null}
+          />
+        )}
+
+        {delivery.status === "delivered" && isAssignedToMe && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+            <ExceededCompleteMessage
+              acceptedAt={delivery.accepted_at}
+              expectedDeliveryMinutes={delivery.expected_delivery_minutes ?? null}
+              urgency={delivery.urgency ?? null}
+              deliveredAt={delivery.delivered_at}
+            />
+          </div>
+        )}
 
         <Card>
           <CardHeader>

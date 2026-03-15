@@ -268,6 +268,7 @@ export async function createDelivery(data: CreateDeliveryData) {
       vehicle_type: data.vehicleType || "motorcycle",
       urgency: data.urgency || "standard",
       scheduled_pickup_at: data.scheduledPickupAt ? new Date(data.scheduledPickupAt).toISOString() : null,
+      expected_delivery_minutes: data.urgency === "express" ? 30 : 180,
     })
     .select()
     .single()
