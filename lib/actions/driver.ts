@@ -332,12 +332,13 @@ export async function updateDeliveryStatus(
   const { syncOrderStatusForDelivery } = await import("@/lib/actions/finance")
   await syncOrderStatusForDelivery(deliveryId, status)
 
-  // 배송 완료 시 포인트·정산·추천인보상은 after()로 즉시 응답 후 백그라운드 처리
+  // 배송 완료 시 포인트·정산·추천인·캐시 무효화는 after()로 즉시 응답 후 백그라운드 처리
   if (status === "delivered" && current?.customer_id) {
     const customerId = current.customer_id
     after(async () => {
       const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
       const { createSettlementForDelivery } = await import("@/lib/actions/finance")
+      const { revalidatePath } = await import("next/cache")
       const s = await getSupabaseServerClient()
       const { data: customerDeliveries } = await s
         .from("deliveries")
@@ -350,12 +351,16 @@ export async function updateDeliveryStatus(
         isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
         createSettlementForDelivery(deliveryId),
       ])
+      revalidatePath("/driver")
+      revalidatePath(`/driver/delivery/${deliveryId}`)
+      revalidatePath(`/customer/delivery/${deliveryId}`)
     })
+  } else {
+    revalidatePath("/driver")
+    revalidatePath(`/driver/delivery/${deliveryId}`)
+    revalidatePath(`/customer/delivery/${deliveryId}`)
   }
 
-  revalidatePath("/driver")
-  revalidatePath(`/driver/delivery/${deliveryId}`)
-  revalidatePath(`/customer/delivery/${deliveryId}`)
   return { success: true }
 }
 
@@ -398,6 +403,7 @@ export async function completeDeliveryFromAccepted(
     after(async () => {
       const { earnPoints, processReferralReward } = await import("@/lib/actions/points")
       const { createSettlementForDelivery } = await import("@/lib/actions/finance")
+      const { revalidatePath } = await import("next/cache")
       const s = await getSupabaseServerClient()
       const { data: customerDeliveries } = await s
         .from("deliveries")
@@ -410,12 +416,16 @@ export async function completeDeliveryFromAccepted(
         isFirstDelivery ? processReferralReward(customerId, deliveryId) : Promise.resolve(),
         createSettlementForDelivery(deliveryId),
       ])
+      revalidatePath("/driver")
+      revalidatePath(`/driver/delivery/${deliveryId}`)
+      revalidatePath(`/customer/delivery/${deliveryId}`)
     })
+  } else {
+    revalidatePath("/driver")
+    revalidatePath(`/driver/delivery/${deliveryId}`)
+    revalidatePath(`/customer/delivery/${deliveryId}`)
   }
 
-  revalidatePath("/driver")
-  revalidatePath(`/driver/delivery/${deliveryId}`)
-  revalidatePath(`/customer/delivery/${deliveryId}`)
   return { success: true }
 }
 

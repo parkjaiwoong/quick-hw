@@ -247,19 +247,15 @@ export function DeliveryCompleteForm({
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
+        headers: { Accept: "application/json" },
       })
-      if (res.redirected && res.ok) {
-        router.replace(new URL(res.url).pathname)
-        return
-      }
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
         setError(data?.error || "처리 중 오류가 발생했습니다.")
         setSubmitting(false)
         return
       }
-      router.refresh()
-      resetAndClose()
+      router.replace("/driver")
     } catch (err) {
       setError("네트워크 오류. 다시 시도해 주세요.")
       setSubmitting(false)
@@ -319,13 +315,10 @@ export function DeliveryCompleteForm({
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
+        headers: { Accept: "application/json" },
       })
-      if (res.redirected && res.ok) {
-        router.replace(new URL(res.url).pathname)
-        return
-      }
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
         setError(data?.error || "처리 중 오류가 발생했습니다.")
         setSubmitting(false)
         return
