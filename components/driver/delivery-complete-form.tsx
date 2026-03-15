@@ -188,52 +188,48 @@ export function DeliveryCompleteForm({
       setCameraModalError("카메라 화면을 불러오는 중입니다. 잠시 후 다시 시도해주세요.")
       return
     }
-    setLoading(true)
     setCameraModalError(null)
+    setLoading(true)
     try {
-      // 프레임 준비 대기 (WebView/모바일에서 첫 프레임 렌더 보장)
+      // 프레임 대기 최소화 (촬영 체감 속도 개선)
       await new Promise<void>((resolve) => {
         if (typeof (video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }).requestVideoFrameCallback === "function") {
           ;(video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => number }).requestVideoFrameCallback(() => resolve())
         } else {
-          video.readyState >= 2 ? setTimeout(resolve, 150) : video.addEventListener("loadeddata", () => setTimeout(resolve, 150), { once: true })
+          video.readyState >= 2 ? setTimeout(resolve, 30) : video.addEventListener("loadeddata", () => setTimeout(resolve, 30), { once: true })
         }
       })
       const canvas = canvasRef.current || document.createElement("canvas")
-      // 업로드 안정화: 해상도 상한 (일부 WebView에서 고해상도 toBlob 실패 방지)
-      const maxDim = 1280
+      const maxDim = 800
       const scale = Math.min(1, maxDim / Math.max(w, h))
       canvas.width = Math.round(w * scale)
       canvas.height = Math.round(h * scale)
       const ctx = canvas.getContext("2d")
       if (!ctx) throw new Error("Canvas not available")
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      // PNG 우선 (WebView/Android에서 JPEG toBlob 불안정 시 대비)
-      let blob: Blob | null = null
-      let mime = "image/png"
-      blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/png")
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", 0.82)
       })
-      if (!blob || blob.size === 0) {
-        blob = await new Promise<Blob | null>((resolve) => {
-          canvas.toBlob(resolve, "image/jpeg", 0.85)
-        })
-        mime = "image/jpeg"
-      }
       if (!blob || blob.size === 0) {
         setCameraModalError("촬영 실패 (이미지 생성 오류)")
         setLoading(false)
         return
       }
-      const url = await uploadBlob(deliveryId, blob, mime)
-      const dataUrl = URL.createObjectURL(blob)
       stopCamera()
       setCameraReady(false)
-      setCapturedPreview(dataUrl)
-      setCapturedUploadedUrl(url)
+      setCapturedPreview(URL.createObjectURL(blob))
+      uploadBlob(deliveryId, blob, "image/jpeg")
+        .then((url) => {
+          setCapturedUploadedUrl(url)
+        })
+        .catch((err) => {
+          setCameraModalError(err instanceof Error ? err.message : "업로드에 실패했습니다.")
+        })
+        .finally(() => {
+          setLoading(false)
+        })
     } catch (err) {
-      setCameraModalError(err instanceof Error ? err.message : "업로드에 실패했습니다.")
-    } finally {
+      setCameraModalError(err instanceof Error ? err.message : "촬영에 실패했습니다.")
       setLoading(false)
     }
   }, [deliveryId, stopCamera])
@@ -334,8 +330,7 @@ export function DeliveryCompleteForm({
         setSubmitting(false)
         return
       }
-      router.refresh()
-      resetAndClose()
+      router.replace("/driver")
     } catch {
       setError("네트워크 오류. 다시 시도해 주세요.")
       setSubmitting(false)
@@ -499,11 +494,19 @@ export function DeliveryCompleteForm({
                 )}
               </div>
             ) : capturedPreview ? (
-              <img
-                src={capturedPreview}
-                alt="촬영한 사진"
-                className="w-full max-h-[70vh] sm:max-h-[60vh] object-contain"
-              />
+              <div className="flex flex-col items-center w-full">
+                <img
+                  src={capturedPreview}
+                  alt="촬영한 사진"
+                  className="w-full max-h-[70vh] sm:max-h-[60vh] object-contain"
+                />
+                {loading && (
+                  <p className="text-sm text-white/90 mt-2 flex items-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                    업로드 중…
+                  </p>
+                )}
+              </div>
             ) : cameraReady && streamRef.current ? (
               <>
                 <video
@@ -536,8 +539,8 @@ export function DeliveryCompleteForm({
                 <Button type="button" variant="outline" className="flex-1" onClick={() => { setCapturedPreview(null); setCapturedUploadedUrl(null); startCamera(false) }}>
                   다시 촬영
                 </Button>
-                <Button type="button" className="flex-1 gap-2" onClick={handleCameraConfirm} disabled={submitting}>
-                  {submitting ? "완료 중…" : "확인"}
+                <Button type="button" className="flex-1 gap-2" onClick={handleCameraConfirm} disabled={submitting || loading}>
+                  {loading ? "업로드 중…" : submitting ? "완료 중…" : "확인"}
                 </Button>
               </>
             ) : (
