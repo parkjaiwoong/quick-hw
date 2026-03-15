@@ -2,6 +2,22 @@
 
 기사 앱에서 "배송 완료" 시 촬영한 인증 사진이 **Supabase Storage**에 저장됩니다.
 
+## "Could not find the 'delivery_proof_url' column" / schema cache 오류 시
+
+배송 완료 인증 화면에서 위 메시지가 나오면 **deliveries** 테이블에 컬럼이 없거나 스키마 캐시가 반영되지 않은 상태입니다.
+
+1. [Supabase 대시보드](https://supabase.com/dashboard) → 프로젝트 선택
+2. **SQL Editor** → New query
+3. 아래 SQL 실행:
+
+```sql
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS delivery_proof_url TEXT;
+```
+
+4. 실행 후 앱에서 다시 시도. 그래도 같은 오류면 **Settings → API**에서 스키마 캐시가 자동 갱신될 때까지 잠시 기다리거나, 대시보드에서 **Table Editor → deliveries** 열어서 `delivery_proof_url` 컬럼이 보이는지 확인하세요.
+
+(또는 `scripts/071_add_delivery_proof_url_column.sql` 실행)
+
 ## "파일 업로드에 실패했습니다" / "저장소 권한이 없습니다" 발생 시
 
 ### 1. 버킷 생성
