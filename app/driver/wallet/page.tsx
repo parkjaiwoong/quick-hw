@@ -8,12 +8,13 @@ import { getRoleOverride } from "@/lib/role"
 import { ensureDriverWallet, getDriverWalletSummary, requestPayout, updateDriverBankAccount } from "@/lib/actions/finance"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 
-type PageProps = { searchParams?: Promise<{ error?: string }> }
+type PageProps = { searchParams?: Promise<{ error?: string; saved?: string }> }
 
 export default async function DriverWalletPage({ searchParams }: PageProps) {
   const supabase = await getSupabaseServerClient()
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const payoutError = typeof resolvedSearchParams.error === "string" ? resolvedSearchParams.error : null
+  const savedSuccess = resolvedSearchParams.saved === "1"
 
   const {
     data: { user },
@@ -100,7 +101,7 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
     if (result?.error) {
       redirect(`/driver/wallet?error=${encodeURIComponent(result.error)}`)
     }
-    redirect("/driver/wallet")
+    redirect("/driver/wallet?saved=1")
   }
 
   async function handleRequestPayout(formData: FormData) {
@@ -123,6 +124,11 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
         {payoutError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
             {payoutError}
+          </div>
+        )}
+        {savedSuccess && (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" role="alert">
+            출금 계좌가 저장되었습니다.
           </div>
         )}
 
@@ -274,7 +280,7 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
                 <label htmlFor="bank_account" className="text-sm font-medium mb-1 block">계좌번호</label>
                 <Input id="bank_account" name="bank_account" placeholder="숫자만 입력" defaultValue={driverInfo?.bank_account ?? ""} />
               </div>
-              <Button type="submit">계좌 저장</Button>
+              <SubmitButtonPending pendingLabel="저장 중…">계좌 저장</SubmitButtonPending>
             </form>
           </CardContent>
         </Card>

@@ -480,15 +480,25 @@ export async function getDriverWalletSummary(driverId: string) {
 /** 기사 출금 계좌 설정 저장 (지갑 화면에서만 사용) */
 export async function updateDriverBankAccount(driverId: string, bankName: string, bankAccount: string) {
   const supabase = await getSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id !== driverId) {
+    return { error: "본인만 계좌를 등록할 수 있습니다." }
+  }
   const bank = String(bankName || "").trim()
   const account = String(bankAccount || "").trim()
   if (!account) {
     return { error: "계좌번호를 입력해 주세요." }
   }
-  const { error } = await supabase
+  const svc = await getServiceRoleClient()
+  if (!svc) {
+    return { error: "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." }
+  }
+  const { error } = await svc
     .from("driver_info")
-    .update({ bank_name: bank || null, bank_account: account })
-    .eq("id", driverId)
+    .upsert(
+      { id: driverId, bank_name: bank || null, bank_account: account },
+      { onConflict: "id" }
+    )
   if (error) {
     return { error: error.message }
   }
