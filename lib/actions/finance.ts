@@ -960,6 +960,12 @@ export async function rejectPayout(payoutId: string, reason: string) {
     })
     .eq("id", payoutId)
 
+  // 반려 시 해당 출금에 묶였던 정산 해제 → 기사가 재출금 요청 가능
+  await supabase
+    .from("settlements")
+    .update({ payout_request_id: null })
+    .eq("payout_request_id", payoutId)
+
   const { data: wallet } = await supabase
     .from("driver_wallet")
     .select("available_balance")

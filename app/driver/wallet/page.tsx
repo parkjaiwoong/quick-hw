@@ -7,8 +7,12 @@ import { CheckCircle, Clock } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
 import { ensureDriverWallet, getDriverWalletSummary, requestPayout } from "@/lib/actions/finance"
 
-export default async function DriverWalletPage() {
+type PageProps = { searchParams?: Promise<{ error?: string }> }
+
+export default async function DriverWalletPage({ searchParams }: PageProps) {
   const supabase = await getSupabaseServerClient()
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const payoutError = typeof resolvedSearchParams.error === "string" ? resolvedSearchParams.error : null
 
   const {
     data: { user },
@@ -98,6 +102,11 @@ export default async function DriverWalletPage() {
           <h1 className="text-3xl font-bold">적립금 지갑</h1>
           <p className="text-muted-foreground mt-1">정산 및 출금 상태를 확인하세요</p>
         </div>
+        {payoutError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            {payoutError}
+          </div>
+        )}
 
         <div className="grid md:grid-cols-3 gap-4">
           <Card>
