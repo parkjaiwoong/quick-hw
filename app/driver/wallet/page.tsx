@@ -7,6 +7,7 @@ import { CheckCircle, Clock } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
 import { ensureDriverWallet, getDriverWalletPageData, requestPayout, updateDriverBankAccount } from "@/lib/actions/finance"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
+import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 
 type PageProps = { searchParams?: Promise<{ error?: string; saved?: string }> }
 
