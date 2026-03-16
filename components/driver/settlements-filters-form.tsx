@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+function getCurrentMonthYYYYMM() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+}
+
 const PAYMENT_OPTIONS = [
   { value: "all", label: "전체" },
   { value: "cash", label: "현금" },
@@ -26,8 +31,8 @@ export function SettlementsFiltersForm() {
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
-  const dateFrom = searchParams.get("dateFrom") ?? ""
-  const dateTo = searchParams.get("dateTo") ?? ""
+  const defaultMonth = getCurrentMonthYYYYMM()
+  const settlementMonth = searchParams.get("settlementMonth") ?? defaultMonth
   const paymentMethod = searchParams.get("paymentMethod") ?? "all"
   const status = searchParams.get("status") ?? "all"
 
@@ -36,12 +41,10 @@ export function SettlementsFiltersForm() {
     const form = e.currentTarget
     const fd = new FormData(form)
     const next = new URLSearchParams()
-    const from = (fd.get("dateFrom") as string)?.trim()
-    const to = (fd.get("dateTo") as string)?.trim()
+    const month = (fd.get("settlementMonth") as string)?.trim() || defaultMonth
     const pm = (fd.get("paymentMethod") as string)?.trim() || "all"
     const st = (fd.get("status") as string)?.trim() || "all"
-    if (from) next.set("dateFrom", from)
-    if (to) next.set("dateTo", to)
+    next.set("settlementMonth", month)
     if (pm !== "all") next.set("paymentMethod", pm)
     if (st !== "all") next.set("status", st)
     next.set("page", "1")
@@ -52,19 +55,21 @@ export function SettlementsFiltersForm() {
 
   const handleReset = () => {
     startTransition(() => {
-      router.push("/driver/settlements")
+      router.push(`/driver/settlements?settlementMonth=${getCurrentMonthYYYYMM()}`)
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4 p-4 rounded-lg border bg-card">
       <div className="space-y-1.5">
-        <Label htmlFor="dateFrom">정산일자(시작)</Label>
-        <Input id="dateFrom" name="dateFrom" type="date" defaultValue={dateFrom} className="w-[140px]" />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="dateTo">정산일자(끝)</Label>
-        <Input id="dateTo" name="dateTo" type="date" defaultValue={dateTo} className="w-[140px]" />
+        <Label htmlFor="settlementMonth">정산월</Label>
+        <Input
+          id="settlementMonth"
+          name="settlementMonth"
+          type="month"
+          defaultValue={settlementMonth}
+          className="w-[160px]"
+        />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="paymentMethod">결제수단</Label>

@@ -159,6 +159,10 @@ export function BottomNav() {
   const isDriverRoute = pathname?.startsWith("/driver")
   const isAdminRoute = pathname?.startsWith("/admin")
 
+  const isCustomer = userRole === "customer"
+  const isDriver = userRole === "driver"
+  const isAdmin = userRole === "admin"
+
   // 내 정보 링크 결정
   const getProfileLink = () => {
     if (!isAuthenticated) return "/auth/login"
@@ -202,7 +206,7 @@ export function BottomNav() {
             </Link>
           )}
 
-          {isCustomerRoute && (
+          {(isCustomerRoute || isCustomer) && (
             <>
               <Link
                 href="/customer"
@@ -255,7 +259,7 @@ export function BottomNav() {
             </>
           )}
 
-          {isDriverRoute && (
+          {(isDriverRoute || isDriver) && (
             <>
               <Link
                 href="/driver"
@@ -292,7 +296,7 @@ export function BottomNav() {
             </>
           )}
 
-          {isAdminRoute && (
+          {(isAdminRoute || isAdmin) && (
             <Link
               href="/admin"
               className={cn(

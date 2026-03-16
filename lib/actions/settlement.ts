@@ -63,8 +63,8 @@ export async function getDriverSettlementsPageData(driverId: string) {
 const DEFAULT_PAGE_SIZE = 10
 
 export type DriverSettlementsFilters = {
-  dateFrom?: string
-  dateTo?: string
+  /** YYYY-MM. 해당 월 1일 00:00 ~ 말일 23:59 로 필터 */
+  settlementMonth?: string
   paymentMethod?: string
   status?: string
   page?: number
@@ -97,26 +97,20 @@ export async function getDriverSettlementsFiltered(driverId: string, filters: Dr
   }
 
   let list = settlementsRes.data ?? []
-  const dateFrom = filters.dateFrom?.trim()
-  const dateTo = filters.dateTo?.trim()
+  const settlementMonth = filters.settlementMonth?.trim()
   const paymentMethod = filters.paymentMethod?.trim()
   const status = filters.status?.trim()
 
-  if (dateFrom) {
-    const from = new Date(dateFrom)
-    from.setHours(0, 0, 0, 0)
-    list = list.filter((s: any) => {
-      const d = s.settlement_period_end || s.created_at
-      return d ? new Date(d) >= from : false
-    })
-  }
-  if (dateTo) {
-    const to = new Date(dateTo)
-    to.setHours(23, 59, 59, 999)
-    list = list.filter((s: any) => {
-      const d = s.settlement_period_end || s.created_at
-      return d ? new Date(d) <= to : false
-    })
+  if (settlementMonth) {
+    const [y, m] = settlementMonth.split("-").map(Number)
+    if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+      const from = new Date(y, m - 1, 1, 0, 0, 0, 0)
+      const to = new Date(y, m, 0, 23, 59, 59, 999)
+      list = list.filter((s: any) => {
+        const d = s.settlement_period_end || s.created_at
+        return d ? (() => { const t = new Date(d); return t >= from && t <= to })() : false
+      })
+    }
   }
   if (paymentMethod && paymentMethod !== "all") {
     list = list.filter((s: any) => (s.payment?.payment_method ?? "") === paymentMethod)

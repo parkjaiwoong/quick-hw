@@ -30,10 +30,14 @@ const paymentMethodLabel: Record<string, string> = {
   bank_transfer: "계좌이체",
 }
 
+function getCurrentMonthYYYYMM() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+}
+
 type SearchParams = Promise<{
   error?: string
-  dateFrom?: string
-  dateTo?: string
+  settlementMonth?: string
   paymentMethod?: string
   status?: string
   page?: string
@@ -61,10 +65,11 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
     redirect("/")
   }
 
+  const effectiveMonth = (resolvedParams.settlementMonth ?? getCurrentMonthYYYYMM()).trim() || getCurrentMonthYYYYMM()
+
   const [result, summaryData, _ensure] = await Promise.all([
     getDriverSettlementsFiltered(user.id, {
-      dateFrom: resolvedParams.dateFrom,
-      dateTo: resolvedParams.dateTo,
+      settlementMonth: effectiveMonth,
       paymentMethod: resolvedParams.paymentMethod,
       status: resolvedParams.status,
       page: resolvedParams.page ? Number(resolvedParams.page) : 1,
@@ -99,7 +104,7 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
     .reduce((sum: number, s: any) => sum + Number(s.net_earnings || s.settlement_amount || 0), 0)
   const completedSettlements = allSettlements.filter((s: any) => s.status === "completed")
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-  const hasFilters = !!(resolvedParams.dateFrom || resolvedParams.dateTo || resolvedParams.paymentMethod || resolvedParams.status)
+  const hasFilters = !!(resolvedParams.paymentMethod || resolvedParams.status)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
@@ -167,7 +172,7 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
         <Card>
           <CardHeader>
             <CardTitle>정산 내역</CardTitle>
-            <CardDescription>정산일자·결제수단·상태로 조회하고 목록을 확인하세요</CardDescription>
+            <CardDescription>정산월·결제수단·상태로 조회하고 목록을 확인하세요</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <SettlementsFiltersForm />
@@ -227,8 +232,7 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
                       <Button variant="outline" size="sm" asChild>
                         <Link
                           href={`/driver/settlements?${new URLSearchParams({
-                            ...(resolvedParams.dateFrom && { dateFrom: resolvedParams.dateFrom }),
-                            ...(resolvedParams.dateTo && { dateTo: resolvedParams.dateTo }),
+                            settlementMonth: effectiveMonth,
                             ...(resolvedParams.paymentMethod && { paymentMethod: resolvedParams.paymentMethod }),
                             ...(resolvedParams.status && { status: resolvedParams.status }),
                             page: String(page - 1),
@@ -245,8 +249,7 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
                       <Button variant="outline" size="sm" asChild>
                         <Link
                           href={`/driver/settlements?${new URLSearchParams({
-                            ...(resolvedParams.dateFrom && { dateFrom: resolvedParams.dateFrom }),
-                            ...(resolvedParams.dateTo && { dateTo: resolvedParams.dateTo }),
+                            settlementMonth: effectiveMonth,
                             ...(resolvedParams.paymentMethod && { paymentMethod: resolvedParams.paymentMethod }),
                             ...(resolvedParams.status && { status: resolvedParams.status }),
                             page: String(page + 1),
