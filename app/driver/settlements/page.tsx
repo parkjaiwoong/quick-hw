@@ -2,7 +2,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { getDriverSettlements } from "@/lib/actions/settlement"
+import { getDriverSettlementsPageData } from "@/lib/actions/settlement"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import { Calendar, CheckCircle, DollarSign, Wallet } from "lucide-react"
@@ -34,11 +34,19 @@ export default async function DriverSettlementsPage({
     redirect("/")
   }
 
-  await ensureDriverInfoForUser()
-  const [{ settlements = [] }, { data: wallet }] = await Promise.all([
-    getDriverSettlements(),
-    supabase.from("driver_wallet").select("available_balance").eq("driver_id", user.id).maybeSingle(),
+  const [pageData, _ensure] = await Promise.all([
+    getDriverSettlementsPageData(user.id),
+    ensureDriverInfoForUser().catch(() => {}),
   ])
+  if ("error" in pageData && pageData.error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 flex items-center justify-center">
+        <p className="text-destructive">정산 정보를 불러오지 못했습니다.</p>
+      </div>
+    )
+  }
+  const settlements = pageData.settlements ?? []
+  const wallet = pageData.wallet
   const availableBalance = Number(wallet?.available_balance || 0)
   const pendingAmount = settlements
     .filter((s: any) => s.settlement_status === "PENDING")

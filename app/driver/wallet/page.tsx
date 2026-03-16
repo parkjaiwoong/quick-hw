@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CheckCircle, Clock } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
-import { ensureDriverWallet, getDriverWalletSummary, requestPayout, updateDriverBankAccount } from "@/lib/actions/finance"
+import { ensureDriverWallet, getDriverWalletPageData, requestPayout, updateDriverBankAccount } from "@/lib/actions/finance"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 
 type PageProps = { searchParams?: Promise<{ error?: string; saved?: string }> }
@@ -38,64 +38,52 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
     redirect("/")
   }
 
-  try {
-    await ensureDriverWallet(userId)
-    await ensureDriverInfoForUser()
-  } catch (e) {
-    console.error("[driver/wallet] ensureDriverWallet or ensureDriverInfoForUser failed:", e)
-  }
-  const [walletResult, { data: payoutRequests }, { data: recentSettlements }, { data: driverDeliveries }, { data: driverInfo }] =
-    await Promise.all([
-      getDriverWalletSummary(userId),
-      supabase
-        .from("payout_requests")
-        .select("id, requested_amount, status, notes, requested_at, settlement_status, payout_status")
-        .eq("driver_id", userId)
-        .order("requested_at", { ascending: false }),
-      supabase
-        .from("settlements")
-        .select("settlement_status, settlement_amount, created_at, updated_at")
-        .eq("driver_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase.from("deliveries").select("id, status").eq("driver_id", userId),
-      supabase.from("driver_info").select("bank_name, bank_account").eq("id", userId).maybeSingle(),
-    ])
-  const wallet = walletResult.wallet
-  const totalBalance = Number(wallet?.total_balance || 0)
-  const availableBalance = Number(wallet?.available_balance || 0)
-  const pendingBalance = Number(wallet?.pending_balance || 0)
-  const pendingRequestAmount =
-    payoutRequests
-      ?.filter((p) => p.status === "requested" || p.status === "on_hold" || p.status === "approved")
-      .reduce((sum, p) => sum + Number(p.requested_amount || 0), 0) || 0
-  const completedRequestAmount =
-    payoutRequests
-      ?.filter((p) => p.status === "transferred" || p.status === "paid")
-      .reduce((sum, p) => sum + Number(p.requested_amount || 0), 0) || 0
+  const [pageData, _ensureResult] = await Promise.all([
+    getDriverWalletPageData(userId),
+    (async () => {
+      try {
+        await ensureDriverWallet(userId)
+        await ensureDriverInfoForUser()
+      } catch (e) {
+        console.error("[driver/wallet] ensure failed:", e)
+      }
+    })(),
+  ])
+  const wallet = pageData.wallet ?? null
+  const payoutRequests = Array.isArray(pageData.payoutRequests) ? pageData.payoutRequests : []
+  const recentSettlements = Array.isArray(pageData.recentSettlements) ? pageData.recentSettlements : []
+  const totalDeliveries = Number.isFinite(Number(pageData.totalDeliveries)) ? Number(pageData.totalDeliveries) : 0
+  const driverInfo = pageData.driverInfo ?? null
+
+  const totalBalance = Number(wallet?.total_balance ?? 0)
+  const availableBalance = Number(wallet?.available_balance ?? 0)
+  const pendingBalance = Number(wallet?.pending_balance ?? 0)
+  const pendingRequestAmount = payoutRequests
+    .filter((p) => p.status === "requested" || p.status === "on_hold" || p.status === "approved")
+    .reduce((sum, p) => sum + Number(p.requested_amount || 0), 0)
+  const completedRequestAmount = payoutRequests
+    .filter((p) => p.status === "transferred" || p.status === "paid")
+    .reduce((sum, p) => sum + Number(p.requested_amount || 0), 0)
   const isRequestInProgress = pendingRequestAmount > 0
   const hasBankAccount = Boolean(driverInfo?.bank_account?.trim())
   const isPayoutEligible = availableBalance > 0 && !isRequestInProgress && hasBankAccount
-  const latestSettlement = recentSettlements?.[0]
-  const latestPayoutRequest = payoutRequests?.[0]
-  const totalDeliveries = driverDeliveries?.length || 0
-  const completedSettlements = recentSettlements?.filter((s) => ["CONFIRMED", "PAID_OUT"].includes(s.settlement_status)) || []
+  const latestSettlement = recentSettlements[0] ?? null
+  const latestPayoutRequest = payoutRequests[0] ?? null
+  const completedSettlements = recentSettlements.filter(
+    (s) => s.settlement_status != null && ["CONFIRMED", "PAID_OUT"].includes(s.settlement_status)
+  )
   const settlementCompletionRate =
-    recentSettlements && recentSettlements.length > 0
-      ? Math.round((completedSettlements.length / recentSettlements.length) * 100)
-      : 0
-  const avgSettlementHours =
-    completedSettlements.length > 0
-      ? Math.round(
-          completedSettlements.reduce((sum, s) => {
-            if (!s.created_at || !s.updated_at) return sum
-            const diffMs = new Date(s.updated_at).getTime() - new Date(s.created_at).getTime()
-            return sum + Math.max(diffMs, 0)
-          }, 0) /
-            completedSettlements.length /
-            (1000 * 60 * 60),
-        )
-      : 0
+    recentSettlements.length > 0 ? Math.round((completedSettlements.length / recentSettlements.length) * 100) : 0
+  let avgSettlementHours = 0
+  if (completedSettlements.length > 0) {
+    const totalHours = completedSettlements.reduce((sum, s) => {
+      if (!s.created_at || !s.updated_at) return sum
+      const diffMs = new Date(s.updated_at).getTime() - new Date(s.created_at).getTime()
+      const hours = Number.isFinite(diffMs) ? diffMs / (1000 * 60 * 60) : 0
+      return sum + (hours >= 0 ? hours : 0)
+    }, 0)
+    avgSettlementHours = Math.round(totalHours / completedSettlements.length)
+  }
 
   async function handleSaveBankAccount(formData: FormData) {
     "use server"

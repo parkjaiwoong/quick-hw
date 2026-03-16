@@ -31,6 +31,35 @@ export async function getDriverSettlements(driverId?: string) {
   return { settlements: data }
 }
 
+/** 기사 정산 화면 전용 — 정산 목록 + 출금가능 금액을 한 번에 최소 컬럼으로 조회 */
+export async function getDriverSettlementsPageData(driverId: string) {
+  const supabase = await getSupabaseServerClient()
+
+  const [settlementsRes, walletRes] = await Promise.all([
+    supabase
+      .from("settlements")
+      .select(
+        "id, settlement_period_start, settlement_period_end, order_id, total_deliveries, total_earnings, net_earnings, settlement_amount, settlement_status, status, settlement_date, created_at"
+      )
+      .eq("driver_id", driverId)
+      .order("settlement_period_end", { ascending: false }),
+    supabase
+      .from("driver_wallet")
+      .select("available_balance")
+      .eq("driver_id", driverId)
+      .maybeSingle(),
+  ])
+
+  if (settlementsRes.error) {
+    return { error: settlementsRes.error.message }
+  }
+
+  return {
+    settlements: settlementsRes.data ?? [],
+    wallet: walletRes.data,
+  }
+}
+
 // ?? ?? (???)
 export async function createSettlement(driverId: string, startDate: string, endDate: string) {
   const supabase = await getSupabaseServerClient()

@@ -479,6 +479,60 @@ export async function getDriverWalletSummary(driverId: string) {
   return { wallet, payouts: payouts || [], pendingPayoutAmount }
 }
 
+const EMPTY_WALLET_PAGE_DATA = {
+  wallet: null as { total_balance?: number; available_balance?: number; pending_balance?: number } | null,
+  payoutRequests: [] as Array<{ id?: string; requested_amount?: number; status?: string; notes?: string | null; requested_at?: string; settlement_status?: string | null; payout_status?: string | null }>,
+  recentSettlements: [] as Array<{ settlement_status?: string | null; settlement_amount?: number | null; created_at?: string; updated_at?: string }>,
+  totalDeliveries: 0,
+  driverInfo: null as { bank_name?: string | null; bank_account?: string | null } | null,
+}
+
+/** 기사 지갑/출금 화면 전용 — 한 번에 필요한 데이터만 최소 컬럼으로 조회 (DB 부하·응답 시간 절감) */
+export async function getDriverWalletPageData(driverId: string): Promise<typeof EMPTY_WALLET_PAGE_DATA> {
+  try {
+    const supabase = await getSupabaseServerClient()
+
+    const [walletRes, payoutRes, settlementsRes, deliveryCountRes, driverInfoRes] = await Promise.all([
+      supabase
+        .from("driver_wallet")
+        .select("total_balance, available_balance, pending_balance")
+        .eq("driver_id", driverId)
+        .maybeSingle(),
+      supabase
+        .from("payout_requests")
+        .select("id, requested_amount, status, notes, requested_at, settlement_status, payout_status")
+        .eq("driver_id", driverId)
+        .order("requested_at", { ascending: false }),
+      supabase
+        .from("settlements")
+        .select("settlement_status, settlement_amount, created_at, updated_at")
+        .eq("driver_id", driverId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase.from("deliveries").select("*", { count: "exact", head: true }).eq("driver_id", driverId),
+      supabase.from("driver_info").select("bank_name, bank_account").eq("id", driverId).maybeSingle(),
+    ])
+
+    const wallet = walletRes.data ?? null
+    const payoutRequests = Array.isArray(payoutRes.data) ? payoutRes.data : []
+    const recentSettlements = Array.isArray(settlementsRes.data) ? settlementsRes.data : []
+    const rawCount = (deliveryCountRes as { count?: number })?.count
+    const totalDeliveries = Number.isFinite(Number(rawCount)) ? Number(rawCount) : 0
+    const driverInfo = driverInfoRes.data ?? null
+
+    return {
+      wallet,
+      payoutRequests,
+      recentSettlements,
+      totalDeliveries,
+      driverInfo,
+    }
+  } catch (e) {
+    console.error("[getDriverWalletPageData]", e)
+    return { ...EMPTY_WALLET_PAGE_DATA }
+  }
+}
+
 /** 기사 출금 계좌 설정 저장 (지갑 화면에서만 사용) */
 export async function updateDriverBankAccount(driverId: string, bankName: string, bankAccount: string) {
   const supabase = await getSupabaseServerClient()
