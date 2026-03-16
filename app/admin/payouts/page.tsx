@@ -4,8 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { getRoleOverride } from "@/lib/role"
-import { approvePayout, getAdminPayoutRequests, holdPayout, rejectPayout, transferPayout } from "@/lib/actions/finance"
+import { getAdminPayoutRequests } from "@/lib/actions/finance"
 import { PayoutRequestsPanel } from "@/components/admin/payout-requests-panel"
+import {
+  approvePayoutAction,
+  holdPayoutAction,
+  rejectPayoutAction,
+  transferPayoutAction,
+} from "./actions"
 
 export default async function AdminPayoutsPage() {
   const supabase = await getSupabaseServerClient()
@@ -26,34 +32,6 @@ export default async function AdminPayoutsPage() {
   }
 
   const { payouts = [] } = await getAdminPayoutRequests()
-
-  async function handleApprove(payoutId: string) {
-    "use server"
-    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
-    const result = await approvePayout(payoutId)
-    return result
-  }
-
-  async function handleTransfer(payoutId: string) {
-    "use server"
-    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
-    const result = await transferPayout(payoutId, "MANUAL")
-    return result
-  }
-
-  async function handleHold(payoutId: string, reason: string) {
-    "use server"
-    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
-    const result = await holdPayout(payoutId, reason)
-    return result
-  }
-
-  async function handleReject(payoutId: string, reason: string) {
-    "use server"
-    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
-    const result = await rejectPayout(payoutId, reason)
-    return result
-  }
 
   const requestedCount = payouts.filter((p: any) => p.status === "requested").length
   const pendingTotal = payouts
@@ -142,10 +120,10 @@ export default async function AdminPayoutsPage() {
               payouts={payouts}
               settlementsByDriver={settlementsByDriver}
               walletByDriver={walletByDriver}
-              onApprove={handleApprove}
-              onTransfer={handleTransfer}
-              onHold={handleHold}
-              onReject={handleReject}
+              onApprove={approvePayoutAction}
+              onTransfer={transferPayoutAction}
+              onHold={holdPayoutAction}
+              onReject={rejectPayoutAction}
             />
           </CardContent>
         </Card>

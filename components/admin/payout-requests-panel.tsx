@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { AlertTriangle } from "lucide-react"
@@ -137,6 +137,11 @@ export function PayoutRequestsPanel({
   } | null>(null)
   const [reason, setReason] = useState("")
   const [actionPending, setActionPending] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (action) setActionError(null)
+  }, [action])
 
   const filtered = useMemo(() => {
     if (filter === "all") return payouts
@@ -215,25 +220,33 @@ export function PayoutRequestsPanel({
   const handleActionConfirm = async () => {
     if (!action) return
     const payload = action.payout
+    const payoutId = payload?.id
+    if (!payoutId || typeof payoutId !== "string") {
+      toast.error("출금 요청 ID를 찾을 수 없습니다.")
+      return
+    }
     const actionType = action.type
     const message = reason.trim()
     if ((actionType === "hold" || actionType === "reject") && !message) {
       toast.error("사유를 입력해주세요.")
       return
     }
+    setActionError(null)
     setActionPending(true)
     try {
       const result =
         actionType === "approve"
-          ? await onApprove(payload.id)
+          ? await onApprove(payoutId)
           : actionType === "transfer"
-            ? await onTransfer(payload.id)
+            ? await onTransfer(payoutId)
             : actionType === "hold"
-              ? await onHold(payload.id, message)
-              : await onReject(payload.id, message)
+              ? await onHold(payoutId, message)
+              : await onReject(payoutId, message)
 
-      if (result && typeof result === "object" && "error" in result && result.error) {
-        toast.error(String(result.error))
+      const errMsg = result && typeof result === "object" && "error" in result ? String((result as { error?: string }).error) : null
+      if (errMsg) {
+        setActionError(errMsg)
+        toast.error(errMsg)
         return
       }
 
@@ -248,10 +261,13 @@ export function PayoutRequestsPanel({
       )
       setAction(null)
       setReason("")
+      setActionError(null)
       router.refresh()
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "처리 중 오류가 발생했습니다."
+      setActionError(msg)
       console.error("출금 액션 오류:", err)
-      toast.error(err instanceof Error ? err.message : "처리 중 오류가 발생했습니다.")
+      toast.error(msg)
     } finally {
       setActionPending(false)
     }
@@ -491,6 +507,11 @@ export function PayoutRequestsPanel({
               placeholder="사유를 입력하세요"
               rows={3}
             />
+          )}
+          {actionError && (
+            <p className="text-sm text-destructive font-medium" role="alert">
+              {actionError}
+            </p>
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setAction(null)} disabled={actionPending}>
