@@ -29,30 +29,30 @@ export default async function AdminPayoutsPage() {
 
   async function handleApprove(payoutId: string) {
     "use server"
-    if (!payoutId) return
-    await approvePayout(payoutId)
-    redirect("/admin/payouts")
+    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
+    const result = await approvePayout(payoutId)
+    return result
   }
 
   async function handleTransfer(payoutId: string) {
     "use server"
-    if (!payoutId) return
-    await transferPayout(payoutId, "MANUAL")
-    redirect("/admin/payouts")
+    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
+    const result = await transferPayout(payoutId, "MANUAL")
+    return result
   }
 
   async function handleHold(payoutId: string, reason: string) {
     "use server"
-    if (!payoutId) return
-    await holdPayout(payoutId, reason)
-    redirect("/admin/payouts")
+    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
+    const result = await holdPayout(payoutId, reason)
+    return result
   }
 
   async function handleReject(payoutId: string, reason: string) {
     "use server"
-    if (!payoutId) return
-    await rejectPayout(payoutId, reason)
-    redirect("/admin/payouts")
+    if (!payoutId) return { error: "출금 요청 ID가 없습니다." }
+    const result = await rejectPayout(payoutId, reason)
+    return result
   }
 
   const requestedCount = payouts.filter((p: any) => p.status === "requested").length

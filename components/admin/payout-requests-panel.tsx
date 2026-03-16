@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -125,6 +126,7 @@ export function PayoutRequestsPanel({
   onHold,
   onReject,
 }: PayoutRequestsPanelProps) {
+  const router = useRouter()
   const [filter, setFilter] = useState("all")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
@@ -244,6 +246,7 @@ export function PayoutRequestsPanel({
       )
       setAction(null)
       setReason("")
+      router.refresh()
     })
   }
 
