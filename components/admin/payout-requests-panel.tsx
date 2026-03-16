@@ -321,7 +321,11 @@ export function PayoutRequestsPanel({
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold">{payout.driver?.full_name || payout.driver?.email || (payout.driver_id ? `기사(${String(payout.driver_id).slice(0, 8)})`) : "알 수 없음"}</p>
+                    <p className="font-semibold">
+                      {payout.driver?.full_name ||
+                        payout.driver?.email ||
+                        (payout.driver_id ? "기사(" + String(payout.driver_id).slice(0, 8) + ")" : "알 수 없음")}
+                    </p>
                     <span className="text-xs text-muted-foreground">ID: {driverId}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
