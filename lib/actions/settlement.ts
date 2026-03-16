@@ -60,6 +60,84 @@ export async function getDriverSettlementsPageData(driverId: string) {
   }
 }
 
+const DEFAULT_PAGE_SIZE = 10
+
+export type DriverSettlementsFilters = {
+  dateFrom?: string
+  dateTo?: string
+  paymentMethod?: string
+  status?: string
+  page?: number
+  pageSize?: number
+}
+
+/** 기사 정산 목록 — 정산일자·결제수단·상태 조건·페이징 */
+export async function getDriverSettlementsFiltered(driverId: string, filters: DriverSettlementsFilters = {}) {
+  const supabase = await getSupabaseServerClient()
+  const page = Math.max(1, Number(filters.page) || 1)
+  const pageSize = Math.min(50, Math.max(1, Number(filters.pageSize) || DEFAULT_PAGE_SIZE))
+
+  const [settlementsRes, walletRes] = await Promise.all([
+    supabase
+      .from("settlements")
+      .select(
+        "id, settlement_period_start, settlement_period_end, order_id, payment_id, total_deliveries, total_earnings, net_earnings, settlement_amount, settlement_status, status, settlement_date, created_at, payment:payments!settlements_payment_id_fkey(payment_method)",
+      )
+      .eq("driver_id", driverId)
+      .order("settlement_period_end", { ascending: false }),
+    supabase
+      .from("driver_wallet")
+      .select("available_balance")
+      .eq("driver_id", driverId)
+      .maybeSingle(),
+  ])
+
+  if (settlementsRes.error) {
+    return { error: settlementsRes.error.message }
+  }
+
+  let list = settlementsRes.data ?? []
+  const dateFrom = filters.dateFrom?.trim()
+  const dateTo = filters.dateTo?.trim()
+  const paymentMethod = filters.paymentMethod?.trim()
+  const status = filters.status?.trim()
+
+  if (dateFrom) {
+    const from = new Date(dateFrom)
+    from.setHours(0, 0, 0, 0)
+    list = list.filter((s: any) => {
+      const d = s.settlement_period_end || s.created_at
+      return d ? new Date(d) >= from : false
+    })
+  }
+  if (dateTo) {
+    const to = new Date(dateTo)
+    to.setHours(23, 59, 59, 999)
+    list = list.filter((s: any) => {
+      const d = s.settlement_period_end || s.created_at
+      return d ? new Date(d) <= to : false
+    })
+  }
+  if (paymentMethod && paymentMethod !== "all") {
+    list = list.filter((s: any) => (s.payment?.payment_method ?? "") === paymentMethod)
+  }
+  if (status && status !== "all") {
+    list = list.filter((s: any) => (s.settlement_status ?? "") === status)
+  }
+
+  const totalCount = list.length
+  const start = (page - 1) * pageSize
+  const settlements = list.slice(start, start + pageSize)
+
+  return {
+    settlements,
+    totalCount,
+    page,
+    pageSize,
+    wallet: walletRes.data,
+  }
+}
+
 // ?? ?? (???)
 export async function createSettlement(driverId: string, startDate: string, endDate: string) {
   const supabase = await getSupabaseServerClient()

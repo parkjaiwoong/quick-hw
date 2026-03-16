@@ -2,17 +2,44 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { getDriverSettlementsPageData } from "@/lib/actions/settlement"
+import { getDriverSettlementsFiltered, getDriverSettlementsPageData } from "@/lib/actions/settlement"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import { Calendar, CheckCircle, DollarSign, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SettlementsFiltersForm } from "@/components/driver/settlements-filters-form"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
-export default async function DriverSettlementsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>
-}) {
+const PAGE_SIZE = 10
+const settlementStatusLabel: Record<string, string> = {
+  PENDING: "정산대기",
+  READY: "출금대기",
+  CONFIRMED: "출금가능",
+  PAID_OUT: "출금완료",
+}
+const paymentMethodLabel: Record<string, string> = {
+  cash: "현금",
+  card: "카드",
+  bank_transfer: "계좌이체",
+}
+
+type SearchParams = Promise<{
+  error?: string
+  dateFrom?: string
+  dateTo?: string
+  paymentMethod?: string
+  status?: string
+  page?: string
+}>
+
+export default async function DriverSettlementsPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = await getSupabaseServerClient()
   const resolvedParams = await searchParams
   const errorMessage = resolvedParams?.error ? decodeURIComponent(resolvedParams.error) : null
@@ -34,38 +61,45 @@ export default async function DriverSettlementsPage({
     redirect("/")
   }
 
-  const [pageData, _ensure] = await Promise.all([
+  const [result, summaryData, _ensure] = await Promise.all([
+    getDriverSettlementsFiltered(user.id, {
+      dateFrom: resolvedParams.dateFrom,
+      dateTo: resolvedParams.dateTo,
+      paymentMethod: resolvedParams.paymentMethod,
+      status: resolvedParams.status,
+      page: resolvedParams.page ? Number(resolvedParams.page) : 1,
+      pageSize: PAGE_SIZE,
+    }),
     getDriverSettlementsPageData(user.id),
     ensureDriverInfoForUser().catch(() => {}),
   ])
-  if ("error" in pageData && pageData.error) {
+
+  if ("error" in result && result.error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 flex items-center justify-center">
         <p className="text-destructive">정산 정보를 불러오지 못했습니다.</p>
       </div>
     )
   }
-  const settlements = pageData.settlements ?? []
-  const wallet = pageData.wallet
-  const availableBalance = Number(wallet?.available_balance || 0)
-  const pendingAmount = settlements
+
+  const allSettlements = "error" in summaryData ? [] : (summaryData.settlements ?? [])
+  const summaryWallet = "error" in summaryData ? null : summaryData.wallet
+  const { settlements, totalCount, page, pageSize, wallet } = result
+  const availableBalance = Number(wallet?.available_balance ?? summaryWallet?.available_balance ?? 0)
+  const pendingAmount = allSettlements
     .filter((s: any) => s.settlement_status === "PENDING")
     .reduce((sum: number, s: any) => sum + Number(s.settlement_amount || s.net_earnings || 0), 0)
   const currentMonth = new Date()
   const currentMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-  const monthEarnings = settlements
+  const monthEarnings = allSettlements
     .filter((s: any) => {
       const dateValue = s.settlement_period_end || s.created_at
       return dateValue ? new Date(dateValue) >= currentMonthStart : false
     })
     .reduce((sum: number, s: any) => sum + Number(s.net_earnings || s.settlement_amount || 0), 0)
-
-  const completedSettlements = settlements.filter((s: any) => s.status === "completed")
-  const settlementStatusLabel: Record<string, string> = {
-    PENDING: "정산대기",
-    CONFIRMED: "출금가능",
-    PAID_OUT: "출금완료",
-  }
+  const completedSettlements = allSettlements.filter((s: any) => s.status === "completed")
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const hasFilters = !!(resolvedParams.dateFrom || resolvedParams.dateTo || resolvedParams.paymentMethod || resolvedParams.status)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
@@ -133,49 +167,99 @@ export default async function DriverSettlementsPage({
         <Card>
           <CardHeader>
             <CardTitle>정산 내역</CardTitle>
-            <CardDescription>정산 내역을 확인하세요</CardDescription>
+            <CardDescription>정산일자·결제수단·상태로 조회하고 목록을 확인하세요</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {settlements.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">정산 내역이 없습니다</p>
-              ) : (
-                settlements.map((settlement: any) => (
-                  <div key={settlement.id} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold">
-                          {new Date(settlement.settlement_period_start).toLocaleDateString("ko-KR")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">주문번호: {settlement.order_id || "-"}</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          배송 건수: {settlement.total_deliveries}건
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          총 수익: {settlement.total_earnings?.toLocaleString()}원 | 정산 금액:{" "}
-                          {settlement.net_earnings?.toLocaleString()}원
-                        </p>
-                        <div className="mt-2 rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                          차감 내역: 프로그램 사용료 0원 · 기사 수수료 0원
-                        </div>
-                        {settlement.settlement_date && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            정산일: {new Date(settlement.settlement_date).toLocaleDateString("ko-KR")}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <span className="px-2 py-1 rounded text-xs bg-muted">
-                          {settlement.settlement_status
-                            ? settlementStatusLabel[settlement.settlement_status] || "정산대기"
-                            : "정산대기"}
-                        </span>
-                      </div>
-                    </div>
+          <CardContent className="space-y-4">
+            <SettlementsFiltersForm />
+            {settlements.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">조건에 맞는 정산 내역이 없습니다</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>정산일자</TableHead>
+                        <TableHead>주문/배송</TableHead>
+                        <TableHead className="text-right">정산 금액</TableHead>
+                        <TableHead>결제수단</TableHead>
+                        <TableHead>상태</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(settlements as any[]).map((s: any) => (
+                        <TableRow key={s.id}>
+                          <TableCell>
+                            {(s.settlement_period_end || s.created_at)
+                              ? new Date(s.settlement_period_end || s.created_at).toLocaleDateString("ko-KR", { dateStyle: "short" })
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-muted-foreground">주문 {s.order_id || "-"}</span>
+                            {s.total_deliveries != null && (
+                              <span className="text-xs text-muted-foreground ml-1">· {s.total_deliveries}건</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {Number(s.net_earnings ?? s.settlement_amount ?? 0).toLocaleString()}원
+                          </TableCell>
+                          <TableCell>
+                            {paymentMethodLabel[s.payment?.payment_method ?? ""] ?? (s.payment?.payment_method || "-")}
+                          </TableCell>
+                          <TableCell>
+                            <span className="px-2 py-0.5 rounded text-xs bg-muted">
+                              {s.settlement_status ? settlementStatusLabel[s.settlement_status] ?? s.settlement_status : "정산대기"}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <p className="text-sm text-muted-foreground">
+                    전체 {totalCount}건 중 {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalCount)}건
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {page <= 1 ? (
+                      <Button variant="outline" size="sm" disabled>이전</Button>
+                    ) : (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          href={`/driver/settlements?${new URLSearchParams({
+                            ...(resolvedParams.dateFrom && { dateFrom: resolvedParams.dateFrom }),
+                            ...(resolvedParams.dateTo && { dateTo: resolvedParams.dateTo }),
+                            ...(resolvedParams.paymentMethod && { paymentMethod: resolvedParams.paymentMethod }),
+                            ...(resolvedParams.status && { status: resolvedParams.status }),
+                            page: String(page - 1),
+                          }).toString()}`}
+                        >
+                          이전
+                        </Link>
+                      </Button>
+                    )}
+                    <span className="px-2 text-sm text-muted-foreground">{page} / {totalPages}</span>
+                    {page >= totalPages ? (
+                      <Button variant="outline" size="sm" disabled>다음</Button>
+                    ) : (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          href={`/driver/settlements?${new URLSearchParams({
+                            ...(resolvedParams.dateFrom && { dateFrom: resolvedParams.dateFrom }),
+                            ...(resolvedParams.dateTo && { dateTo: resolvedParams.dateTo }),
+                            ...(resolvedParams.paymentMethod && { paymentMethod: resolvedParams.paymentMethod }),
+                            ...(resolvedParams.status && { status: resolvedParams.status }),
+                            page: String(page + 1),
+                          }).toString()}`}
+                        >
+                          다음
+                        </Link>
+                      </Button>
+                    )}
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

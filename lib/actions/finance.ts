@@ -533,6 +533,50 @@ export async function getDriverWalletPageData(driverId: string): Promise<typeof 
   }
 }
 
+const DEFAULT_PAYOUT_PAGE_SIZE = 10
+
+/** 기사 출금 요청 내역 — 상태 조건·페이징 */
+export async function getDriverPayoutRequestsFiltered(
+  driverId: string,
+  opts: { status?: string; page?: number; pageSize?: number } = {},
+) {
+  const supabase = await getSupabaseServerClient()
+  const page = Math.max(1, Number(opts.page) || 1)
+  const pageSize = Math.min(50, Math.max(1, Number(opts.pageSize) || DEFAULT_PAYOUT_PAGE_SIZE))
+  const status = opts.status?.trim()
+
+  let query = supabase
+    .from("payout_requests")
+    .select("id, requested_amount, status, notes, requested_at, settlement_status, payout_status", {
+      count: "exact",
+    })
+    .eq("driver_id", driverId)
+    .order("requested_at", { ascending: false })
+
+  if (status && status !== "all") {
+    if (status === "transferred") {
+      query = query.in("status", ["transferred", "paid"])
+    } else {
+      query = query.eq("status", status)
+    }
+  }
+
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+  const { data, error, count } = await query.range(from, to)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return {
+    items: data ?? [],
+    totalCount: count ?? 0,
+    page,
+    pageSize,
+  }
+}
+
 /** 기사 출금 계좌 설정 저장 (지갑 화면에서만 사용) */
 export async function updateDriverBankAccount(driverId: string, bankName: string, bankAccount: string) {
   const supabase = await getSupabaseServerClient()
