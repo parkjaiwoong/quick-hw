@@ -8,6 +8,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -45,6 +53,7 @@ interface PayoutRequestsPanelProps {
   payouts: PayoutRow[]
   settlementsByDriver: Record<string, SettlementRow[]>
   walletByDriver: Record<string, number>
+  allocatableByDriver?: Record<string, number>
   onApprove: (id: string) => Promise<{ error?: string } | void>
   onTransfer: (id: string) => Promise<{ error?: string } | void>
   onHold: (id: string, reason: string) => Promise<{ error?: string } | void>
@@ -121,6 +130,7 @@ export function PayoutRequestsPanel({
   payouts,
   settlementsByDriver,
   walletByDriver,
+  allocatableByDriver = {},
   onApprove,
   onTransfer,
   onHold,
@@ -166,6 +176,14 @@ export function PayoutRequestsPanel({
       setFilter(nextFilter)
       setSelectedIds([])
     })
+  }
+
+  /** 승인/이체 완료 건: 이 출금에 연결된 정산 합계 (검증용) */
+  const getAllocatedSum = (payout: PayoutRow) => {
+    const driverId = payout.driver_id || ""
+    const list = settlementsByDriver[driverId] || []
+    const linked = list.filter((s) => s.payout_request_id === payout.id)
+    return linked.reduce((sum, s) => sum + Number(s.settlement_amount ?? 0), 0)
   }
 
   const getRequestedSettlements = (payout: PayoutRow) => {
@@ -300,127 +318,118 @@ export function PayoutRequestsPanel({
       {filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">출금 요청 내역이 없습니다</p>
       ) : (
-        filtered.map((payout) => {
-          const normalizedStatus = normalizeStatus(payout.status)
-          const settlements = getRequestedSettlements(payout)
-          const summary = getSettlementSummary(settlements)
-          const paymentIssue = hasPaymentIssue(settlements)
-          const payoutCount = settlements.length
-          const approveEnabled = canApprove(settlements)
-          const driverId = payout.driver_id || "-"
-          const requestedAt = payout.requested_at
-            ? new Date(payout.requested_at).toLocaleDateString("ko-KR")
-            : "-"
-          const transferEnabled = canTransfer(normalizedStatus)
-          const mappedSettlementStatus = mapSettlementStatus(payout)
-          const mappedPayoutStatus = mapPayoutStatus(payout)
-          const isHold = mappedSettlementStatus === "HOLD" || payout.settlement_locked
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>요청일자</TableHead>
+              <TableHead>기사명</TableHead>
+              <TableHead className="text-right">요청금액</TableHead>
+              <TableHead className="text-right">승인가능(기사별)</TableHead>
+              <TableHead>상태</TableHead>
+              <TableHead className="text-right">검증 (할당/요청)</TableHead>
+              <TableHead className="w-[200px]">액션</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((payout) => {
+              const normalizedStatus = normalizeStatus(payout.status)
+              const settlements = getRequestedSettlements(payout)
+              const paymentIssue = hasPaymentIssue(settlements)
+              const approveEnabled = canApprove(settlements)
+              const driverId = payout.driver_id || "-"
+              const requestedAt = payout.requested_at
+                ? new Date(payout.requested_at).toLocaleDateString("ko-KR", { dateStyle: "short" })
+                : "-"
+              const transferEnabled = canTransfer(normalizedStatus)
+              const mappedSettlementStatus = mapSettlementStatus(payout)
+              const isHold = mappedSettlementStatus === "HOLD" || payout.settlement_locked
+              const allocatable = allocatableByDriver[payout.driver_id ?? ""] ?? 0
+              const allocatedSum = getAllocatedSum(payout)
+              const requestedAmount = Number(payout.requested_amount || 0)
+              const isApprovedOrTransferred =
+                normalizedStatus === "APPROVED" || normalizedStatus === "TRANSFERRED"
+              const verificationMismatch = isApprovedOrTransferred && allocatedSum !== requestedAmount
 
-          return (
-            <div key={payout.id} className="border rounded-lg p-4 space-y-3">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold">
+              return (
+                <TableRow key={payout.id}>
+                  <TableCell>{requestedAt}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
                       {payout.driver?.full_name ||
                         payout.driver?.email ||
                         (payout.driver_id ? "기사(" + String(payout.driver_id).slice(0, 8) + ")" : "알 수 없음")}
-                    </p>
-                    <span className="text-xs text-muted-foreground">ID: {driverId}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    출금 요청 금액: {Number(payout.requested_amount || 0).toLocaleString()}원
-                  </p>
-                  <p className="text-sm text-muted-foreground">요청 건수: 정산 {payoutCount}건</p>
-                  <p className="text-sm text-muted-foreground">요청 일시: {requestedAt}</p>
-                </div>
-                <div className="flex flex-col items-start md:items-end gap-2">
-                  <Badge className={statusBadgeMap[normalizedStatus] || "bg-muted text-muted-foreground"}>
-                    {statusLabelKo[normalizedStatus] || statusLabelMap[normalizedStatus] || normalizedStatus}
-                  </Badge>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>정산 상태: {summary}</span>
-                    {paymentIssue && (
-                      <span className="flex items-center gap-1 text-red-600">
-                        <AlertTriangle className="h-4 w-4" />
-                        결제 이상
+                      {paymentIssue && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {requestedAmount.toLocaleString()}원
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {allocatable.toLocaleString()}원
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={statusBadgeMap[normalizedStatus] || "bg-muted text-muted-foreground"}>
+                      {statusLabelKo[normalizedStatus] || statusLabelMap[normalizedStatus] || normalizedStatus}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isApprovedOrTransferred ? (
+                      <span className={verificationMismatch ? "text-destructive font-medium" : "text-muted-foreground"}>
+                        {allocatedSum.toLocaleString()} / {requestedAmount.toLocaleString()}원
+                        {verificationMismatch && " (불일치)"}
                       </span>
+                    ) : (
+                      "-"
                     )}
-                  </div>
-                  <div className="flex flex-wrap justify-end gap-2 text-xs text-muted-foreground">
-                    <span>회계 상태: {mappedSettlementStatus}</span>
-                    <span>이체 상태: {mappedPayoutStatus}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setDetailPayout(payout)}>
-                  상세 보기
-                </Button>
-                {normalizedStatus !== "TRANSFERRED" && (!isHold || normalizedStatus === "ON_HOLD") && (
-                  <>
-                    <Button
-                      size="sm"
-                      onClick={() => setAction({ type: "approve", payout })}
-                      disabled={
-                        isPending ||
-                        (normalizedStatus !== "REQUESTED" && normalizedStatus !== "ON_HOLD") ||
-                        (normalizedStatus === "REQUESTED" && (mappedSettlementStatus !== "READY" || payout.settlement_locked === true))
-                      }
-                      title={
-                        !approveEnabled && (normalizedStatus === "REQUESTED" || normalizedStatus === "ON_HOLD")
-                          ? "출금 가능 정산(READY/CONFIRMED)이 부족할 수 있습니다. 승인 시도 시 서버에서 검사합니다."
-                          : undefined
-                      }
-                    >
-                      {normalizedStatus === "ON_HOLD" ? "보류 해제 후 승인" : "승인"}
-                    </Button>
-                    {normalizedStatus === "APPROVED" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setAction({ type: "transfer", payout })}
-                        disabled={!transferEnabled || isPending}
-                      >
-                        이체 완료 처리
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      <Button variant="outline" size="sm" onClick={() => setDetailPayout(payout)}>
+                        상세
                       </Button>
-                    )}
-                    {normalizedStatus === "FAILED" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setAction({ type: "transfer", payout })}
-                        disabled={!transferEnabled || isPending}
-                      >
-                        재시도
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setAction({ type: "hold", payout })}
-                      disabled={isPending || normalizedStatus === "ON_HOLD"}
-                      title={normalizedStatus === "ON_HOLD" ? "이미 보류 상태입니다." : undefined}
-                    >
-                      보류
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => setAction({ type: "reject", payout })} disabled={isPending}>
-                      반려
-                    </Button>
-                  </>
-                )}
-              </div>
-              {normalizedStatus === "APPROVED" && (
-                <p className="text-xs text-muted-foreground">현재 수동 이체 방식입니다.</p>
-              )}
-
-              {(normalizedStatus === "REJECTED" || normalizedStatus === "ON_HOLD") && payout.notes && (
-                <p className="text-xs text-muted-foreground">사유: {payout.notes}</p>
-              )}
-            </div>
-          )
-        })
+                      {normalizedStatus !== "TRANSFERRED" && (!isHold || normalizedStatus === "ON_HOLD") && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => setAction({ type: "approve", payout })}
+                            disabled={
+                              isPending ||
+                              (normalizedStatus !== "REQUESTED" && normalizedStatus !== "ON_HOLD") ||
+                              (normalizedStatus === "REQUESTED" && (mappedSettlementStatus !== "READY" || payout.settlement_locked === true))
+                            }
+                            title={
+                              !approveEnabled && (normalizedStatus === "REQUESTED" || normalizedStatus === "ON_HOLD")
+                                ? "출금 가능 정산이 부족할 수 있습니다."
+                                : undefined
+                            }
+                          >
+                            {normalizedStatus === "ON_HOLD" ? "보류해제 후 승인" : "승인"}
+                          </Button>
+                          {normalizedStatus === "APPROVED" && (
+                            <Button size="sm" variant="outline" onClick={() => setAction({ type: "transfer", payout })} disabled={!transferEnabled || isPending}>
+                              이체완료
+                            </Button>
+                          )}
+                          {normalizedStatus === "FAILED" && (
+                            <Button size="sm" variant="outline" onClick={() => setAction({ type: "transfer", payout })} disabled={!transferEnabled || isPending}>
+                              재시도
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => setAction({ type: "hold", payout })} disabled={isPending || normalizedStatus === "ON_HOLD"}>
+                            보류
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => setAction({ type: "reject", payout })} disabled={isPending}>
+                            반려
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       )}
 
       <Dialog open={!!detailPayout} onOpenChange={(open) => !open && setDetailPayout(null)}>
@@ -450,6 +459,12 @@ export function PayoutRequestsPanel({
                   </p>
                   <p className="text-muted-foreground">회계 상태: {mappedSettlementStatus}</p>
                   <p className="text-muted-foreground">이체 상태: {mappedPayoutStatus}</p>
+                  {(detailPayout.status === "approved" || detailPayout.status === "transferred" || detailPayout.status === "paid") && (
+                    <p className={getAllocatedSum(detailPayout) !== Number(detailPayout.requested_amount || 0) ? "text-destructive font-medium" : "text-muted-foreground"}>
+                      검증: 할당 정산 합계 {getAllocatedSum(detailPayout).toLocaleString()}원 (요청 {Number(detailPayout.requested_amount || 0).toLocaleString()}원)
+                      {getAllocatedSum(detailPayout) !== Number(detailPayout.requested_amount || 0) && " — 불일치"}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {settlements.length === 0 ? (

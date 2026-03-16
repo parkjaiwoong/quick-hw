@@ -682,6 +682,93 @@ export async function getAdminPayoutRequests() {
   return { payouts: data }
 }
 
+export type AdminPayoutFilters = {
+  dateFrom?: string
+  dateTo?: string
+  status?: string
+  driverName?: string
+}
+
+/** 출금 관리 목록 조회 — 요청일자·상태·기사명 조건 */
+export async function getAdminPayoutRequestsFiltered(filters: AdminPayoutFilters) {
+  const adminClient = await getServiceRoleClient()
+  const supabase = await getSupabaseServerClient()
+  const client = adminClient ?? supabase
+
+  let query = client
+    .from("payout_requests")
+    .select(
+      `
+      *,
+      driver:profiles!payout_requests_driver_id_fkey(full_name, email, phone)
+    `,
+    )
+    .order("requested_at", { ascending: false })
+
+  if (filters.dateFrom) {
+    query = query.gte("requested_at", filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    const end = new Date(filters.dateTo)
+    end.setHours(23, 59, 59, 999)
+    query = query.lte("requested_at", end.toISOString())
+  }
+  if (filters.status && filters.status !== "all") {
+    if (filters.status === "transferred") {
+      query = query.in("status", ["transferred", "paid"])
+    } else {
+      query = query.eq("status", filters.status)
+    }
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  let payouts = data ?? []
+  if (filters.driverName?.trim()) {
+    const name = filters.driverName.trim().toLowerCase()
+    payouts = payouts.filter(
+      (p: { driver?: { full_name?: string | null; email?: string | null } | null }) =>
+        (p.driver?.full_name ?? "").toLowerCase().includes(name) ||
+        (p.driver?.email ?? "").toLowerCase().includes(name),
+    )
+  }
+
+  return { payouts }
+}
+
+/** 기사별 승인 가능 금액 (READY+CONFIRMED, 미연결, 현금 제외 정산 합계) — 출금 관리 요약용 */
+export async function getAdminPayoutAllocatableByDriver(driverIds: string[]) {
+  if (driverIds.length === 0) {
+    return { allocatableByDriver: {} as Record<string, number> }
+  }
+  const supabase = await getSupabaseServerClient()
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
+
+  const { data: rows } = await client
+    .from("settlements")
+    .select(
+      "id, driver_id, settlement_amount, settlement_status, payment:payments!settlements_payment_id_fkey(payment_method)",
+    )
+    .in("driver_id", driverIds)
+    .in("settlement_status", ["READY", "CONFIRMED"])
+    .is("payout_request_id", null)
+    .order("created_at", { ascending: true })
+
+  const isNonCash = (s: { payment?: { payment_method?: string } | null }) =>
+    (s.payment?.payment_method ?? "") !== "cash"
+  const allocatableByDriver: Record<string, number> = {}
+  for (const row of rows ?? []) {
+    if (!row.driver_id || !isNonCash(row)) continue
+    allocatableByDriver[row.driver_id] = (allocatableByDriver[row.driver_id] ?? 0) + Number(row.settlement_amount ?? 0)
+  }
+  return { allocatableByDriver }
+}
+
 /** 관리자 대시보드용 알림/주요 지표 (정산 대기, 출금 대기 건수·금액) */
 export async function getAdminAlertCounts() {
   const supabase = await getSupabaseServerClient()

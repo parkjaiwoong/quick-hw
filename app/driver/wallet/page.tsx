@@ -199,7 +199,11 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">출금 요청</span>
               <span className="font-medium">
-                {latestPayoutRequest ? "진행 중" : "대기"}
+                {!latestPayoutRequest
+                  ? "대기"
+                  : latestPayoutRequest.status === "transferred" || latestPayoutRequest.status === "paid"
+                    ? "완료"
+                    : "진행 중"}
               </span>
             </div>
             <div className="flex items-center justify-between">
