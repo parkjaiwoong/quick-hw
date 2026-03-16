@@ -1,12 +1,14 @@
 "use server"
 
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-/** 예상 완료 시각(수락 시각 + 예상분)을 넘겨서 완료된 배송 목록 (관리자용) */
+/** 예상 완료 시각(수락 시각 + 예상분)을 넘겨서 완료된 배송 목록 (관리자용, 기사/고객명 표시) */
 export async function getLateDeliveries() {
   const supabase = await getSupabaseServerClient()
-  const { data, error } = await supabase
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
+  const { data, error } = await client
     .from("deliveries")
     .select(
       `
@@ -47,8 +49,10 @@ export async function getLateDeliveries() {
 
 export async function getAllDeliveries() {
   const supabase = await getSupabaseServerClient()
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("deliveries")
     .select(
       `

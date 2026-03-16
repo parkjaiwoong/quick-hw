@@ -55,12 +55,13 @@ export default async function DriverDeliveryDetailPage({
   const [{ id }, sp] = await Promise.all([params, searchParams ?? Promise.resolve(undefined)])
   const acceptDeliveryId = id && sp?.accept_delivery === id ? id : null
 
-  const [profileRes, roleOverride, deliveryRes, settlementRes, driverInfoRes] = await Promise.all([
+  const [profileRes, roleOverride, deliveryRes, settlementRes, driverInfoRes, paymentRes] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user.id).single(),
     getRoleOverride(),
     getDeliveryForDriver(id),
     supabase.from("settlements").select("settlement_status, settlement_amount").eq("delivery_id", id).maybeSingle(),
     supabase.from("driver_info").select("current_location").eq("id", user.id).maybeSingle(),
+    supabase.from("payments").select("payment_method").eq("delivery_id", id).maybeSingle(),
   ])
 
   const { data: profile } = profileRes
@@ -72,6 +73,11 @@ export default async function DriverDeliveryDetailPage({
 
   const { data: settlement } = settlementRes
   const { data: driverInfo } = driverInfoRes
+  const paymentMethod = paymentRes.data?.payment_method ?? ""
+  const isCash = paymentMethod === "cash"
+  const totalFee = Number(delivery.total_fee ?? 0)
+  const platformFee = Number(delivery.platform_fee ?? 0)
+  const driverFeeAmount = Number(delivery.driver_fee ?? delivery.total_fee ?? 0)
   const isPending = delivery.status === "pending" && !delivery.driver_id
   const isAssignedToMe = delivery.driver_id === user.id
   if (!isPending && !isAssignedToMe) redirect("/driver")
@@ -337,13 +343,44 @@ export default async function DriverDeliveryDetailPage({
         <Card>
           <CardHeader>
             <CardTitle>최종 수익 정보</CardTitle>
+            {isCash && (
+              <CardDescription>현금 결제 건 · 고객에게 수령한 금액에서 수수료를 제외한 금액이 정산됩니다.</CardDescription>
+            )}
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">예상 수익</span>
-              <span className="text-xl font-bold text-green-600">{baseDriverFee.toLocaleString()}원</span>
-            </div>
-            <p className="text-sm text-muted-foreground">거리/좌표 기준 카카오픽 방식으로 산정됩니다.</p>
+          <CardContent className="space-y-3">
+            {isCash ? (
+              <>
+                <div className="rounded-lg border bg-muted/50 p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">고객 결제 금액 (현금 수령)</span>
+                    <span className="font-medium">{totalFee.toLocaleString()}원</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">플랫폼 수수료</span>
+                    <span className="font-medium">- {platformFee.toLocaleString()}원</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="font-medium">기사 수령 금액 (정산 반영)</span>
+                    <span className="text-xl font-bold text-green-600">{driverFeeAmount.toLocaleString()}원</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  고객에게서 현금으로 받은 금액에서 수수료를 제외한 금액이 적립금에 반영됩니다.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">예상 수익</span>
+                  <span className="text-xl font-bold text-green-600">{baseDriverFee.toLocaleString()}원</span>
+                </div>
+                {totalFee > 0 && platformFee > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    고객 결제 {totalFee.toLocaleString()}원 · 수수료 {platformFee.toLocaleString()}원 제외
+                  </div>
+                )}
+              </>
+            )}
             <Button asChild variant="outline" size="sm" className="mt-2">
               <Link href={`/driver/reward/${delivery.id}`}>리워드 적용 보기</Link>
             </Button>

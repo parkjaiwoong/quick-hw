@@ -321,7 +321,7 @@ export function PayoutRequestsPanel({
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold">{payout.driver?.full_name || payout.driver?.email || "기사"}</p>
+                    <p className="font-semibold">{payout.driver?.full_name || payout.driver?.email || (payout.driver_id ? `기사(${String(payout.driver_id).slice(0, 8)})`) : "알 수 없음"}</p>
                     <span className="text-xs text-muted-foreground">ID: {driverId}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
@@ -435,7 +435,7 @@ export function PayoutRequestsPanel({
             return (
               <div className="space-y-4 text-sm">
                 <div className="space-y-1">
-                  <p className="font-semibold">{detailPayout.driver?.full_name || detailPayout.driver?.email || "기사"}</p>
+                  <p className="font-semibold">{detailPayout.driver?.full_name || detailPayout.driver?.email || (detailPayout.driver_id ? `기사(${String(detailPayout.driver_id).slice(0, 8)})`) : "알 수 없음"}</p>
                   <p className="text-muted-foreground">요청 금액: {Number(detailPayout.requested_amount || 0).toLocaleString()}원</p>
                   <p className="text-muted-foreground">
                     출금 가능 금액 대비 비율: {available > 0 ? `${ratio}%` : "-"}

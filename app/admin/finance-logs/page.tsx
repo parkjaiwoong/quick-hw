@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getRoleOverride } from "@/lib/role"
@@ -29,16 +29,19 @@ export default async function AdminFinanceLogsPage() {
     redirect("/")
   }
 
-  const { data: settlements } = await supabase
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
+
+  const { data: settlements } = await client
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, updated_at, driver:profiles!settlements_driver_id_fkey(full_name, email)")
+    .select("id, driver_id, settlement_amount, settlement_status, updated_at, driver:profiles!settlements_driver_id_fkey(full_name, email)")
     .in("settlement_status", ["CONFIRMED", "PAID_OUT"])
     .order("updated_at", { ascending: false })
     .limit(200)
 
-  const { data: payouts } = await supabase
+  const { data: payouts } = await client
     .from("payout_requests")
-    .select("id, requested_amount, status, processed_at, driver:profiles!payout_requests_driver_id_fkey(full_name, email)")
+    .select("id, driver_id, requested_amount, status, processed_at, driver:profiles!payout_requests_driver_id_fkey(full_name, email)")
     .in("status", ["approved", "transferred", "failed", "canceled", "rejected"])
     .order("processed_at", { ascending: false })
     .limit(200)
@@ -49,7 +52,7 @@ export default async function AdminFinanceLogsPage() {
       type: settlement.settlement_status === "PAID_OUT" ? "정산 확정(출금 반영)" : "정산 확정",
       occurred_at: settlement.updated_at,
       amount: Number(settlement.settlement_amount || 0),
-      driver_name: settlement.driver?.full_name || settlement.driver?.email || "기사",
+      driver_name: (settlement.driver?.full_name || settlement.driver?.email) || (settlement.driver_id ? `기사(${String(settlement.driver_id).slice(0, 8)})` : "알 수 없음"),
     })),
     ...(payouts || []).map((payout: any) => ({
       id: payout.id,
@@ -63,7 +66,7 @@ export default async function AdminFinanceLogsPage() {
               : "출금 승인",
       occurred_at: payout.processed_at || "",
       amount: Number(payout.requested_amount || 0),
-      driver_name: payout.driver?.full_name || payout.driver?.email || "기사",
+      driver_name: (payout.driver?.full_name || payout.driver?.email) || (payout.driver_id ? `기사(${String(payout.driver_id).slice(0, 8)})` : "알 수 없음"),
     })),
   ]
     .filter((log) => log.occurred_at)

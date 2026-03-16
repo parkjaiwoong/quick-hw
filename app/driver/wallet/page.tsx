@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CheckCircle, Clock } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
-import { ensureDriverWallet, getDriverWalletSummary, requestPayout } from "@/lib/actions/finance"
+import { ensureDriverWallet, getDriverWalletSummary, requestPayout, updateDriverBankAccount } from "@/lib/actions/finance"
+import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 
 type PageProps = { searchParams?: Promise<{ error?: string }> }
 
@@ -37,7 +38,8 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
   }
 
   await ensureDriverWallet(userId)
-  const [walletResult, { data: payoutRequests }, { data: recentSettlements }, { data: driverDeliveries }] =
+  await ensureDriverInfoForUser()
+  const [walletResult, { data: payoutRequests }, { data: recentSettlements }, { data: driverDeliveries }, { data: driverInfo }] =
     await Promise.all([
       getDriverWalletSummary(userId),
       supabase
@@ -52,6 +54,7 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
         .order("created_at", { ascending: false })
         .limit(50),
       supabase.from("deliveries").select("id, status").eq("driver_id", userId),
+      supabase.from("driver_info").select("bank_name, bank_account").eq("id", userId).maybeSingle(),
     ])
   const wallet = walletResult.wallet
   const totalBalance = Number(wallet?.total_balance || 0)
@@ -66,7 +69,8 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
       ?.filter((p) => p.status === "transferred" || p.status === "paid")
       .reduce((sum, p) => sum + Number(p.requested_amount || 0), 0) || 0
   const isRequestInProgress = pendingRequestAmount > 0
-  const isPayoutEligible = availableBalance > 0 && !isRequestInProgress
+  const hasBankAccount = Boolean(driverInfo?.bank_account?.trim())
+  const isPayoutEligible = availableBalance > 0 && !isRequestInProgress && hasBankAccount
   const latestSettlement = recentSettlements?.[0]
   const latestPayoutRequest = payoutRequests?.[0]
   const totalDeliveries = driverDeliveries?.length || 0
@@ -87,6 +91,17 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
             (1000 * 60 * 60),
         )
       : 0
+
+  async function handleSaveBankAccount(formData: FormData) {
+    "use server"
+    const bankName = String(formData.get("bank_name") || "").trim()
+    const bankAccount = String(formData.get("bank_account") || "").trim()
+    const result = await updateDriverBankAccount(userId, bankName, bankAccount)
+    if (result?.error) {
+      redirect(`/driver/wallet?error=${encodeURIComponent(result.error)}`)
+    }
+    redirect("/driver/wallet")
+  }
 
   async function handleRequestPayout(formData: FormData) {
     "use server"
@@ -241,8 +256,35 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
 
         <Card>
           <CardHeader>
+            <CardTitle>출금 계좌 설정</CardTitle>
+            <CardDescription>출금 요청 시 이 계좌로 입금됩니다. 계좌를 먼저 등록한 뒤 출금 요청을 하세요.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {hasBankAccount && (
+              <p className="text-sm text-muted-foreground">
+                현재 등록 계좌: {[driverInfo?.bank_name, driverInfo?.bank_account ? `****${String(driverInfo.bank_account).slice(-4)}` : ""].filter(Boolean).join(" ")}
+              </p>
+            )}
+            <form action={handleSaveBankAccount} className="flex flex-col gap-3 max-w-md">
+              <div>
+                <label htmlFor="bank_name" className="text-sm font-medium mb-1 block">은행명</label>
+                <Input id="bank_name" name="bank_name" placeholder="예: 국민은행" defaultValue={driverInfo?.bank_name ?? ""} />
+              </div>
+              <div>
+                <label htmlFor="bank_account" className="text-sm font-medium mb-1 block">계좌번호</label>
+                <Input id="bank_account" name="bank_account" placeholder="숫자만 입력" defaultValue={driverInfo?.bank_account ?? ""} />
+              </div>
+              <Button type="submit">계좌 저장</Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>출금 요청</CardTitle>
-            <CardDescription>출금 가능 금액 내에서 요청 가능합니다</CardDescription>
+            <CardDescription>
+              등록한 출금 계좌로 입금됩니다. 위에서 계좌를 먼저 설정한 뒤 금액만 입력해 요청하세요.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form action={handleRequestPayout} className="flex flex-col md:flex-row gap-3">
@@ -251,7 +293,10 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
                 출금 요청
               </Button>
             </form>
-            {!isPayoutEligible && (
+            {!hasBankAccount && (
+              <p className="text-xs text-amber-700 mt-2">출금 계좌를 먼저 설정해 주세요.</p>
+            )}
+            {hasBankAccount && !isPayoutEligible && (
               <p className="text-xs text-muted-foreground mt-2">
                 {isRequestInProgress
                   ? "출금 요청이 처리 중입니다. 완료 후 추가 요청이 가능합니다."

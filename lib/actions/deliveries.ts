@@ -232,6 +232,7 @@ export async function createDelivery(data: CreateDeliveryData) {
     ? Math.round(Number(data.customerAmount))
     : quotedTotalFee
   const totalFee = Math.round(adjustedAmount > 0 ? adjustedAmount : quotedTotalFee)
+  // 현금 포함 모든 결제 수단에 수수료 적용 → 적립금(정산·출금 가능)에는 driver_fee만 반영. 관리자 수수료 수령 시 platform_fee로 집계.
   let platformFee = Math.round((totalFee * commissionRate) / 100)
   let driverFee = Math.max(totalFee - platformFee, minDriverFee)
   if (driverFee + platformFee > totalFee) {

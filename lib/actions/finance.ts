@@ -1,6 +1,6 @@
 "use server"
 
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 import { revalidatePath, unstable_cache } from "next/cache"
 import type { PaymentMethod } from "@/lib/types/database"
 
@@ -477,28 +477,23 @@ export async function getDriverWalletSummary(driverId: string) {
   return { wallet, payouts: payouts || [], pendingPayoutAmount }
 }
 
-/** 기사 정산 페이지에서 호출: 폼 데이터만 받고, 액션 내부에서 인증 후 출금 요청 (클로저 미사용으로 서버 오류 방지) */
-export async function requestPayoutFromDriver(formData: FormData) {
+/** 기사 출금 계좌 설정 저장 (지갑 화면에서만 사용) */
+export async function updateDriverBankAccount(driverId: string, bankName: string, bankAccount: string) {
   const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "로그인이 필요합니다." }
+  const bank = String(bankName || "").trim()
+  const account = String(bankAccount || "").trim()
+  if (!account) {
+    return { error: "계좌번호를 입력해 주세요." }
   }
-  const amount = Number(formData.get("amount") || 0)
-  const bankName = String(formData.get("bank_name") || "").trim()
-  const accountNo = String(formData.get("account_no") || "").trim()
-  if (bankName || accountNo) {
-    await supabase
-      .from("driver_info")
-      .update({ bank_name: bankName || null, bank_account: accountNo || null })
-      .eq("id", user.id)
+  const { error } = await supabase
+    .from("driver_info")
+    .update({ bank_name: bank || null, bank_account: account })
+    .eq("id", driverId)
+  if (error) {
+    return { error: error.message }
   }
-  const result = await requestPayout(user.id, amount)
-  if (result?.error) return result
-  revalidatePath("/driver/settlements")
-  return result
+  revalidatePath("/driver/wallet")
+  return { success: true }
 }
 
 export async function requestPayout(driverId: string, amount: number) {
@@ -507,6 +502,11 @@ export async function requestPayout(driverId: string, amount: number) {
   const { data: wallet } = await supabase.from("driver_wallet").select("*").eq("driver_id", driverId).maybeSingle()
   if (!wallet) {
     return { error: "지갑 정보를 찾을 수 없습니다." }
+  }
+
+  const { data: driverInfo } = await supabase.from("driver_info").select("bank_account, bank_name").eq("id", driverId).maybeSingle()
+  if (!driverInfo?.bank_account?.trim()) {
+    return { error: "출금 계좌를 먼저 설정해 주세요. 아래 '출금 계좌 설정'에서 계좌를 등록한 뒤 출금 요청을 해 주세요." }
   }
 
   const { data: lockedSettlements } = await supabase
@@ -519,24 +519,26 @@ export async function requestPayout(driverId: string, amount: number) {
     return { error: "분쟁 건으로 출금 요청이 제한됩니다." }
   }
 
-  // 승인 시와 동일한 기준: READY(PAID)+CONFIRMED, payout_request_id null → 이 합계 이상은 요청 불가
-  // settlement_locked 미존재 DB 대응: select에서 제외, 필터는 !== true (undefined 통과)
+  // 승인 시와 동일한 기준: READY(PAID)+CONFIRMED, payout_request_id null, 현금 건 제외
   const { data: readyRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, payment_status")
+    .select("id, settlement_amount, settlement_status, payment_status, payment:payments!settlements_payment_id_fkey(payment_method)")
     .eq("driver_id", driverId)
     .eq("settlement_status", "READY")
     .eq("payment_status", "PAID")
     .is("payout_request_id", null)
   const { data: confirmedRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, payment_status")
+    .select("id, settlement_amount, settlement_status, payment_status, payment:payments!settlements_payment_id_fkey(payment_method)")
     .eq("driver_id", driverId)
     .eq("settlement_status", "CONFIRMED")
     .is("payout_request_id", null)
+  const isNonCash = (s: { payment?: { payment_method?: string } | null }) =>
+    (s.payment?.payment_method ?? "") !== "cash"
   const allocatableSum =
     [...(readyRows || []), ...(confirmedRows || [])]
       .filter((s) => (s as { settlement_locked?: boolean }).settlement_locked !== true)
+      .filter(isNonCash)
       .reduce((sum, s) => sum + Number(s.settlement_amount || 0), 0) || 0
   if (allocatableSum <= 0) {
     return { error: "출금 가능한 정산이 없습니다." }
@@ -566,8 +568,6 @@ export async function requestPayout(driverId: string, amount: number) {
     return { error: "출금 가능 금액이 부족합니다." }
   }
 
-  const { data: driverInfo } = await supabase.from("driver_info").select("bank_account, bank_name").eq("id", driverId).maybeSingle()
-
   const { error } = await supabase.from("payout_requests").insert({
     driver_id: driverId,
     requested_amount: amount,
@@ -596,8 +596,10 @@ export async function requestPayout(driverId: string, amount: number) {
 
 export async function getAdminPayoutRequests() {
   const supabase = await getSupabaseServerClient()
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("payout_requests")
     .select(
       `
@@ -731,10 +733,10 @@ export async function approvePayout(payoutId: string) {
     return { error: "LOCKED 정산이 포함되어 있어 승인할 수 없습니다." }
   }
 
-  // 출금 할당: READY(결제완료) 또는 CONFIRMED(정산확정)이며 아직 다른 출금에 묶이지 않은 건 (settlement_locked 미존재 DB 대응)
+  // 출금 할당: READY(결제완료) 또는 CONFIRMED(정산확정), 현금 건 제외
   const { data: readyRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, payment_status, created_at")
+    .select("id, settlement_amount, settlement_status, payment_status, created_at, payment:payments!settlements_payment_id_fkey(payment_method)")
     .eq("driver_id", payout.driver_id)
     .eq("settlement_status", "READY")
     .eq("payment_status", "PAID")
@@ -743,15 +745,17 @@ export async function approvePayout(payoutId: string) {
 
   const { data: confirmedRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, payment_status, created_at")
+    .select("id, settlement_amount, settlement_status, payment_status, created_at, payment:payments!settlements_payment_id_fkey(payment_method)")
     .eq("driver_id", payout.driver_id)
     .eq("settlement_status", "CONFIRMED")
     .is("payout_request_id", null)
     .order("created_at", { ascending: true })
 
-  const pool = [...(readyRows || []), ...(confirmedRows || [])].sort(
-    (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
-  )
+  const isNonCash = (s: { payment?: { payment_method?: string } | null }) =>
+    (s.payment?.payment_method ?? "") !== "cash"
+  const pool = [...(readyRows || []), ...(confirmedRows || [])]
+    .filter(isNonCash)
+    .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
 
   let remaining = Number(payout.requested_amount)
   const targetSettlementIds: string[] = []

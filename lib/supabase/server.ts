@@ -62,6 +62,18 @@ export async function createClient() {
 export const getSupabaseServerClient = createClient
 
 /**
+ * 관리자 전용: RLS를 우회하여 모든 프로필 등 조회 (정산/출금 목록에서 기사명 표시용).
+ * 반드시 이미 관리자 권한을 검사한 뒤에만 사용할 것.
+ */
+export async function getServiceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  const { createClient } = await import("@supabase/supabase-js")
+  return createClient(url, key, { auth: { persistSession: false } })
+}
+
+/**
  * API 라우트 등에서 Authorization: Bearer <jwt> 로 전달된 토큰으로
  * 요청 시 사용할 Supabase 클라이언트 생성 (기사 앱 WebView/네이티브에서 쿠키 없이 호출 시 사용)
  */

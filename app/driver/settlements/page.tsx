@@ -1,16 +1,12 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getDriverSettlements } from "@/lib/actions/settlement"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
-import { Calendar, CheckCircle, DollarSign } from "lucide-react"
+import { Calendar, CheckCircle, DollarSign, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { requestPayoutFromDriver } from "@/lib/actions/finance"
-import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
 
 export default async function DriverSettlementsPage({
   searchParams,
@@ -63,15 +59,6 @@ export default async function DriverSettlementsPage({
     PAID_OUT: "출금완료",
   }
 
-  async function handleRequestPayout(formData: FormData) {
-    "use server"
-    const result = await requestPayoutFromDriver(formData)
-    if (result?.error) {
-      redirect(`/driver/settlements?error=${encodeURIComponent(result.error)}`)
-    }
-    redirect("/driver/settlements")
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -120,49 +107,17 @@ export default async function DriverSettlementsPage({
 
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>출금요청</CardDescription>
+              <CardDescription>출금 요청</CardDescription>
               <CardTitle className="text-2xl">{completedSettlements.length}건</CardTitle>
             </CardHeader>
             <CardContent>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="w-full" disabled={availableBalance <= 0}>
-                    출금요청
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>출금요청</DialogTitle>
-                    <DialogDescription>계좌 정보를 입력한 뒤 요청하세요.</DialogDescription>
-                  </DialogHeader>
-                  <form action={handleRequestPayout} className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="bank_name">은행명</Label>
-                      <Input id="bank_name" name="bank_name" placeholder="은행명 입력" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="account_no">계좌번호</Label>
-                      <Input id="account_no" name="account_no" placeholder="계좌번호 입력" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="amount">출금 요청 금액</Label>
-                      <Input id="amount" name="amount" type="number" min={0} step="1" placeholder="출금 금액" />
-                    </div>
-                    <SubmitButtonPending
-                      className="w-full"
-                      disabled={availableBalance <= 0}
-                      pendingLabel="요청 중…"
-                    >
-                      출금요청
-                    </SubmitButtonPending>
-                    {availableBalance <= 0 && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        출금가능 금액이 0원입니다.
-                      </p>
-                    )}
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <p className="text-xs text-muted-foreground mb-3">출금은 지갑 화면에서 계좌 설정 후 요청하세요.</p>
+              <Button asChild size="sm" className="w-full" variant="outline">
+                <Link href="/driver/wallet" className="flex items-center justify-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  지갑에서 출금 요청하기
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </div>

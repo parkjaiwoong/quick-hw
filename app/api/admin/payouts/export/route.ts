@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 
 export async function GET() {
   const supabase = await getSupabaseServerClient()
@@ -16,11 +16,15 @@ export async function GET() {
     return new NextResponse("Forbidden", { status: 403 })
   }
 
-  const { data: payouts } = await supabase
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
+
+  const { data: payouts } = await client
     .from("payout_requests")
     .select(
       `
       id,
+      driver_id,
       requested_amount,
       bank_account,
       bank_name,
@@ -32,8 +36,9 @@ export async function GET() {
     .order("requested_at", { ascending: true })
 
   const header = ["기사명", "은행", "계좌번호", "출금액", "상태"]
+  const driverName = (p: any) => p.driver?.full_name || p.driver?.email || (p.driver_id ? `기사(${String(p.driver_id).slice(0, 8)})` : "알 수 없음")
   const rows = (payouts || []).map((payout: any) => [
-    payout.driver?.full_name || payout.driver?.email || "기사",
+    driverName(payout),
     payout.bank_name || "",
     payout.bank_account || "",
     Number(payout.requested_amount || 0).toString(),

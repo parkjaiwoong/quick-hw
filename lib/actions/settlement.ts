@@ -1,6 +1,6 @@
 "use server"
 
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { getRoleOverride } from "@/lib/role"
 
@@ -146,10 +146,13 @@ export async function getAllSettlements() {
   ])
   const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
   if (!canActAsAdmin) {
-    return { error: "??? ??? ?????" }
+    return { error: "관리자 권한이 필요합니다." }
   }
 
-  const { data, error } = await supabase
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
+
+  const { data, error } = await client
     .from("settlements")
     .select(
       `
@@ -167,22 +170,25 @@ export async function getAllSettlements() {
   return { settlements: data }
 }
 
-/** ????: ??? ?? summary + ?? ?? */
+/** 관리자용: 기사별 정산 summary + 목록 (기사명 표시를 위해 service role 사용) */
 export async function getSettlementsByDriver() {
   const supabase = await getSupabaseServerClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "??? ?????" }
+  if (!user) return { error: "로그인이 필요합니다." }
 
   const [{ data: profile }, roleOverride] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user.id).single(),
     getRoleOverride(),
   ])
   if (roleOverride !== "admin" && profile?.role !== "admin") {
-    return { error: "??? ??? ?????" }
+    return { error: "관리자 권한이 필요합니다." }
   }
 
-  const { data, error } = await supabase
+  const adminClient = await getServiceRoleClient()
+  const client = adminClient ?? supabase
+
+  const { data, error } = await client
     .from("settlements")
     .select(
       `id, driver_id, settlement_amount, payment_status, settlement_status, status,
