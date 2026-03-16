@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Camera, ExternalLink, Image as ImageIcon, Video } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 /** 플랫폼별 권한 가이드 및 설정 열기 URL */
 function getCameraPermissionGuide() {
@@ -244,10 +245,13 @@ export function DeliveryCompleteForm({
     try {
       const fd = new FormData(form)
       fd.set("delivery_proof_url", uploadedUrl ?? "")
+      const headers: HeadersInit = { Accept: "application/json" }
+      const { data: { session } } = await createClient().auth.getSession()
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
-        headers: { Accept: "application/json" },
+        headers,
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -312,10 +316,13 @@ export function DeliveryCompleteForm({
       if (!form) return
       const fd = new FormData(form)
       fd.set("delivery_proof_url", capturedUploadedUrl)
+      const headers: HeadersInit = { Accept: "application/json" }
+      const { data: { session } } = await createClient().auth.getSession()
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
-        headers: { Accept: "application/json" },
+        headers,
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

@@ -7,6 +7,7 @@ import { MapPin, Phone, Bike, Clock, Calendar, Zap, CheckCircle2 } from "lucide-
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 import { DeliveryCompleteForm } from "@/components/driver/delivery-complete-form"
 
 interface AssignedDeliveriesProps {
@@ -28,10 +29,15 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
     try {
       const fd = new FormData()
       fd.set("status", "picked_up")
+      const headers: HeadersInit = {}
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
         credentials: "same-origin",
+        headers,
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

@@ -296,9 +296,10 @@ export async function uploadDeliveryProofFromBase64(deliveryId: string, dataUrl:
 export async function updateDeliveryStatus(
   deliveryId: string,
   status: string,
-  deliveryProofUrl?: string
+  deliveryProofUrl?: string,
+  supabaseClient?: Awaited<ReturnType<typeof getSupabaseServerClient>>
 ) {
-  const supabase = await getSupabaseServerClient()
+  const supabase = supabaseClient ?? (await getSupabaseServerClient())
 
   const { data: current } = await supabase
     .from("deliveries")
@@ -367,9 +368,10 @@ export async function updateDeliveryStatus(
 /** accepted 상태에서 픽업완료 → 배송완료를 한 번에 처리 */
 export async function completeDeliveryFromAccepted(
   deliveryId: string,
-  deliveryProofUrl?: string
+  deliveryProofUrl?: string,
+  supabaseClient?: Awaited<ReturnType<typeof getSupabaseServerClient>>
 ) {
-  const supabase = await getSupabaseServerClient()
+  const supabase = supabaseClient ?? (await getSupabaseServerClient())
 
   const { data: current } = await supabase
     .from("deliveries")

@@ -1,3 +1,4 @@
+import { unstable_noStore } from "next/cache"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,6 +43,7 @@ export default async function DeliveryDetailPage({
   params: Promise<{ id: string }>
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
+  unstable_noStore()
   const supabase = await getSupabaseServerClient()
 
   const {

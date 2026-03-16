@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 
 /** ECONNRESET 등 일시적 네트워크 오류 시 재시도하는 fetch 래퍼 (Vercel + Supabase) — proxy에서도 사용 */
@@ -59,3 +60,20 @@ export async function createClient() {
 }
 
 export const getSupabaseServerClient = createClient
+
+/**
+ * API 라우트 등에서 Authorization: Bearer <jwt> 로 전달된 토큰으로
+ * 요청 시 사용할 Supabase 클라이언트 생성 (기사 앱 WebView/네이티브에서 쿠키 없이 호출 시 사용)
+ */
+export function createServerClientWithJwt(accessToken: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_QUICKSUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing Supabase env (NEXT_PUBLIC_QUICKSUPABASE_URL / ANON_KEY)")
+  }
+  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  })
+}

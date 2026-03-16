@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { Package, MapPin, Shield, AlertCircle, CreditCard, Coins } from "lucide-react"
 import { DeliveryList } from "@/components/customer/delivery-list"
+import { DeliveriesListRealtime } from "@/components/customer/deliveries-list-realtime"
 import { getMyDeliveries } from "@/lib/actions/deliveries"
 import { getRoleOverride } from "@/lib/role"
 import { RiderChangeForm } from "@/components/customer/rider-change-form"
@@ -186,7 +187,8 @@ export default async function CustomerDashboard({
           </Card>
         </div>
 
-        {/* 배송 목록 */}
+        {/* 배송 목록: 기사 수락/픽업/배송중/완료 시 실시간 반영 */}
+        <DeliveriesListRealtime customerId={user.id} />
         <Card>
           <CardHeader>
             <CardTitle>내 배송 목록</CardTitle>

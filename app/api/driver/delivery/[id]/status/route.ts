@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { updateDeliveryStatus, completeDeliveryFromAccepted } from "@/lib/actions/driver"
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getSupabaseServerClient, createServerClientWithJwt } from "@/lib/supabase/server"
 
 /**
  * POST /api/driver/delivery/[id]/status
  * FormData: status (picked_up | in_transit | delivered)
- * WebView에서 form submit + redirect로 픽업/배송 완료 처리 (JS server action 대신)
- * delivered 시: 배송대기건 있으면 다음 배송 상세로, 없으면 배송대기 화면으로 리다이렉트
+ * 인증: 쿠키(웹) 또는 Authorization: Bearer <access_token>(앱/WebView)
+ * WebView/앱에서 쿠키가 없을 때 Bearer 토큰으로 호출하면 DB 업데이트가 정상 반영됨.
  */
 export async function POST(
   req: NextRequest,
@@ -26,11 +26,17 @@ export async function POST(
     const deliveryProofUrl = String(formData.get("delivery_proof_url") || "").trim() || undefined
     const fromAccepted = formData.get("from_accepted") === "1"
 
+    // 앱/WebView: Bearer 토큰이 있으면 해당 세션으로 업데이트 (쿠키 없어도 동작)
+    const authHeader = req.headers.get("authorization")
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null
+    const supabaseForUpdate =
+      bearerToken ? createServerClientWithJwt(bearerToken) : await getSupabaseServerClient()
+
     let result: { error?: string } | { success?: boolean }
     if (status === "delivered" && fromAccepted) {
-      result = await completeDeliveryFromAccepted(deliveryId, deliveryProofUrl)
+      result = await completeDeliveryFromAccepted(deliveryId, deliveryProofUrl, supabaseForUpdate)
     } else {
-      result = await updateDeliveryStatus(deliveryId, status, deliveryProofUrl)
+      result = await updateDeliveryStatus(deliveryId, status, deliveryProofUrl, supabaseForUpdate)
     }
     if (result?.error) {
       return NextResponse.json({ error: result.error }, { status: 400 })
