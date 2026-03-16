@@ -520,22 +520,23 @@ export async function requestPayout(driverId: string, amount: number) {
   }
 
   // 승인 시와 동일한 기준: READY(PAID)+CONFIRMED, payout_request_id null → 이 합계 이상은 요청 불가
+  // settlement_locked 미존재 DB 대응: select에서 제외, 필터는 !== true (undefined 통과)
   const { data: readyRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, settlement_locked, payment_status")
+    .select("id, settlement_amount, settlement_status, payment_status")
     .eq("driver_id", driverId)
     .eq("settlement_status", "READY")
     .eq("payment_status", "PAID")
     .is("payout_request_id", null)
   const { data: confirmedRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, settlement_locked, payment_status")
+    .select("id, settlement_amount, settlement_status, payment_status")
     .eq("driver_id", driverId)
     .eq("settlement_status", "CONFIRMED")
     .is("payout_request_id", null)
   const allocatableSum =
     [...(readyRows || []), ...(confirmedRows || [])]
-      .filter((s) => !s.settlement_locked)
+      .filter((s) => (s as { settlement_locked?: boolean }).settlement_locked !== true)
       .reduce((sum, s) => sum + Number(s.settlement_amount || 0), 0) || 0
   if (allocatableSum <= 0) {
     return { error: "출금 가능한 정산이 없습니다." }
@@ -730,10 +731,10 @@ export async function approvePayout(payoutId: string) {
     return { error: "LOCKED 정산이 포함되어 있어 승인할 수 없습니다." }
   }
 
-  // 출금 할당: READY(결제완료) 또는 CONFIRMED(정산확정)이며 아직 다른 출금에 묶이지 않은 건
+  // 출금 할당: READY(결제완료) 또는 CONFIRMED(정산확정)이며 아직 다른 출금에 묶이지 않은 건 (settlement_locked 미존재 DB 대응)
   const { data: readyRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, settlement_locked, payment_status, created_at")
+    .select("id, settlement_amount, settlement_status, payment_status, created_at")
     .eq("driver_id", payout.driver_id)
     .eq("settlement_status", "READY")
     .eq("payment_status", "PAID")
@@ -742,7 +743,7 @@ export async function approvePayout(payoutId: string) {
 
   const { data: confirmedRows } = await supabase
     .from("settlements")
-    .select("id, settlement_amount, settlement_status, settlement_locked, payment_status, created_at")
+    .select("id, settlement_amount, settlement_status, payment_status, created_at")
     .eq("driver_id", payout.driver_id)
     .eq("settlement_status", "CONFIRMED")
     .is("payout_request_id", null)
@@ -756,7 +757,7 @@ export async function approvePayout(payoutId: string) {
   const targetSettlementIds: string[] = []
   for (const settlement of pool) {
     if (remaining <= 0) break
-    if (settlement.settlement_locked) continue
+    if ((settlement as { settlement_locked?: boolean }).settlement_locked === true) continue
     remaining -= Number(settlement.settlement_amount || 0)
     targetSettlementIds.push(settlement.id)
   }

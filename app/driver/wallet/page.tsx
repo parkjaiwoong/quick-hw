@@ -91,7 +91,10 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
   async function handleRequestPayout(formData: FormData) {
     "use server"
     const rawAmount = Number(formData.get("amount") || 0)
-    await requestPayout(userId, rawAmount)
+    const result = await requestPayout(userId, rawAmount)
+    if (result?.error) {
+      redirect(`/driver/wallet?error=${encodeURIComponent(result.error)}`)
+    }
     redirect("/driver/wallet")
   }
 
