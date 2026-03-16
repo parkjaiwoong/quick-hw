@@ -439,7 +439,11 @@ export function PayoutRequestsPanel({
             return (
               <div className="space-y-4 text-sm">
                 <div className="space-y-1">
-                  <p className="font-semibold">{detailPayout.driver?.full_name || detailPayout.driver?.email || (detailPayout.driver_id ? `기사(${String(detailPayout.driver_id).slice(0, 8)})`) : "알 수 없음"}</p>
+                  <p className="font-semibold">
+                    {detailPayout.driver?.full_name ||
+                      detailPayout.driver?.email ||
+                      (detailPayout.driver_id ? "기사(" + String(detailPayout.driver_id).slice(0, 8) + ")" : "알 수 없음")}
+                  </p>
                   <p className="text-muted-foreground">요청 금액: {Number(detailPayout.requested_amount || 0).toLocaleString()}원</p>
                   <p className="text-muted-foreground">
                     출금 가능 금액 대비 비율: {available > 0 ? `${ratio}%` : "-"}
