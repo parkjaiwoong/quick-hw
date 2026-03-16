@@ -167,8 +167,13 @@ export function PayoutRequestsPanel({
     if (linked.length > 0) {
       return linked
     }
+    // 승인 가능 후보: READY 또는 CONFIRMED 이면서 아직 다른 출금에 묶이지 않은 정산만 (LOCKED 제외)
     const candidates = settlements
-      .filter((s) => s.settlement_status === "READY" || s.settlement_status === "LOCKED")
+      .filter(
+        (s) =>
+          (s.settlement_status === "READY" || s.settlement_status === "CONFIRMED") &&
+          !s.payout_request_id
+      )
       .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
     let remaining = Number(payout.requested_amount || 0)
     const selected: SettlementRow[] = []
@@ -195,7 +200,9 @@ export function PayoutRequestsPanel({
   const canApprove = (settlements: SettlementRow[]) => {
     return (
       settlements.length > 0 &&
-      settlements.every((s) => s.settlement_status === "READY") &&
+      settlements.every(
+        (s) => s.settlement_status === "READY" || s.settlement_status === "CONFIRMED"
+      ) &&
       !settlements.some((s) => s.settlement_status === "LOCKED")
     )
   }
@@ -327,12 +334,15 @@ export function PayoutRequestsPanel({
                       size="sm"
                       onClick={() => setAction({ type: "approve", payout })}
                       disabled={
-                        !approveEnabled ||
                         isPending ||
                         (normalizedStatus !== "REQUESTED" && normalizedStatus !== "ON_HOLD") ||
                         (normalizedStatus === "REQUESTED" && (mappedSettlementStatus !== "READY" || payout.settlement_locked === true))
                       }
-                      title={!approveEnabled ? "LOCKED 정산이 포함되었거나 정산 상태가 확인되지 않았습니다." : undefined}
+                      title={
+                        !approveEnabled && (normalizedStatus === "REQUESTED" || normalizedStatus === "ON_HOLD")
+                          ? "출금 가능 정산(READY/CONFIRMED)이 부족할 수 있습니다. 승인 시도 시 서버에서 검사합니다."
+                          : undefined
+                      }
                     >
                       {normalizedStatus === "ON_HOLD" ? "보류 해제 후 승인" : "승인"}
                     </Button>

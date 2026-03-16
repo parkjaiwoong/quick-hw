@@ -116,6 +116,7 @@ export function DeliveryCompleteForm({
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const STATUS_REQUEST_TIMEOUT_MS = 12000
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -246,22 +247,37 @@ export function DeliveryCompleteForm({
       const fd = new FormData(form)
       fd.set("delivery_proof_url", uploadedUrl ?? "")
       const headers: HeadersInit = { Accept: "application/json" }
-      const { data: { session } } = await createClient().auth.getSession()
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+      try {
+        const sessionPromise = createClient().auth.getSession()
+        const sessionRes = await Promise.race([
+          sessionPromise,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+        ])
+        if (sessionRes?.data?.session?.access_token) {
+          headers.Authorization = `Bearer ${sessionRes.data.session.access_token}`
+        }
+      } catch {
+        // getSession 실패 시 Bearer 없이 진행 (쿠키로 시도)
+      }
+      const ac = new AbortController()
+      const timeoutId = setTimeout(() => ac.abort(), STATUS_REQUEST_TIMEOUT_MS)
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
         headers,
+        signal: ac.signal,
       })
+      clearTimeout(timeoutId)
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data?.error || "처리 중 오류가 발생했습니다.")
-        setSubmitting(false)
         return
       }
       router.replace("/driver")
     } catch (err) {
-      setError("네트워크 오류. 다시 시도해 주세요.")
+      const isAbort = err instanceof Error && err.name === "AbortError"
+      setError(isAbort ? "요청 시간이 초과되었습니다. 네트워크를 확인한 뒤 다시 시도해 주세요." : "네트워크 오류. 다시 시도해 주세요.")
+    } finally {
       setSubmitting(false)
     }
   }
@@ -317,22 +333,36 @@ export function DeliveryCompleteForm({
       const fd = new FormData(form)
       fd.set("delivery_proof_url", capturedUploadedUrl)
       const headers: HeadersInit = { Accept: "application/json" }
-      const { data: { session } } = await createClient().auth.getSession()
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+      try {
+        const sessionRes = await Promise.race([
+          createClient().auth.getSession(),
+          new Promise<{ data: { session: null } }>((resolve) => setTimeout(() => resolve({ data: { session: null } }), 2000)),
+        ])
+        if (sessionRes?.data?.session?.access_token) {
+          headers.Authorization = `Bearer ${sessionRes.data.session.access_token}`
+        }
+      } catch {
+        // getSession 실패 시 Bearer 없이 진행
+      }
+      const ac = new AbortController()
+      const timeoutId = setTimeout(() => ac.abort(), STATUS_REQUEST_TIMEOUT_MS)
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
         method: "POST",
         body: fd,
         headers,
+        signal: ac.signal,
       })
+      clearTimeout(timeoutId)
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data?.error || "처리 중 오류가 발생했습니다.")
-        setSubmitting(false)
         return
       }
       router.replace("/driver")
-    } catch {
-      setError("네트워크 오류. 다시 시도해 주세요.")
+    } catch (err) {
+      const isAbort = err instanceof Error && err.name === "AbortError"
+      setError(isAbort ? "요청 시간이 초과되었습니다. 네트워크를 확인한 뒤 다시 시도해 주세요." : "네트워크 오류. 다시 시도해 주세요.")
+    } finally {
       setSubmitting(false)
     }
   }
