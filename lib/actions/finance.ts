@@ -676,8 +676,26 @@ export async function approvePayout(payoutId: string) {
     return { error: "출금 요청을 찾을 수 없습니다." }
   }
 
+  // 보류(on_hold) 건은 승인 시 먼저 보류 해제 후 동일 로직으로 승인
+  if (payout.status === "on_hold") {
+    const { error: updateErr } = await supabase
+      .from("payout_requests")
+      .update({
+        status: "requested",
+        settlement_status: "READY",
+        settlement_locked: false,
+      })
+      .eq("id", payoutId)
+    if (updateErr) {
+      return { error: "보류 해제 처리에 실패했습니다." }
+    }
+    payout.status = "requested"
+    payout.settlement_status = "READY"
+    payout.settlement_locked = false
+  }
+
   if (payout.status !== "requested") {
-    return { error: "요청 상태에서만 승인할 수 있습니다." }
+    return { error: "요청 또는 보류 상태에서만 승인할 수 있습니다." }
   }
   if (payout.settlement_status !== "READY") {
     return { error: "READY 상태의 정산만 승인할 수 있습니다." }

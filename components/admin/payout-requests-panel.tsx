@@ -321,7 +321,7 @@ export function PayoutRequestsPanel({
                 <Button variant="outline" size="sm" onClick={() => setDetailPayout(payout)}>
                   상세 보기
                 </Button>
-                {!isHold && normalizedStatus !== "TRANSFERRED" && (
+                {normalizedStatus !== "TRANSFERRED" && (!isHold || normalizedStatus === "ON_HOLD") && (
                   <>
                     <Button
                       size="sm"
@@ -329,13 +329,12 @@ export function PayoutRequestsPanel({
                       disabled={
                         !approveEnabled ||
                         isPending ||
-                        normalizedStatus !== "REQUESTED" ||
-                        mappedSettlementStatus !== "READY" ||
-                        payout.settlement_locked === true
+                        (normalizedStatus !== "REQUESTED" && normalizedStatus !== "ON_HOLD") ||
+                        (normalizedStatus === "REQUESTED" && (mappedSettlementStatus !== "READY" || payout.settlement_locked === true))
                       }
                       title={!approveEnabled ? "LOCKED 정산이 포함되었거나 정산 상태가 확인되지 않았습니다." : undefined}
                     >
-                      승인
+                      {normalizedStatus === "ON_HOLD" ? "보류 해제 후 승인" : "승인"}
                     </Button>
                     {normalizedStatus === "APPROVED" && (
                       <Button
@@ -357,7 +356,13 @@ export function PayoutRequestsPanel({
                         재시도
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" onClick={() => setAction({ type: "hold", payout })} disabled={isPending}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAction({ type: "hold", payout })}
+                      disabled={isPending || normalizedStatus === "ON_HOLD"}
+                      title={normalizedStatus === "ON_HOLD" ? "이미 보류 상태입니다." : undefined}
+                    >
                       보류
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => setAction({ type: "reject", payout })} disabled={isPending}>
