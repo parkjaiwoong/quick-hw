@@ -38,8 +38,12 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
     redirect("/")
   }
 
-  await ensureDriverWallet(userId)
-  await ensureDriverInfoForUser()
+  try {
+    await ensureDriverWallet(userId)
+    await ensureDriverInfoForUser()
+  } catch (e) {
+    console.error("[driver/wallet] ensureDriverWallet or ensureDriverInfoForUser failed:", e)
+  }
   const [walletResult, { data: payoutRequests }, { data: recentSettlements }, { data: driverDeliveries }, { data: driverInfo }] =
     await Promise.all([
       getDriverWalletSummary(userId),

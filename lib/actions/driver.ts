@@ -8,9 +8,10 @@ import { revalidatePath } from "next/cache"
 const BUCKET_DELIVERY_PROOFS = "delivery-proofs"
 
 function getServiceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!key) return null
-  return createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, key, {
+  if (!url || !key) return null
+  return createServiceClient(url, key, {
     auth: { persistSession: false },
   })
 }
@@ -481,11 +482,12 @@ export async function ensureAndGetDriverInfo() {
   } = await supabase.auth.getUser()
   if (!user) return { error: "인증이 필요합니다" }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) return { error: "Service Role Key가 설정되지 않았습니다." }
+  if (!supabaseUrl || !serviceRoleKey) return { error: "서버 설정이 완료되지 않았습니다. 관리자에게 문의하세요." }
 
   const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-  const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+  const svc = createServiceClient(supabaseUrl, serviceRoleKey)
 
   const { data: existing } = await svc.from("driver_info").select("id").eq("id", user.id).maybeSingle()
   if (!existing) {

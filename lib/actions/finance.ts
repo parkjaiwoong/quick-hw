@@ -9,10 +9,11 @@ type ServiceClient = Awaited<ReturnType<typeof getSupabaseServerClient>>
 /** platform_settings 캐시 (60초) — 자주 변경되지 않는 설정값 */
 const getCachedPlatformSettings = unstable_cache(
   async () => {
+    const url = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!serviceRoleKey) return null
+    if (!url || !serviceRoleKey) return null
     const { createClient } = await import("@supabase/supabase-js")
-    const svc = createClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey, { auth: { persistSession: false } })
+    const svc = createClient(url, serviceRoleKey, { auth: { persistSession: false } })
     const { data } = await svc.from("platform_settings").select("*").maybeSingle()
     return data
   },
@@ -21,11 +22,12 @@ const getCachedPlatformSettings = unstable_cache(
 )
 
 async function getServiceClient(): Promise<ServiceClient | null> {
+  const url = process.env.NEXT_PUBLIC_QUICKSUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) return null
+  if (!url || !serviceRoleKey) return null
 
   const { createClient } = await import("@supabase/supabase-js")
-  return createClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey, {
+  return createClient(url, serviceRoleKey, {
     auth: { persistSession: false },
   })
 }
