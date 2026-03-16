@@ -519,15 +519,31 @@ export async function requestPayout(driverId: string, amount: number) {
     return { error: "분쟁 건으로 출금 요청이 제한됩니다." }
   }
 
-  const { data: readySettlements } = await supabase
+  // 승인 시와 동일한 기준: READY(PAID)+CONFIRMED, payout_request_id null → 이 합계 이상은 요청 불가
+  const { data: readyRows } = await supabase
     .from("settlements")
-    .select("id")
+    .select("id, settlement_amount, settlement_status, settlement_locked, payment_status")
     .eq("driver_id", driverId)
-    .in("settlement_status", ["READY", "CONFIRMED"])
+    .eq("settlement_status", "READY")
     .eq("payment_status", "PAID")
-    .limit(1)
-  if (!readySettlements || readySettlements.length === 0) {
+    .is("payout_request_id", null)
+  const { data: confirmedRows } = await supabase
+    .from("settlements")
+    .select("id, settlement_amount, settlement_status, settlement_locked, payment_status")
+    .eq("driver_id", driverId)
+    .eq("settlement_status", "CONFIRMED")
+    .is("payout_request_id", null)
+  const allocatableSum =
+    [...(readyRows || []), ...(confirmedRows || [])]
+      .filter((s) => !s.settlement_locked)
+      .reduce((sum, s) => sum + Number(s.settlement_amount || 0), 0) || 0
+  if (allocatableSum <= 0) {
     return { error: "출금 가능한 정산이 없습니다." }
+  }
+  if (amount > allocatableSum) {
+    return {
+      error: `출금 가능 정산 금액(${allocatableSum.toLocaleString()}원)을 초과하여 요청할 수 없습니다.`,
+    }
   }
 
   const { data: existingRequest } = await supabase
@@ -746,7 +762,10 @@ export async function approvePayout(payoutId: string) {
   }
 
   if (remaining > 0) {
-    return { error: "출금 가능 정산 금액이 부족하여 승인할 수 없습니다." }
+    return {
+      error:
+        "출금 가능 정산 금액이 부족하여 승인할 수 없습니다. (할당 가능 정산 합계가 요청 금액보다 적습니다. 정산 관리에서 READY/CONFIRMED 건을 확인해 주세요.)",
+    }
   }
 
   await supabase
