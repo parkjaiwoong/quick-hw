@@ -136,6 +136,7 @@ export function PayoutRequestsPanel({
     payout: PayoutRow
   } | null>(null)
   const [reason, setReason] = useState("")
+  const [actionPending, setActionPending] = useState(false)
 
   const filtered = useMemo(() => {
     if (filter === "all") return payouts
@@ -211,16 +212,17 @@ export function PayoutRequestsPanel({
 
   const canTransfer = (status: string) => status === "APPROVED" || status === "FAILED"
 
-  const handleActionConfirm = () => {
+  const handleActionConfirm = async () => {
     if (!action) return
-    startTransition(async () => {
-      const payload = action.payout
-      const actionType = action.type
-      const message = reason.trim()
-      if ((actionType === "hold" || actionType === "reject") && !message) {
-        toast.error("사유를 입력해주세요.")
-        return
-      }
+    const payload = action.payout
+    const actionType = action.type
+    const message = reason.trim()
+    if ((actionType === "hold" || actionType === "reject") && !message) {
+      toast.error("사유를 입력해주세요.")
+      return
+    }
+    setActionPending(true)
+    try {
       const result =
         actionType === "approve"
           ? await onApprove(payload.id)
@@ -230,8 +232,8 @@ export function PayoutRequestsPanel({
               ? await onHold(payload.id, message)
               : await onReject(payload.id, message)
 
-      if (result && "error" in result && result.error) {
-        toast.error(result.error)
+      if (result && typeof result === "object" && "error" in result && result.error) {
+        toast.error(String(result.error))
         return
       }
 
@@ -247,7 +249,12 @@ export function PayoutRequestsPanel({
       setAction(null)
       setReason("")
       router.refresh()
-    })
+    } catch (err) {
+      console.error("출금 액션 오류:", err)
+      toast.error(err instanceof Error ? err.message : "처리 중 오류가 발생했습니다.")
+    } finally {
+      setActionPending(false)
+    }
   }
 
   return (
@@ -486,11 +493,11 @@ export function PayoutRequestsPanel({
             />
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAction(null)} disabled={isPending}>
+            <Button type="button" variant="outline" onClick={() => setAction(null)} disabled={actionPending}>
               취소
             </Button>
-            <Button onClick={handleActionConfirm} disabled={isPending}>
-              확인
+            <Button type="button" onClick={handleActionConfirm} disabled={actionPending}>
+              {actionPending ? "처리 중…" : "확인"}
             </Button>
           </DialogFooter>
         </DialogContent>
