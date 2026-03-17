@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createDelivery } from "@/lib/actions/deliveries"
 import { getAddressFromCoords } from "@/lib/actions/address"
-import { calculateDeliveryFee } from "@/lib/pricing"
+import { calculateDeliveryFee, isNightTime } from "@/lib/pricing"
 import { useRouter } from "next/navigation"
 import { MapPin, Package, Check, AlertCircle, Bike, Car, Truck, Clock, Calendar, FileText, Box } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -77,7 +77,7 @@ export function DeliveryRequestForm({
   const [scheduledPickupAt, setScheduledPickupAt] = useState("")
   const [pickupDefaultLoading, setPickupDefaultLoading] = useState(false)
   const defaultPickupTried = useRef(false)
-  const baseFee = Number(pricingConfig?.base_fee ?? 4000)
+  const baseFee = Number(pricingConfig?.base_fee ?? 6000)
   const perKmFee = Number(pricingConfig?.per_km_fee ?? 1000)
   const includedDistanceKm = 2
 
@@ -125,7 +125,7 @@ export function DeliveryRequestForm({
     return Math.round(R * c * 10) / 10
   }
 
-  // 거리·물품종류 변경 시 요금 계산 (startTransition으로 INP 개선: 입력 필드 반응성 우선)
+  // 거리·물품·급송·예약시간 변경 시 요금 계산 (급송 20%·야간 20% 할증 반영)
   useEffect(() => {
     const pLat = parseFloat(pickupLat)
     const pLng = parseFloat(pickupLng)
@@ -134,12 +134,18 @@ export function DeliveryRequestForm({
     if (Number.isFinite(pLat) && Number.isFinite(pLng) && Number.isFinite(dLat) && Number.isFinite(dLng)) {
       const distance = calculateDistance(pLat, pLng, dLat, dLng)
       if (distance !== null) {
+        const pickupTime =
+          deliveryOption === "scheduled" && scheduledPickupAt
+            ? new Date(scheduledPickupAt)
+            : new Date()
         const fee = calculateDeliveryFee({
           baseFee,
           perKmFee,
           includedDistanceKm,
           distanceKm: distance,
           itemType: itemType || undefined,
+          urgency: urgency || undefined,
+          pickupTimestamp: pickupTime,
         })
         startTransition(() => {
           setCalculatedDistance(distance)
@@ -160,7 +166,7 @@ export function DeliveryRequestForm({
         setCustomerAmount(null)
       })
     }
-  }, [pickupLat, pickupLng, deliveryLat, deliveryLng, itemType, baseFee, perKmFee, includedDistanceKm])
+  }, [pickupLat, pickupLng, deliveryLat, deliveryLng, itemType, urgency, deliveryOption, scheduledPickupAt, baseFee, perKmFee, includedDistanceKm])
 
   // 주소 조회 화면에서 돌아왔을 때 URL로 전달된 주소 반영 (비긴급 업데이트로 INP 개선)
   useEffect(() => {
@@ -373,7 +379,9 @@ export function DeliveryRequestForm({
                   </div>
                 )}
                 <p className="text-xs text-blue-600 mt-2">
-                  거리·물품 종류 기준 자동 산정 요금입니다.
+                  {urgency === "express" || isNightTime(deliveryOption === "scheduled" && scheduledPickupAt ? new Date(scheduledPickupAt) : new Date())
+                    ? "거리·물품 기준 + 급송/야간 할증 적용"
+                    : "거리·물품 종류 기준 자동 산정 요금입니다."}
                 </p>
               </div>
             )}
@@ -513,7 +521,7 @@ export function DeliveryRequestForm({
                         : "border-muted hover:border-muted-foreground/30"
                     }`}
                   >
-                    급송 (30분 내)
+                    급송 (30분 내) +20% 할증
                   </button>
                 </div>
               </div>
@@ -531,7 +539,9 @@ export function DeliveryRequestForm({
                   min={new Date().toISOString().slice(0, 16)}
                   className="max-w-xs"
                 />
-                <p className="text-xs text-muted-foreground">원하시는 픽업 날짜와 시간을 선택하세요.</p>
+                <p className="text-xs text-muted-foreground">
+                  원하시는 픽업 날짜와 시간을 선택하세요. 20:00~08:00 야간 요청 시 20% 할증 적용됩니다.
+                </p>
               </div>
             )}
 

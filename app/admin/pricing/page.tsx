@@ -27,10 +27,10 @@ export default async function PricingPage() {
 
   const { pricing, error: pricingError } = await getPricingConfig()
 
-  const baseFee = Number(pricing?.base_fee ?? 4000)
+  const baseFee = Number(pricing?.base_fee ?? 6000)
   const perKmFee = Number(pricing?.per_km_fee ?? 1000)
-  const platformCommissionRate = Number(pricing?.platform_commission_rate ?? 0)
-  const minDriverFee = Number(pricing?.min_driver_fee ?? 0)
+  const platformCommissionRate = Number(pricing?.platform_commission_rate ?? 20)
+  const minDriverFee = Number(pricing?.min_driver_fee ?? 4500)
   const includedDistanceKm = 2
 
   return (

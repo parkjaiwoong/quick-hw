@@ -212,13 +212,14 @@ export async function createDelivery(data: CreateDeliveryData) {
     distanceKm = distanceResult.data as number
   }
 
-  const baseFee = Number(pricing?.base_fee ?? 4000)
+  const baseFee = Number(pricing?.base_fee ?? 6000)
   const perKmFee = Number(pricing?.per_km_fee ?? 1000)
-  const commissionRate = Number(pricing?.platform_commission_rate ?? 0)
-  const minDriverFee = Number(pricing?.min_driver_fee ?? 0)
+  const commissionRate = Number(pricing?.platform_commission_rate ?? 20)
+  const minDriverFee = Number(pricing?.min_driver_fee ?? 4500)
   const includedDistanceKm = 2
 
   const distanceFee = Math.max(0, distanceKm - includedDistanceKm) * perKmFee
+  const pickupTime = data.scheduledPickupAt ? new Date(data.scheduledPickupAt) : new Date()
   const quotedTotalFee = calculateDeliveryFee({
     baseFee,
     perKmFee,
@@ -227,6 +228,8 @@ export async function createDelivery(data: CreateDeliveryData) {
     itemType: data.itemType || undefined,
     itemWeightKg: data.itemWeight,
     packageSize: data.packageSize,
+    urgency: data.urgency || undefined,
+    pickupTimestamp: pickupTime,
   })
   const adjustedAmount = Number.isFinite(Number(data.customerAmount))
     ? Math.round(Number(data.customerAmount))

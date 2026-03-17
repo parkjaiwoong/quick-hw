@@ -5,19 +5,19 @@
 -- 참고: 실제 사용자 계정은 앱에서 회원가입을 통해 생성됩니다
 -- 이 파일은 개발 환경에서 테스트용 데이터를 생성하는 데 사용할 수 있습니다
 
--- 기본 요금 설정 (별도 테이블이 필요할 수 있음)
+-- 기본 요금 설정 (시장 퀵서비스 수준 반영)
 CREATE TABLE IF NOT EXISTS pricing_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  base_fee DECIMAL(10, 2) DEFAULT 3000,
+  base_fee DECIMAL(10, 2) DEFAULT 6000,
   per_km_fee DECIMAL(10, 2) DEFAULT 1000,
   platform_commission_rate DECIMAL(5, 2) DEFAULT 20.00,
-  min_driver_fee DECIMAL(10, 2) DEFAULT 2000,
+  min_driver_fee DECIMAL(10, 2) DEFAULT 4500,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 INSERT INTO pricing_config (base_fee, per_km_fee, platform_commission_rate, min_driver_fee)
-VALUES (3000, 1000, 20.00, 2000);
+VALUES (6000, 1000, 20.00, 4500);
 
 -- 플랫폼 설정
 CREATE TABLE IF NOT EXISTS platform_settings (

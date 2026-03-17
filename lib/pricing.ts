@@ -1,9 +1,27 @@
 /**
  * 배송 요금 계산 (카카오/기성 플랫폼 방식)
  * - 기본요금 + 거리요금 + 물품종류 가산 + 무게 가산 + 크기 가산
+ * - 급송 할증 (시장 10~30%): 20%
+ * - 야간 할증 (시장 20~50%, 20:00~08:00): 20%
  */
 
 const DEFAULT_INCLUDED_KM = 2
+/** 급송(express) 할증률 (%) — 시장 10~30% */
+const EXPRESS_SURCHARGE_RATE = 20
+/** 야간 할증률 (%) — 시장 20~50%, 20:00~08:00 기준 */
+const NIGHT_SURCHARGE_RATE = 20
+/** 야간 시작 시 (20 = 오후 8시) */
+const NIGHT_START_HOUR = 20
+/** 야간 종료 시 (8 = 오전 8시) */
+const NIGHT_END_HOUR = 8
+
+/** 픽업 시각이 야간(20:00~08:00 KST)인지 판별 */
+export function isNightTime(pickupTimestamp: Date | string | null | undefined): boolean {
+  if (!pickupTimestamp) return false
+  const d = typeof pickupTimestamp === "string" ? new Date(pickupTimestamp) : pickupTimestamp
+  const hourKst = (d.getUTCHours() + 9) % 24
+  return hourKst >= NIGHT_START_HOUR || hourKst < NIGHT_END_HOUR
+}
 
 /** 물품 종류별 가산료 (원) */
 const ITEM_TYPE_SURCHARGE: Record<string, number> = {
@@ -64,10 +82,14 @@ export interface DeliveryFeeParams {
   itemType?: string | null
   itemWeightKg?: number | null
   packageSize?: string | null
+  /** 급송이면 할증 적용 (시장 10~30%) */
+  urgency?: "standard" | "express" | string | null
+  /** 픽업 시각 — 야간(20:00~08:00 KST)이면 할증. 즉시면 new Date(), 예약이면 scheduled_pickup_at */
+  pickupTimestamp?: Date | string | null
 }
 
 /**
- * 배송 총 요금 계산 (거리 + 물품종류 + 무게 + 크기)
+ * 배송 총 요금 계산 (거리 + 물품 + 무게 + 크기 + 급송할증 + 야간할증)
  */
 export function calculateDeliveryFee(params: DeliveryFeeParams): number {
   const {
@@ -78,6 +100,8 @@ export function calculateDeliveryFee(params: DeliveryFeeParams): number {
     itemType,
     itemWeightKg,
     packageSize,
+    urgency,
+    pickupTimestamp,
   } = params
 
   const distanceFee = Math.max(0, distanceKm - includedDistanceKm) * perKmFee
@@ -86,6 +110,12 @@ export function calculateDeliveryFee(params: DeliveryFeeParams): number {
   const weightSurcharge = getWeightSurcharge(itemWeightKg ?? null)
   const sizeSurcharge = getSizeSurcharge(packageSize ?? null)
 
-  const total = baseAndDistance + itemSurcharge + weightSurcharge + sizeSurcharge
+  let total = baseAndDistance + itemSurcharge + weightSurcharge + sizeSurcharge
+  if (urgency === "express") {
+    total += Math.round(total * (EXPRESS_SURCHARGE_RATE / 100))
+  }
+  if (isNightTime(pickupTimestamp)) {
+    total += Math.round(total * (NIGHT_SURCHARGE_RATE / 100))
+  }
   return Math.round(total)
 }
