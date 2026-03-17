@@ -1,6 +1,20 @@
 /**
+ * 목록용: 시/광역시/특별시/도 등 시·도 단위를 제거하고 구·동·상세만 표시.
+ * 예: 광주광역시 북구 문흥동 123 → 북구 문흥동 123
+ */
+export function toShortAddressForList(addr: string): string {
+  if (!addr || typeof addr !== "string") return "-"
+  let s = addr.trim().replace(/\s+/g, " ")
+  if (!s) return "-"
+  s = s.replace(/^[가-힣]+(광역시|특별시|특별자치시|도)\s+/, "")
+  s = s.replace(/^[가-힣]+시\s+/, "")
+  return s.trim() || addr.trim()
+}
+
+/**
  * 전체 주소를 기사가 빠르게 인지할 수 있는 약자로 변환.
- * 예: 광명시 철산3동 → 철산3, 용산구 서빙고동 → 용산서빙고, 양평동2가 → 양평2
+ * 목록용으로는 toShortAddressForList 사용 (시·도 제거 후 구·동 위주)
+ * 예: 광명시 철산3동 → 철산3, 용산구 서빙고동 → 용산서빙고
  */
 export function toAddressAbbrev(addr: string): string {
   if (!addr || typeof addr !== "string") return "-"
