@@ -132,6 +132,20 @@ export async function getDriverSettlementsFiltered(driverId: string, filters: Dr
   }
 }
 
+/** 클라이언트용: 현재 로그인 기사 정산 목록 조회 (전체 리프레시 없이 데이터만 갱신) */
+export async function fetchDriverSettlementsFiltered(filters: DriverSettlementsFilters) {
+  const supabase = await getSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "로그인이 필요합니다" }
+  const [{ data: profile }, roleOverride] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).single(),
+    getRoleOverride(),
+  ])
+  const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
+  if (!canActAsDriver) return { error: "권한이 없습니다" }
+  return getDriverSettlementsFiltered(user.id, filters)
+}
+
 // ?? ?? (???)
 export async function createSettlement(driverId: string, startDate: string, endDate: string) {
   const supabase = await getSupabaseServerClient()

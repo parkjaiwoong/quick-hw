@@ -5,7 +5,7 @@ import { useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 
-const STATUS_OPTIONS = [
+export const PAYOUT_STATUS_OPTIONS = [
   { value: "all", label: "전체" },
   { value: "requested", label: "요청됨" },
   { value: "on_hold", label: "보류" },
@@ -13,19 +13,38 @@ const STATUS_OPTIONS = [
   { value: "transferred", label: "이체완료" },
   { value: "rejected", label: "반려" },
   { value: "failed", label: "실패" },
-]
+] as const
 
-export function PayoutListFiltersForm() {
+type PayoutListFiltersFormProps = {
+  /** 클라이언트 전용 조회 시 사용. 지정하면 URL 이동 없이 onSearch만 호출 */
+  onSearch?: (status: string) => void
+  /** onSearch 사용 시 초기/현재 상태값 */
+  initialStatus?: string
+  /** 조회 중 여부 */
+  isPending?: boolean
+}
+
+export function PayoutListFiltersForm({
+  onSearch,
+  initialStatus = "all",
+  isPending: isPendingProp,
+}: PayoutListFiltersFormProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [isPending, startTransition] = useTransition()
-  const status = searchParams.get("payoutStatus") ?? "all"
+  const [isPendingTransition, startTransition] = useTransition()
+  const useClientMode = typeof onSearch === "function"
+  const status = useClientMode ? initialStatus : (searchParams.get("payoutStatus") ?? "all")
+  const isPending = isPendingProp ?? isPendingTransition
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
     const fd = new FormData(form)
     const st = (fd.get("payoutStatus") as string)?.trim() || "all"
+    if (onSearch) {
+      onSearch(st)
+      return
+    }
     const next = new URLSearchParams(searchParams.toString())
     if (st !== "all") next.set("payoutStatus", st)
     else next.delete("payoutStatus")
@@ -36,6 +55,10 @@ export function PayoutListFiltersForm() {
   }
 
   const handleReset = () => {
+    if (onSearch) {
+      onSearch("all")
+      return
+    }
     const next = new URLSearchParams(searchParams.toString())
     next.delete("payoutStatus")
     next.delete("payoutPage")
@@ -54,7 +77,7 @@ export function PayoutListFiltersForm() {
           defaultValue={status}
           className="flex h-9 w-[120px] rounded-md border border-input bg-background px-3 py-1 text-sm"
         >
-          {STATUS_OPTIONS.map((o) => (
+          {PAYOUT_STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>

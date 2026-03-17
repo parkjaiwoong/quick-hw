@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-function getCurrentMonthYYYYMM() {
+export function getCurrentMonthYYYYMM() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 }
@@ -26,24 +26,59 @@ const STATUS_OPTIONS = [
   { value: "PAID_OUT", label: "출금완료" },
 ]
 
-export function SettlementsFiltersForm() {
+export type SettlementsFilterValues = {
+  settlementMonth: string
+  paymentMethod: string
+  status: string
+}
+
+type SettlementsFiltersFormProps = {
+  /** 클라이언트 전용 조회 시 사용. 지정하면 URL 이동 없이 onSearch만 호출 */
+  onSearch?: (filters: SettlementsFilterValues) => void
+  /** onSearch 사용 시 초기값 (정산월·결제수단·상태) */
+  initialFilters?: SettlementsFilterValues
+  /** 조회 중 여부 (버튼 비활성 등) */
+  isPending?: boolean
+}
+
+export function SettlementsFiltersForm({
+  onSearch,
+  initialFilters,
+  isPending: isPendingProp,
+}: SettlementsFiltersFormProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [isPending, startTransition] = useTransition()
+  const [isPendingTransition, startTransition] = useTransition()
 
   const defaultMonth = getCurrentMonthYYYYMM()
-  const settlementMonth = searchParams.get("settlementMonth") ?? defaultMonth
-  const paymentMethod = searchParams.get("paymentMethod") ?? "all"
-  const status = searchParams.get("status") ?? "all"
+  const useClientMode = typeof onSearch === "function"
+
+  const settlementMonth = useClientMode
+    ? (initialFilters?.settlementMonth ?? defaultMonth)
+    : (searchParams.get("settlementMonth") ?? defaultMonth)
+  const paymentMethod = useClientMode
+    ? (initialFilters?.paymentMethod ?? "all")
+    : (searchParams.get("paymentMethod") ?? "all")
+  const status = useClientMode
+    ? (initialFilters?.status ?? "all")
+    : (searchParams.get("status") ?? "all")
+
+  const isPending = isPendingProp ?? isPendingTransition
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
     const fd = new FormData(form)
-    const next = new URLSearchParams()
     const month = (fd.get("settlementMonth") as string)?.trim() || defaultMonth
     const pm = (fd.get("paymentMethod") as string)?.trim() || "all"
     const st = (fd.get("status") as string)?.trim() || "all"
+    const filters: SettlementsFilterValues = { settlementMonth: month, paymentMethod: pm, status: st }
+
+    if (onSearch) {
+      onSearch(filters)
+      return
+    }
+    const next = new URLSearchParams()
     next.set("settlementMonth", month)
     if (pm !== "all") next.set("paymentMethod", pm)
     if (st !== "all") next.set("status", st)
@@ -54,6 +89,14 @@ export function SettlementsFiltersForm() {
   }
 
   const handleReset = () => {
+    if (onSearch) {
+      onSearch({
+        settlementMonth: defaultMonth,
+        paymentMethod: "all",
+        status: "all",
+      })
+      return
+    }
     startTransition(() => {
       router.push(`/driver/settlements?settlementMonth=${getCurrentMonthYYYYMM()}`)
     })

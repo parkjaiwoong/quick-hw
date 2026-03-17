@@ -7,28 +7,9 @@ import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
 import { Calendar, CheckCircle, DollarSign, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { SettlementsFiltersForm } from "@/components/driver/settlements-filters-form"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { SettlementsListClient } from "@/components/driver/settlements-list-client"
 
 const PAGE_SIZE = 10
-const settlementStatusLabel: Record<string, string> = {
-  PENDING: "정산대기",
-  READY: "출금대기",
-  CONFIRMED: "출금가능",
-  PAID_OUT: "출금완료",
-}
-const paymentMethodLabel: Record<string, string> = {
-  cash: "현금",
-  card: "카드",
-  bank_transfer: "계좌이체",
-}
 
 function getCurrentMonthYYYYMM() {
   const now = new Date()
@@ -103,8 +84,11 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
     })
     .reduce((sum: number, s: any) => sum + Number(s.net_earnings || s.settlement_amount || 0), 0)
   const completedSettlements = allSettlements.filter((s: any) => s.status === "completed")
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-  const hasFilters = !!(resolvedParams.paymentMethod || resolvedParams.status)
+  const initialFilters = {
+    settlementMonth: effectiveMonth,
+    paymentMethod: resolvedParams.paymentMethod ?? "all",
+    status: resolvedParams.status ?? "all",
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
@@ -172,97 +156,18 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
         <Card>
           <CardHeader>
             <CardTitle>정산 내역</CardTitle>
-            <CardDescription>정산월·결제수단·상태로 조회하고 목록을 확인하세요</CardDescription>
+            <CardDescription>정산월·결제수단·상태로 조회하고 목록을 확인하세요 (화면 새로고침 없이 데이터만 갱신)</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <SettlementsFiltersForm />
-            {settlements.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">조건에 맞는 정산 내역이 없습니다</p>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>정산일자</TableHead>
-                        <TableHead>주문/배송</TableHead>
-                        <TableHead className="text-right">정산 금액</TableHead>
-                        <TableHead>결제수단</TableHead>
-                        <TableHead>상태</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(settlements as any[]).map((s: any) => (
-                        <TableRow key={s.id}>
-                          <TableCell>
-                            {(s.settlement_period_end || s.created_at)
-                              ? new Date(s.settlement_period_end || s.created_at).toLocaleDateString("ko-KR", { dateStyle: "short" })
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-muted-foreground">주문 {s.order_id || "-"}</span>
-                            {s.total_deliveries != null && (
-                              <span className="text-xs text-muted-foreground ml-1">· {s.total_deliveries}건</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {Number(s.net_earnings ?? s.settlement_amount ?? 0).toLocaleString()}원
-                          </TableCell>
-                          <TableCell>
-                            {paymentMethodLabel[s.payment?.payment_method ?? ""] ?? (s.payment?.payment_method || "-")}
-                          </TableCell>
-                          <TableCell>
-                            <span className="px-2 py-0.5 rounded text-xs bg-muted">
-                              {s.settlement_status ? settlementStatusLabel[s.settlement_status] ?? s.settlement_status : "정산대기"}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <p className="text-sm text-muted-foreground">
-                    전체 {totalCount}건 중 {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalCount)}건
-                  </p>
-                  <div className="flex gap-2 items-center">
-                    {page <= 1 ? (
-                      <Button variant="outline" size="sm" disabled>이전</Button>
-                    ) : (
-                      <Button variant="outline" size="sm" asChild>
-                        <Link
-                          href={`/driver/settlements?${new URLSearchParams({
-                            settlementMonth: effectiveMonth,
-                            ...(resolvedParams.paymentMethod && { paymentMethod: resolvedParams.paymentMethod }),
-                            ...(resolvedParams.status && { status: resolvedParams.status }),
-                            page: String(page - 1),
-                          }).toString()}`}
-                        >
-                          이전
-                        </Link>
-                      </Button>
-                    )}
-                    <span className="px-2 text-sm text-muted-foreground">{page} / {totalPages}</span>
-                    {page >= totalPages ? (
-                      <Button variant="outline" size="sm" disabled>다음</Button>
-                    ) : (
-                      <Button variant="outline" size="sm" asChild>
-                        <Link
-                          href={`/driver/settlements?${new URLSearchParams({
-                            settlementMonth: effectiveMonth,
-                            ...(resolvedParams.paymentMethod && { paymentMethod: resolvedParams.paymentMethod }),
-                            ...(resolvedParams.status && { status: resolvedParams.status }),
-                            page: String(page + 1),
-                          }).toString()}`}
-                        >
-                          다음
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+          <CardContent>
+            <SettlementsListClient
+              initialData={{
+                settlements,
+                totalCount,
+                page,
+                pageSize,
+              }}
+              initialFilters={initialFilters}
+            />
           </CardContent>
         </Card>
       </div>

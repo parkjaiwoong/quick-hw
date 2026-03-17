@@ -8,28 +8,9 @@ import { getRoleOverride } from "@/lib/role"
 import { ensureDriverWallet, getDriverWalletPageData, getDriverPayoutRequestsFiltered, requestPayout, updateDriverBankAccount } from "@/lib/actions/finance"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 import { SubmitButtonPending } from "@/components/ui/submit-button-pending"
-import { PayoutListFiltersForm } from "@/components/driver/payout-list-filters-form"
-import Link from "next/link"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { PayoutListClient } from "@/components/driver/payout-list-client"
 
 const PAYOUT_PAGE_SIZE = 10
-const payoutStatusLabel: Record<string, string> = {
-  requested: "요청됨",
-  on_hold: "보류",
-  approved: "승인",
-  transferred: "이체완료",
-  paid: "이체완료",
-  rejected: "반려",
-  failed: "실패",
-  canceled: "취소",
-}
 
 type PageProps = { searchParams?: Promise<{ error?: string; saved?: string; payoutStatus?: string; payoutPage?: string }> }
 
@@ -349,113 +330,19 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
         <Card>
           <CardHeader>
             <CardTitle>출금 요청 내역</CardTitle>
-            <CardDescription>출금 요청·상태 조건으로 조회하고 페이징할 수 있습니다</CardDescription>
+            <CardDescription>출금 요청·상태 조건으로 조회 (화면 새로고침 없이 데이터만 갱신)</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <PayoutListFiltersForm />
-            {payoutListError ? (
-              <p className="text-sm text-destructive text-center py-6">{payoutListError}</p>
-            ) : payoutListItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">출금 요청 내역이 없습니다</p>
-            ) : (
-              <>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>요청일시</TableHead>
-                        <TableHead className="text-right">요청 금액</TableHead>
-                        <TableHead>상태</TableHead>
-                        <TableHead>회계 상태</TableHead>
-                        <TableHead>이체 상태</TableHead>
-                        <TableHead>비고</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {payoutListItems.map((payout) => {
-                        const mappedSettlementStatus =
-                          payout.settlement_status ||
-                          (payout.status === "approved" || payout.status === "transferred"
-                            ? "CONFIRMED"
-                            : payout.status === "on_hold"
-                              ? "HOLD"
-                              : "READY")
-                        const mappedPayoutStatus =
-                          payout.payout_status ||
-                          (payout.status === "approved"
-                            ? "WAITING"
-                            : payout.status === "transferred"
-                              ? "PAID_OUT"
-                              : "NONE")
-                        const statusLabel = payoutStatusLabel[payout.status ?? ""] ?? "요청됨"
-                        return (
-                          <TableRow key={payout.id}>
-                            <TableCell className="text-muted-foreground">
-                              {payout.requested_at
-                                ? new Date(payout.requested_at).toLocaleString("ko-KR")
-                                : "-"}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {Number(payout.requested_amount ?? 0).toLocaleString()}원
-                            </TableCell>
-                            <TableCell>{statusLabel}</TableCell>
-                            <TableCell className="text-muted-foreground">{mappedSettlementStatus}</TableCell>
-                            <TableCell className="text-muted-foreground">{mappedPayoutStatus}</TableCell>
-                            <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                              {(payout.status === "rejected" || payout.status === "on_hold") && payout.notes
-                                ? payout.notes
-                                : "-"}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                {payoutTotalCount > payoutPageSize && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      전체 {payoutTotalCount}건 중 {(payoutPage - 1) * payoutPageSize + 1}–
-                      {Math.min(payoutPage * payoutPageSize, payoutTotalCount)}건
-                    </span>
-                    <div className="flex gap-2">
-                      {payoutPage > 1 && (
-                        <Link
-                          href={
-                            "/driver/wallet?" +
-                            new URLSearchParams({
-                              ...(payoutStatus !== "all" ? { payoutStatus } : {}),
-                              payoutPage: String(payoutPage - 1),
-                              ...(payoutError ? { error: payoutError } : {}),
-                              ...(savedSuccess ? { saved: "1" } : {}),
-                            }).toString()
-                          }
-                          className="text-primary hover:underline"
-                        >
-                          이전
-                        </Link>
-                      )}
-                      {payoutPage * payoutPageSize < payoutTotalCount && (
-                        <Link
-                          href={
-                            "/driver/wallet?" +
-                            new URLSearchParams({
-                              ...(payoutStatus !== "all" ? { payoutStatus } : {}),
-                              payoutPage: String(payoutPage + 1),
-                              ...(payoutError ? { error: payoutError } : {}),
-                              ...(savedSuccess ? { saved: "1" } : {}),
-                            }).toString()
-                          }
-                          className="text-primary hover:underline"
-                        >
-                          다음
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+          <CardContent>
+            <PayoutListClient
+              initialData={{
+                items: payoutListItems,
+                totalCount: payoutTotalCount,
+                page: payoutPage,
+                pageSize: PAYOUT_PAGE_SIZE,
+              }}
+              initialStatus={payoutStatus}
+              initialError={payoutListError}
+            />
           </CardContent>
         </Card>
       </div>

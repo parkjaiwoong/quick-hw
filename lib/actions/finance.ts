@@ -2,6 +2,7 @@
 
 import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 import { revalidatePath, unstable_cache } from "next/cache"
+import { getRoleOverride } from "@/lib/role"
 import type { PaymentMethod } from "@/lib/types/database"
 
 type ServiceClient = Awaited<ReturnType<typeof getSupabaseServerClient>>
@@ -575,6 +576,22 @@ export async function getDriverPayoutRequestsFiltered(
     page,
     pageSize,
   }
+}
+
+/** 클라이언트용: 현재 로그인 기사 출금 요청 내역 조회 (전체 리프레시 없이 데이터만 갱신) */
+export async function fetchDriverPayoutRequestsFiltered(opts: {
+  status?: string
+  page?: number
+  pageSize?: number
+} = {}) {
+  const supabase = await getSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "로그인이 필요합니다" }
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  const roleOverride = await getRoleOverride()
+  const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
+  if (!canActAsDriver) return { error: "권한이 없습니다" }
+  return getDriverPayoutRequestsFiltered(user.id, opts)
 }
 
 /** 기사 출금 계좌 설정 저장 (지갑 화면에서만 사용) */
