@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
 import { getRoleOverride } from "@/lib/role"
 import { getRiderDashboardCustomers, getRiderDashboardKpi } from "@/lib/actions/rider-dashboard"
 import { RiderReferralLink } from "@/components/rider/rider-referral-link"
@@ -80,9 +79,7 @@ export default async function DriverDashboardPage({
                 적용
               </Button>
             </form>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/driver">배송원 대시보드로</Link>
-            </Button>
+            <span className="text-sm text-muted-foreground">왼쪽 메뉴 &gt; 대시보드</span>
           </div>
         </div>
 

@@ -88,14 +88,9 @@ export default async function RiderRewardsPage({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-balance">기사 리워드 정산</h1>
-            <p className="text-muted-foreground mt-1">주문별 리워드 정산 내역</p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/admin">관리자 홈으로</Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-balance">기사 리워드 정산</h1>
+          <p className="text-muted-foreground mt-1">주문별 리워드 정산 내역</p>
         </div>
         <Card>
           <CardHeader>

@@ -45,22 +45,25 @@ type ListResult = {
 type PayoutListClientProps = {
   initialData: ListResult
   initialStatus: string
+  initialRequestYear?: string
   /** 서버 초기 로드 실패 시 메시지 */
   initialError?: string | null
 }
 
-export function PayoutListClient({ initialData, initialStatus, initialError }: PayoutListClientProps) {
+export function PayoutListClient({ initialData, initialStatus, initialRequestYear = "", initialError }: PayoutListClientProps) {
   const [result, setResult] = useState<ListResult>(initialData)
   const [status, setStatus] = useState(initialStatus)
+  const [requestYear, setRequestYear] = useState(initialRequestYear)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(initialError ?? null)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
-  const load = useCallback(async (nextStatus: string, page: number) => {
+  const load = useCallback(async (nextStatus: string, page: number, nextYear: string) => {
     setLoading(true)
     setError(null)
     const opts = {
       status: nextStatus === "all" ? undefined : nextStatus,
+      requestYear: nextYear || undefined,
       page,
       pageSize: PAGE_SIZE,
     }
@@ -78,22 +81,23 @@ export function PayoutListClient({ initialData, initialStatus, initialError }: P
         pageSize: res.pageSize,
       })
       setStatus(nextStatus)
+      setRequestYear(nextYear)
       setHasLoadedOnce(true)
     }
   }, [])
 
   const handleSearch = useCallback(
-    (nextStatus: string) => {
-      load(nextStatus, 1)
+    (nextStatus: string, nextYear: string) => {
+      load(nextStatus, 1, nextYear)
     },
     [load],
   )
 
   const goPage = useCallback(
     (nextPage: number) => {
-      load(status, nextPage)
+      load(status, nextPage, requestYear)
     },
-    [load, status],
+    [load, status, requestYear],
   )
 
   const totalPages = Math.max(1, Math.ceil(result.totalCount / result.pageSize))
@@ -166,13 +170,14 @@ export function PayoutListClient({ initialData, initialStatus, initialError }: P
               </TableBody>
             </Table>
           </div>
-          {result.totalCount > PAGE_SIZE && (
+          {(result.totalCount > 0 && (result.totalCount > result.pageSize || totalPages > 1)) && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
                 전체 {result.totalCount}건 중 {(result.page - 1) * result.pageSize + 1}–
                 {Math.min(result.page * result.pageSize, result.totalCount)}건
               </span>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">{result.page} / {totalPages}</span>
                 <Button
                   variant="outline"
                   size="sm"

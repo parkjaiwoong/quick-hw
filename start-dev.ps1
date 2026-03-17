@@ -1,28 +1,23 @@
-# 개발 서버 시작 스크립트
-# PowerShell 실행 정책 설정 (현재 프로세스에만 적용)
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+# 퀵HW 로컬 개발 서버 실행
+# .env.local 이 없으면 .env.example 에서 복사 후 dev 서버 시작
 
-Write-Host "🚀 퀵HW 개발 서버 시작 중..." -ForegroundColor Green
-Write-Host ""
+$ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
 
-# .env.local 없으면 .env.example 복사 후 그대로 실행 (한 번에 서버까지 뜸)
 if (-not (Test-Path ".env.local")) {
     if (Test-Path ".env.example") {
         Copy-Item ".env.example" ".env.local"
-        Write-Host "📄 .env.local 생성함 (필요하면 Supabase 등 값만 채우면 됨)" -ForegroundColor Cyan
+        Write-Host "[OK] .env.local 을 .env.example 에서 생성했습니다. 필요하면 값을 수정하세요." -ForegroundColor Green
+    } else {
+        Write-Host "[오류] .env.example 이 없습니다." -ForegroundColor Red
+        exit 1
     }
 }
 
-# node_modules 확인
 if (-not (Test-Path "node_modules")) {
-    Write-Host "📦 의존성 설치 중..." -ForegroundColor Cyan
+    Write-Host "의존성 설치 중..." -ForegroundColor Yellow
     npm install
-    Write-Host ""
 }
 
-# 개발 서버 시작
-Write-Host "🌐 개발 서버를 시작합니다..." -ForegroundColor Green
-Write-Host "브라우저에서 http://localhost:3000 으로 접속하세요" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "개발 서버 시작: http://localhost:3000" -ForegroundColor Cyan
 npm run dev
-

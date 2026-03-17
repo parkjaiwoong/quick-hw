@@ -447,7 +447,7 @@ export default async function DriverDeliveryDetailPage({
         {/* 액션 버튼: 모바일에서는 하단 고정(z-20)으로 지도에 가려지지 않도록 */}
         <div className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-between gap-3 p-4 bg-white/95 backdrop-blur border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] md:static md:z-auto md:bg-transparent md:backdrop-blur-none md:border-0 md:shadow-none md:p-0">
           <Button asChild variant="outline" size="lg" className="flex-1">
-            <Link href="/driver">넘기기</Link>
+            <Link href={isPending ? "/driver/available" : "/driver"}>넘기기</Link>
           </Button>
           {isPending ? (
             <form action={handleAccept} className="flex-1">

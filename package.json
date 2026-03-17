@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "local": "node scripts/ensure-env.js && npm run dev",
     "dev": "next dev --webpack",
     "lint": "eslint .",
     "start": "next start",

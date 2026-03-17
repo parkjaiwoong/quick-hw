@@ -1,6 +1,5 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -107,14 +106,9 @@ export default async function ReferralStatusPage({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-balance">고객 소개 현황</h1>
-            <p className="text-muted-foreground mt-1">기사 → 고객 소개 관계</p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/admin">관리자 홈으로</Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-balance">고객 소개 현황</h1>
+          <p className="text-muted-foreground mt-1">기사 → 고객 소개 관계</p>
         </div>
         <Card>
           <CardHeader>

@@ -1,8 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { getRoleOverride } from "@/lib/role"
 import { getPricingConfig, updatePricingConfig } from "@/lib/actions/admin"
 import { PricingForm } from "@/components/admin/pricing-form"
@@ -36,14 +34,9 @@ export default async function PricingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-balance">가격 정책</h1>
-            <p className="text-muted-foreground mt-1">카카오픽 기준 자동 산정 값</p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/admin">관리자 홈으로</Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-balance">가격 정책</h1>
+          <p className="text-muted-foreground mt-1">카카오픽 기준 자동 산정 값</p>
         </div>
         <Card>
           <CardHeader>

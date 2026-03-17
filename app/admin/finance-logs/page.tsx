@@ -186,18 +186,8 @@ export default async function AdminFinanceLogsPage({ searchParams }: PageProps) 
               <Button type="submit" size="sm">
                 조회
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  // GET 폼이라 JS 없이도 동작해야 하므로, 서버에서 제공하는 기본 링크 사용
-                  if (typeof window !== "undefined") {
-                    window.location.href = "/admin/finance-logs"
-                  }
-                }}
-              >
-                초기화
+              <Button asChild type="button" size="sm" variant="outline">
+                <Link href="/admin/finance-logs">초기화</Link>
               </Button>
             </form>
 

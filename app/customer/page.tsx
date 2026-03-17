@@ -7,7 +7,7 @@ import Link from "next/link"
 import { Package, MapPin, Shield, AlertCircle, CreditCard, Coins } from "lucide-react"
 import { DeliveryList } from "@/components/customer/delivery-list"
 import { DeliveriesListRealtime } from "@/components/customer/deliveries-list-realtime"
-import { getMyDeliveries } from "@/lib/actions/deliveries"
+import { getMyDeliveries, getCustomerMainPageData } from "@/lib/actions/deliveries"
 import { getRoleOverride } from "@/lib/role"
 import { RiderChangeForm } from "@/components/customer/rider-change-form"
 import { TermsButton } from "@/components/common/terms-modal"
@@ -27,47 +27,56 @@ export default async function CustomerDashboard({
     redirect("/auth/login")
   }
 
-  // profile + roleOverride + deliveries + latestChangeRequest 병렬 조회
-  const [{ data: profile }, roleOverride, { deliveries = [] }, { data: latestChangeRequest }] = await Promise.all([
-    supabase.from("profiles").select("role, full_name, referring_driver_id").eq("id", user.id).single(),
-    getRoleOverride(),
-    getMyDeliveries(),
-    supabase
-      .from("rider_change_history")
-      .select("id, status, admin_reason, cooldown_until, created_at")
-      .eq("customer_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ])
+  // 고객 메인 1회 RPC로 전체 조회 (실패 시 기존 쿼리로 폴백)
+  const [roleOverride, mainData] = await Promise.all([getRoleOverride(), getCustomerMainPageData(user.id)])
+
+  let profile: { role?: string; full_name?: string | null; referring_driver_id?: string | null } | null = null
+  let deliveries: Awaited<ReturnType<typeof getMyDeliveries>>["deliveries"] = []
+  let latestChangeRequest: { id: string; status: string; admin_reason?: string | null; cooldown_until?: string | null; created_at: string } | null = null
+  let referringRiderCode: string | null = null
+  let referringDriver: { full_name?: string | null; email?: string | null; phone?: string | null } | null = null
+
+  if (!mainData.error) {
+    profile = mainData.profile as typeof profile
+    deliveries = (mainData.deliveries ?? []) as typeof deliveries
+    latestChangeRequest = mainData.latestChangeRequest as typeof latestChangeRequest
+    referringRiderCode = mainData.referringRiderCode
+    referringDriver = mainData.referringProfile as typeof referringDriver
+  } else {
+    const [{ data: profileRow }, { deliveries: myDeliveries = [] }, { data: changeRow }] = await Promise.all([
+      supabase.from("profiles").select("role, full_name, referring_driver_id").eq("id", user.id).single(),
+      getMyDeliveries(),
+      supabase
+        .from("rider_change_history")
+        .select("id, status, admin_reason, cooldown_until, created_at")
+        .eq("customer_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    profile = profileRow ?? null
+    deliveries = myDeliveries
+    latestChangeRequest = changeRow ?? null
+    const referringDriverId = profile?.referring_driver_id || null
+    if (referringDriverId) {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceRoleKey) {
+        const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+        const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+        const [{ data: riderRow }, { data: refProfile }] = await Promise.all([
+          svc.from("riders").select("code").eq("id", referringDriverId).maybeSingle(),
+          svc.from("profiles").select("full_name, email, phone").eq("id", referringDriverId).maybeSingle(),
+        ])
+        referringRiderCode = riderRow?.code ?? null
+        referringDriver = refProfile ?? null
+      }
+    }
+  }
 
   const canActAsCustomer =
     roleOverride === "customer" || roleOverride === "admin" || profile?.role === "customer" || profile?.role === "admin"
   if (!canActAsCustomer) {
     redirect("/")
-  }
-
-  const referringDriverId = profile?.referring_driver_id || null
-  let referringDriver: {
-    id?: string | null
-    full_name?: string | null
-    email?: string | null
-    phone?: string | null
-  } | null = null
-  let referringRiderCode: string | null = null
-
-  if (referringDriverId) {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (serviceRoleKey) {
-      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-      const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-      const [{ data: riderRow }, { data: profileRow }] = await Promise.all([
-        svc.from("riders").select("code").eq("id", referringDriverId).maybeSingle(),
-        svc.from("profiles").select("full_name, email, phone").eq("id", referringDriverId).maybeSingle(),
-      ])
-      referringRiderCode = riderRow?.code ?? null
-      referringDriver = profileRow ?? null
-    }
   }
 
   const changeStatus = searchParams?.change

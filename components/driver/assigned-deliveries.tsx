@@ -29,7 +29,7 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
     try {
       const fd = new FormData()
       fd.set("status", "picked_up")
-      const headers: HeadersInit = {}
+      const headers: HeadersInit = { Accept: "application/json" }
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`

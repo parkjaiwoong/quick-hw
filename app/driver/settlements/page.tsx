@@ -1,12 +1,10 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getDriverSettlementsFiltered, getDriverSettlementsPageData } from "@/lib/actions/settlement"
 import { ensureDriverInfoForUser } from "@/lib/actions/driver"
 import { getRoleOverride } from "@/lib/role"
-import { Calendar, CheckCircle, DollarSign, Wallet } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Calendar, CheckCircle, DollarSign } from "lucide-react"
 import { SettlementsListClient } from "@/components/driver/settlements-list-client"
 
 const PAGE_SIZE = 10
@@ -142,13 +140,7 @@ export default async function DriverSettlementsPage({ searchParams }: { searchPa
               <CardTitle className="text-2xl">{completedSettlements.length}건</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground mb-3">출금은 지갑 화면에서 계좌 설정 후 요청하세요.</p>
-              <Button asChild size="sm" className="w-full" variant="outline">
-                <Link href="/driver/wallet" className="flex items-center justify-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  지갑에서 출금 요청하기
-                </Link>
-              </Button>
+              <p className="text-xs text-muted-foreground">출금은 왼쪽 메뉴 &gt; 지갑·출금에서 계좌 설정 후 요청하세요.</p>
             </CardContent>
           </Card>
         </div>

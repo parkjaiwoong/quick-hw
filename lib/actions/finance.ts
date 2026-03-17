@@ -536,15 +536,16 @@ export async function getDriverWalletPageData(driverId: string): Promise<typeof 
 
 const DEFAULT_PAYOUT_PAGE_SIZE = 10
 
-/** 기사 출금 요청 내역 — 상태 조건·페이징 */
+/** 기사 출금 요청 내역 — 상태·요청년도·페이징 */
 export async function getDriverPayoutRequestsFiltered(
   driverId: string,
-  opts: { status?: string; page?: number; pageSize?: number } = {},
+  opts: { status?: string; requestYear?: string; page?: number; pageSize?: number } = {},
 ) {
   const supabase = await getSupabaseServerClient()
   const page = Math.max(1, Number(opts.page) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(opts.pageSize) || DEFAULT_PAYOUT_PAGE_SIZE))
   const status = opts.status?.trim()
+  const requestYear = opts.requestYear?.trim()
 
   let query = supabase
     .from("payout_requests")
@@ -560,6 +561,11 @@ export async function getDriverPayoutRequestsFiltered(
     } else {
       query = query.eq("status", status)
     }
+  }
+
+  if (requestYear && /^\d{4}$/.test(requestYear)) {
+    const y = requestYear
+    query = query.gte("requested_at", `${y}-01-01T00:00:00`).lt("requested_at", `${Number(y) + 1}-01-01T00:00:00`)
   }
 
   const from = (page - 1) * pageSize
@@ -581,6 +587,7 @@ export async function getDriverPayoutRequestsFiltered(
 /** 클라이언트용: 현재 로그인 기사 출금 요청 내역 조회 (전체 리프레시 없이 데이터만 갱신) */
 export async function fetchDriverPayoutRequestsFiltered(opts: {
   status?: string
+  requestYear?: string
   page?: number
   pageSize?: number
 } = {}) {

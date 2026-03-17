@@ -99,14 +99,6 @@ export default async function PointHistoryPage({
             <h1 className="text-3xl font-bold text-balance">고객 포인트 내역</h1>
             <p className="text-muted-foreground mt-1">전체 고객 포인트 적립/사용 이력</p>
           </div>
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link href="/admin/point-redemptions">교환 요청 관리</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/admin">관리자 홈으로</Link>
-            </Button>
-          </div>
         </div>
 
         {/* 집계 요약 */}

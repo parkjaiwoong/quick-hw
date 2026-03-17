@@ -45,6 +45,46 @@ interface CreateDeliveryData {
   scheduledPickupAt?: string
 }
 
+/** 기사연결요청(새 배송 요청) 화면용 — profile + pricing + last_delivery 한 번에 조회 (DB 1회 왕복) */
+export async function getNewDeliveryPageData(userId: string) {
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase.rpc("get_new_delivery_page_data", { p_user_id: userId }).single()
+  if (error) return { error: error.message }
+  const raw = data as {
+    profile?: Record<string, unknown> | null
+    pricing?: Record<string, unknown> | null
+    last_delivery?: Record<string, unknown> | null
+  } | null
+  if (!raw) return { error: "데이터 없음" }
+  return {
+    profile: raw.profile ?? null,
+    pricing: raw.pricing ?? null,
+    lastDelivery: raw.last_delivery ?? null,
+  }
+}
+
+/** 고객 메인 페이지용 — profile + deliveries(orders,payments) + latest_change_request + referring_rider 한 번에 조회 (DB 1회 왕복) */
+export async function getCustomerMainPageData(userId: string) {
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase.rpc("get_customer_main_page_data", { p_user_id: userId }).single()
+  if (error) return { error: error.message }
+  const raw = data as {
+    profile?: Record<string, unknown> | null
+    deliveries?: unknown[] | null
+    latest_change_request?: Record<string, unknown> | null
+    referring_rider_code?: string | null
+    referring_profile?: Record<string, unknown> | null
+  } | null
+  if (!raw) return { error: "데이터 없음" }
+  return {
+    profile: raw.profile ?? null,
+    deliveries: Array.isArray(raw.deliveries) ? raw.deliveries : [],
+    latestChangeRequest: raw.latest_change_request ?? null,
+    referringRiderCode: raw.referring_rider_code ?? null,
+    referringProfile: raw.referring_profile ?? null,
+  }
+}
+
 /** 결제 완료 후 기사에게 Realtime 알림(INSERT notifications). createDelivery(현금) 또는 payment confirm(카드/계좌이체)에서 호출 */
 export async function notifyDriversForDelivery(
   deliveryId: string,

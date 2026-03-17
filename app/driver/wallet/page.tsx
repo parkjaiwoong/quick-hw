@@ -12,7 +12,7 @@ import { PayoutListClient } from "@/components/driver/payout-list-client"
 
 const PAYOUT_PAGE_SIZE = 10
 
-type PageProps = { searchParams?: Promise<{ error?: string; saved?: string; payoutStatus?: string; payoutPage?: string }> }
+type PageProps = { searchParams?: Promise<{ error?: string; saved?: string; payoutStatus?: string; payoutYear?: string; payoutPage?: string }> }
 
 export default async function DriverWalletPage({ searchParams }: PageProps) {
   const supabase = await getSupabaseServerClient()
@@ -56,6 +56,7 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
     })(),
     getDriverPayoutRequestsFiltered(userId, {
       status: payoutStatus === "all" ? undefined : payoutStatus,
+      requestYear: payoutYear || undefined,
       page: payoutPageNum,
       pageSize: PAYOUT_PAGE_SIZE,
     }),
@@ -341,6 +342,7 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
                 pageSize: PAYOUT_PAGE_SIZE,
               }}
               initialStatus={payoutStatus}
+              initialRequestYear={payoutYear}
               initialError={payoutListError}
             />
           </CardContent>

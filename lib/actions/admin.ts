@@ -3,50 +3,6 @@
 import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-/** 예상 완료 시각(수락 시각 + 예상분)을 넘겨서 완료된 배송 목록 (관리자용, 기사/고객명 표시) */
-export async function getLateDeliveries() {
-  const supabase = await getSupabaseServerClient()
-  const adminClient = await getServiceRoleClient()
-  const client = adminClient ?? supabase
-  const { data, error } = await client
-    .from("deliveries")
-    .select(
-      `
-      id, status, accepted_at, delivered_at, expected_delivery_minutes, urgency,
-      pickup_address, delivery_address, total_fee, driver_fee,
-      customer:profiles!deliveries_customer_id_fkey(full_name, email, phone),
-      driver:profiles!deliveries_driver_id_fkey(full_name, email, phone)
-    `,
-    )
-    .eq("status", "delivered")
-    .not("accepted_at", "is", null)
-    .not("delivered_at", "is", null)
-    .order("delivered_at", { ascending: false })
-    .limit(200)
-
-  if (error) return { error: error.message }
-
-  const minutes = (d: { expected_delivery_minutes?: number | null; urgency?: string | null }) =>
-    d.expected_delivery_minutes ?? (d.urgency === "express" ? 30 : 180)
-
-  const late = (data ?? []).filter((d) => {
-    const accepted = new Date(d.accepted_at!).getTime()
-    const delivered = new Date(d.delivered_at!).getTime()
-    const expectedBy = accepted + minutes(d) * 60 * 1000
-    return delivered > expectedBy
-  })
-
-  const withOverMin = late.map((d) => {
-    const accepted = new Date(d.accepted_at!).getTime()
-    const delivered = new Date(d.delivered_at!).getTime()
-    const expectedBy = accepted + minutes(d) * 60 * 1000
-    const overMin = Math.round((delivered - expectedBy) / 60000)
-    return { ...d, over_minutes: overMin }
-  })
-
-  return { deliveries: withOverMin }
-}
-
 export async function getAllDeliveries() {
   const supabase = await getSupabaseServerClient()
   const adminClient = await getServiceRoleClient()

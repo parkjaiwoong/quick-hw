@@ -196,16 +196,11 @@ export default async function InquiriesPage({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-balance">CS 응대</h1>
-            <p className="text-muted-foreground mt-1">
-              문의 목록, AI 1차 답변 기록, 필요 시 수동 응답
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/admin">관리자 홈으로</Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-balance">CS 응대</h1>
+          <p className="text-muted-foreground mt-1">
+            문의 목록, AI 1차 답변 기록, 필요 시 수동 응답
+          </p>
         </div>
 
         <Card>

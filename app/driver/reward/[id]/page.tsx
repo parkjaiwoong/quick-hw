@@ -82,9 +82,7 @@ export default async function DriverRewardDetailPage({ params }: { params: { id:
             <Button asChild variant="outline">
               <Link href={`/driver/delivery/${delivery.id}`}>배송 상세로</Link>
             </Button>
-            <Button asChild variant="ghost">
-              <Link href="/driver">기사 대시보드</Link>
-            </Button>
+            <span className="text-sm text-muted-foreground">왼쪽 메뉴 &gt; 대시보드</span>
           </div>
         </div>
 

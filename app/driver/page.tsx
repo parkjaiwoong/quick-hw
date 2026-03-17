@@ -103,11 +103,8 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
           <Alert className="border-amber-300 bg-amber-50">
             <BookOpen className="h-4 w-4 text-amber-600" />
             <AlertTitle className="text-amber-900">필수 온보딩 가이드를 읽어주세요</AlertTitle>
-            <AlertDescription className="text-amber-800 flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
-              <span className="text-sm">가이드를 완료해야 배송 수락이 가능합니다. (약 3분 소요)</span>
-              <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 shrink-0">
-                <Link href="/driver/guide">가이드 시작하기</Link>
-              </Button>
+            <AlertDescription className="text-amber-800 text-sm mt-1">
+              가이드를 완료해야 배송 수락이 가능합니다. (약 3분 소요) 왼쪽 메뉴 &gt; 가이드에서 완료하세요.
             </AlertDescription>
           </Alert>
         )}
@@ -118,20 +115,6 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
             <p className="text-muted-foreground mt-1">{profile?.full_name}님, 안전 운행하세요</p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <div className="flex gap-2 flex-wrap">
-              <Button asChild variant="outline" size="sm">
-                <Link href="/driver/wallet">적립금 지갑 · 출금</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/driver/settlements">정산 내역</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/driver/guide">
-                  <BookOpen className="h-4 w-4 mr-1" />
-                  {guideCompleted ? "가이드 다시보기" : "가이드"}
-                </Link>
-              </Button>
-            </div>
             <div className="flex items-center gap-2">
               {driverInfo?.is_available && (
                 <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-white">
@@ -169,9 +152,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
               <CardTitle className="text-3xl text-yellow-600">{available.length}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Button variant="ghost" size="sm" className="p-0 h-auto text-yellow-600" asChild>
-                <Link href="/driver/available">수락 가능한 배송 보기</Link>
-              </Button>
+              <p className="text-sm text-muted-foreground">왼쪽 메뉴 &gt; 수락 가능 배송에서 확인</p>
             </CardContent>
           </Card>
 
@@ -254,13 +235,8 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
             <Card>
               <CardHeader>
                 <CardTitle>정산</CardTitle>
-                <CardDescription>정산 내역과 출금 요청은 정산 화면에서 관리합니다.</CardDescription>
+                <CardDescription>정산 내역과 출금 요청은 왼쪽 메뉴 &gt; 정산 내역에서 관리합니다.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Button asChild className="w-full">
-                  <Link href="/driver/settlements">정산 화면 이동</Link>
-                </Button>
-              </CardContent>
             </Card>
           </TabsContent>
 
@@ -268,13 +244,8 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
             <Card>
               <CardHeader>
                 <CardTitle>📊 영업 성과</CardTitle>
-                <CardDescription>소개 고객과 추가 수익을 확인합니다.</CardDescription>
+                <CardDescription>소개 고객과 추가 수익은 왼쪽 메뉴 &gt; 영업 성과에서 확인합니다.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Button asChild className="w-full">
-                  <Link href="/driver/dashboard">영업 성과 대시보드 보기</Link>
-                </Button>
-              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>

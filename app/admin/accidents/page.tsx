@@ -1,8 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { getAccidentReports } from "@/lib/actions/accident"
 import { AlertTriangle, CheckCircle, Clock, XCircle, Shield } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -41,16 +39,11 @@ export default async function AccidentsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-balance">사고 처리 관리</h1>
-            <p className="text-muted-foreground mt-1">
-              접수 목록, 증빙 확인, 보험 처리 여부 체크, 상태 변경
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/admin">관리자 홈으로</Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-balance">사고 처리 관리</h1>
+          <p className="text-muted-foreground mt-1">
+            접수 목록, 증빙 확인, 보험 처리 여부 체크, 상태 변경
+          </p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

@@ -1,8 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { getRoleOverride } from "@/lib/role"
 import { getAnnouncements } from "@/lib/actions/announcements"
 import { AnnouncementForm } from "@/components/admin/announcement-form"
@@ -28,14 +26,9 @@ export default async function AdminAnnouncementsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-balance">공지사항 관리</h1>
-            <p className="text-muted-foreground mt-1">고객·기사에게 보여질 공지사항을 등록합니다</p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/admin">관리자 홈으로</Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-balance">공지사항 관리</h1>
+          <p className="text-muted-foreground mt-1">고객·기사에게 보여질 공지사항을 등록합니다</p>
         </div>
 
         <Card>

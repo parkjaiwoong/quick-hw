@@ -104,34 +104,11 @@ export default async function DispatchPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>메인 화면 이동</CardTitle>
-            <CardDescription>역할별 메인 화면으로 바로 이동합니다</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col md:flex-row gap-3">
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/admin">관리자 메인</Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/driver">기사 메인</Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href="/customer">고객 메인</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-balance">주문 &amp; 연결 로그</h1>
-            <p className="text-muted-foreground mt-1">
-              누가 언제 누구와 연결됐는지, 통화 여부, 사고 발생 여부를 확인하세요
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/admin">관리자 홈으로</Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-balance">주문 &amp; 연결 로그</h1>
+          <p className="text-muted-foreground mt-1">
+            누가 언제 누구와 연결됐는지, 통화 여부, 사고 발생 여부를 확인하세요
+          </p>
         </div>
 
         <Card>

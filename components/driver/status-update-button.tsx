@@ -31,7 +31,7 @@ export function StatusUpdateButton({
     try {
       const fd = new FormData()
       fd.set("status", nextStatus)
-      const headers: HeadersInit = {}
+      const headers: HeadersInit = { Accept: "application/json" }
       const { data: { session } } = await createClient().auth.getSession()
       if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
       const res = await fetch(`/api/driver/delivery/${deliveryId}/status`, {
