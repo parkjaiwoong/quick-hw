@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import {
   SidebarProvider,
   Sidebar,
@@ -14,18 +15,40 @@ import { DriverSidebarNav } from "@/components/driver/driver-sidebar-nav"
 import { Button } from "@/components/ui/button"
 import { signOut } from "@/lib/actions/auth"
 import { DriverScreenNotifier } from "@/components/driver/driver-screen-notifier"
-import { LogOut } from "lucide-react"
+import { LogOut, User } from "lucide-react"
 
-export function DriverLayoutClient({ children }: { children: React.ReactNode }) {
+type DriverLayoutClientProps = {
+  children: React.ReactNode
+  fullName?: string | null
+  avatarUrl?: string | null
+}
+
+export function DriverLayoutClient({ children, fullName, avatarUrl }: DriverLayoutClientProps) {
+  const displayName = fullName?.trim() || "기사"
+
   return (
     <>
       <DriverScreenNotifier />
       <SidebarProvider defaultOpen={true}>
         <Sidebar side="left" collapsible="offcanvas" className="border-r">
           <SidebarHeader className="border-b p-2">
-            <Button variant="ghost" size="sm" className="w-full justify-start font-semibold" asChild>
-              <Link href="/driver">
-                <span className="truncate">기사</span>
+            <Button variant="ghost" size="sm" className="w-full justify-start font-semibold h-auto py-2" asChild>
+              <Link href="/driver" className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0 size-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
+                      alt=""
+                      width={32}
+                      height={32}
+                      className="size-8 object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <User className="size-4 text-muted-foreground" />
+                  )}
+                </span>
+                <span className="truncate">{displayName}</span>
               </Link>
             </Button>
           </SidebarHeader>

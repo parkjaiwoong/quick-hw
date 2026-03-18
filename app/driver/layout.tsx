@@ -10,10 +10,17 @@ export default async function DriverLayout({ children }: { children: React.React
   } = await supabase.auth.getUser()
   if (!user) redirect("/auth/login")
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  const { data: profile } = await supabase.from("profiles").select("role, full_name, avatar_url").eq("id", user.id).single()
   const roleOverride = await getRoleOverride()
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) redirect("/")
 
-  return <DriverLayoutClient>{children}</DriverLayoutClient>
+  return (
+    <DriverLayoutClient
+      fullName={profile?.full_name ?? null}
+      avatarUrl={profile?.avatar_url ?? null}
+    >
+      {children}
+    </DriverLayoutClient>
+  )
 }
