@@ -31,7 +31,7 @@ const menuGroups = [
   {
     label: "안내",
     items: [
-      { href: "/announcements", label: "공지사항", icon: Megaphone },
+      { href: "/driver/announcements", label: "공지사항", icon: Megaphone },
       { href: "/driver/guide", label: "가이드", icon: BookOpen },
     ],
   },
