@@ -20,6 +20,7 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
   const payoutError = typeof resolvedSearchParams.error === "string" ? resolvedSearchParams.error : null
   const savedSuccess = resolvedSearchParams.saved === "1"
   const payoutStatus = (resolvedSearchParams.payoutStatus ?? "all").trim() || "all"
+  const payoutYear = (resolvedSearchParams.payoutYear ?? "").trim()
   const payoutPageNum = Math.max(1, parseInt(resolvedSearchParams.payoutPage ?? "1", 10) || 1)
 
   const {
