@@ -97,20 +97,22 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
 
       {deliveries.length > 0 && (
       <div className="space-y-1 w-full min-w-0">
-        {/* 작은 헤더: 픽업 위 구분·거리, 배송 위 픽업→배송 거리 */}
+        {/* 헤더: 2행 - 픽업 위 구분·거리, 배송 위 픽업→배송 거리 */}
         <div className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] text-[10px] text-muted-foreground gap-1 w-full min-w-0">
-          <div className="flex gap-3">
+          <div className="flex flex-col">
             <span>구분</span>
             <span>거리</span>
           </div>
-          <div>픽업→배송 거리</div>
-          <div className="min-w-[5rem]" aria-hidden />
+          <div className="flex flex-col">
+            <span>픽업→배송 거리</span>
+            <span className="invisible">-</span>
+          </div>
+          <div className="min-w-[5rem] text-right text-sm font-bold text-foreground">확정 금액</div>
         </div>
-        {/* 메인 헤더: 픽업, 배송, 확정 금액 (찐하게) */}
-        <div className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] text-sm font-bold text-foreground gap-1 w-full min-w-0">
+        <div className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] text-sm font-bold text-foreground gap-1 w-full min-w-0 pb-0.5">
           <div>픽업</div>
           <div>배송</div>
-          <div className="text-right min-w-[5rem]">확정 금액</div>
+          <div className="min-w-[5rem]" aria-hidden />
         </div>
         {deliveries.map((delivery) => {
           const displayFee = delivery.driver_fee ?? delivery.total_fee ?? 0
@@ -125,7 +127,7 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           return (
             <div
               key={delivery.id}
-              className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] items-center gap-1 rounded border bg-card px-1 py-2 text-sm hover:bg-accent/30 cursor-pointer w-full min-w-0"
+              className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] gap-x-1 gap-y-0.5 rounded border bg-card px-1 py-2 text-sm hover:bg-accent/30 cursor-pointer w-full min-w-0"
               onClick={() => router.push(`/driver/delivery/${delivery.id}`)}
               title="클릭으로 상세 보기"
               role="button"
@@ -136,31 +138,41 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
                 }
               }}
             >
-              <div className="min-w-0 flex items-center gap-2">
-                <div className="flex items-center gap-0.5 shrink-0 text-muted-foreground" title={vehicle}>
-                  <Bike className="h-3.5 w-3.5" />
+              {/* 1행: 구분(아이콘), 거리 | 픽업→배송 거리 | 금액 */}
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <div className="flex items-center gap-0.5 text-muted-foreground shrink-0" title={vehicle}>
+                  <Bike className="h-3 w-3" />
                   {isScheduled ? (
-                    <Calendar className="h-3.5 w-3.5 text-amber-600" aria-hidden />
+                    <Calendar className="h-3 w-3 text-amber-600" aria-hidden />
                   ) : isExpress ? (
-                    <Zap className="h-3.5 w-3.5 text-orange-500" aria-hidden />
+                    <Zap className="h-3 w-3 text-orange-500" aria-hidden />
                   ) : (
-                    <Clock className="h-3.5 w-3.5 text-blue-600" aria-hidden />
+                    <Clock className="h-3 w-3 text-blue-600" aria-hidden />
                   )}
                 </div>
                 {pickupDistStr != null && (
-                  <span className="text-[10px] text-muted-foreground shrink-0">{pickupDistStr}</span>
+                  <div className="text-[10px] text-muted-foreground">{pickupDistStr}</div>
                 )}
-                <span className="truncate font-medium" title={delivery.pickup_address}>
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <div className="text-[10px] text-muted-foreground shrink-0">
+                  픽업→배송 {deliveryDistStr}
+                </div>
+              </div>
+              <div className="row-span-2 self-center text-right font-semibold min-w-[5rem] shrink-0">
+                {priceLabel}
+              </div>
+              {/* 2행: 픽업 주소, 배송 주소 (넓게) */}
+              <div className="min-w-0">
+                <span className="truncate block font-medium" title={delivery.pickup_address}>
                   {toDongOnly(delivery.pickup_address)}
                 </span>
               </div>
-              <div className="min-w-0 flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground shrink-0">{deliveryDistStr}</span>
-                <span className="truncate font-medium" title={delivery.delivery_address}>
+              <div className="min-w-0">
+                <span className="truncate block font-medium" title={delivery.delivery_address}>
                   {toDongOnly(delivery.delivery_address)}
                 </span>
               </div>
-              <div className="text-right font-semibold min-w-[5rem] shrink-0">{priceLabel}</div>
             </div>
           )
         })}
