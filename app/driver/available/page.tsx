@@ -7,6 +7,7 @@ import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { ensureAndGetDriverInfo } from "@/lib/actions/driver"
 import { RealtimeDeliveryNotifications } from "@/components/driver/realtime-delivery-notifications"
 import { DriverDeliveryRequestProvider } from "@/lib/contexts/driver-delivery-request"
+import { parsePoint, haversineKm } from "@/lib/geo"
 
 export default async function DriverAvailablePage() {
   const supabase = await getSupabaseServerClient()
@@ -24,7 +25,7 @@ export default async function DriverAvailablePage() {
     ensureAndGetDriverInfo(),
     supabase
       .from("deliveries")
-      .select("id,pickup_address,delivery_address,distance_km,driver_fee,total_fee,vehicle_type,urgency,delivery_option,item_description,package_size,created_at")
+      .select("id,pickup_address,delivery_address,pickup_location,distance_km,driver_fee,total_fee,vehicle_type,urgency,delivery_option,item_description,package_size,created_at")
       .eq("status", "pending")
       .is("driver_id", null)
       .order("created_at", { ascending: false })
@@ -32,7 +33,13 @@ export default async function DriverAvailablePage() {
   ])
 
   const driverInfo = ensureResult.driverInfo ?? null
-  const available = availableRows ?? []
+  const driverCoords = parsePoint(driverInfo?.current_location ?? null)
+  const available = (availableRows ?? []).map((d: { pickup_location?: unknown; [k: string]: unknown }) => {
+    const pickupCoords = parsePoint(d.pickup_location)
+    const pickupDistanceKm =
+      driverCoords && pickupCoords ? haversineKm(driverCoords, pickupCoords) : null
+    return { ...d, pickup_distance_km: pickupDistanceKm }
+  })
 
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {

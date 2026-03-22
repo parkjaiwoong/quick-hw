@@ -2,8 +2,13 @@
 const SIDO_NAMES =
   "서울|부산|대구|인천|광주|대전|울산|세종|강원도|경기도|충청북도|충청남도|전라북도|전라남도|경상북도|경상남도|제주도|제주특별자치도|강원|경기|충북|충남|전북|전남|경북|경남|제주"
 
+/** 광역시·특별시 전체 (광주광역시, 부산광역시 등) - 선행 제거 */
+const SIDO_FULL =
+  "서울특별시|부산광역시|대구광역시|인천광역시|광주광역시|대전광역시|울산광역시|세종특별자치시"
+
 /**
  * 특별시·광역시·시·구·시도명을 제외하고 동(또는 읍·면)만 표시. (배송대기중 목록용)
+ * 광주, 대구, 서울 등 시도명은 제거하고 동만 표시.
  * 예: 서울특별시 강남구 역삼동 123 → 역삼동, 광주광역시 북구 문흥동 → 문흥동
  */
 export function toDongOnly(addr: string): string {
@@ -17,6 +22,7 @@ export function toDongOnly(addr: string): string {
   const myeonMatch = s.match(/([가-힣]+면)\b/)
   if (myeonMatch) return myeonMatch[1]
   // 동/읍/면 없을 때: 시도명·특별시·광역시·시·구 제거
+  s = s.replace(new RegExp(`(${SIDO_FULL})\\s*`, "g"), "")
   s = s.replace(new RegExp(`\\b(${SIDO_NAMES})\\s*`, "g"), "")
   s = s.replace(/^[가-힣]+(특별시|광역시|특별자치시|도)\s*/g, "")
   s = s.replace(/[가-힣]+시\s*/g, "")

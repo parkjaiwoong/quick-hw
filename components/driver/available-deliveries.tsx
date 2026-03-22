@@ -1,6 +1,8 @@
 "use client"
 
 import type { Delivery } from "@/lib/types/database"
+
+type DeliveryWithPickupDist = Delivery & { pickup_distance_km?: number | null }
 import { useRouter } from "next/navigation"
 import { AlertCircle, Bike, Clock, Calendar, Zap, MapPin } from "lucide-react"
 import { useDriverDeliveryRequest } from "@/lib/contexts/driver-delivery-request"
@@ -8,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { toDongOnly } from "@/lib/address-abbrev"
 
 interface AvailableDeliveriesProps {
-  deliveries: Delivery[]
+  deliveries: DeliveryWithPickupDist[]
 }
 
 export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
@@ -109,7 +111,9 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           const isScheduled = delivery.delivery_option === "scheduled"
           const isExpress = delivery.urgency === "express"
           const vehicle = delivery.vehicle_type === "motorcycle" ? "오토바이" : delivery.vehicle_type || "오토바이"
-          const distKm = delivery.distance_km?.toFixed(1) || "0"
+          const pickupDistKm =
+            delivery.pickup_distance_km != null ? delivery.pickup_distance_km.toFixed(1) : null
+          const deliveryDistKm = delivery.distance_km?.toFixed(1) || "0"
 
           return (
             <div
@@ -136,13 +140,15 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
                     <Clock className="h-3.5 w-3.5 text-blue-600" aria-hidden />
                   )}
                 </div>
-                <span className="text-[10px] text-muted-foreground shrink-0">{distKm}km</span>
+                {pickupDistKm != null && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">{pickupDistKm}km</span>
+                )}
                 <span className="truncate font-medium" title={delivery.pickup_address}>
                   {toDongOnly(delivery.pickup_address)}
                 </span>
               </div>
               <div className="min-w-0 flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground shrink-0">{distKm}km</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">{deliveryDistKm}km</span>
                 <span className="truncate font-medium" title={delivery.delivery_address}>
                   {toDongOnly(delivery.delivery_address)}
                 </span>
