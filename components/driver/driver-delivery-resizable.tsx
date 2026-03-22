@@ -56,6 +56,7 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
       const onMove = (ev: MouseEvent | TouchEvent) => {
         const yy = "touches" in ev ? ev.touches[0]?.clientY : ev.clientY
         if (yy == null) return
+        const delta = yy - dragStartYRef.current
         const rawMax = Math.round((window.innerHeight * MAX_MAP_VH) / 100)
         const maxPx = Math.min(rawMax, window.innerHeight - RESERVED_BOTTOM_PX)
         const next = Math.max(
