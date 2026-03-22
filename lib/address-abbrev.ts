@@ -1,4 +1,21 @@
 /**
+ * 시·구를 제외하고 동(또는 읍·면)만 표시. (배송대기중 목록용)
+ * 예: 서울시 강남구 역삼동 123 → 역삼동, 광주광역시 북구 문흥동 → 문흥동
+ */
+export function toDongOnly(addr: string): string {
+  if (!addr || typeof addr !== "string") return "-"
+  const s = addr.trim()
+  if (!s) return "-"
+  const dongMatch = s.match(/([가-힣]+[0-9一二三四五六七八九十]?동)\b/)
+  if (dongMatch) return dongMatch[1]
+  const eupMatch = s.match(/([가-힣]+읍)\b/)
+  if (eupMatch) return eupMatch[1]
+  const myeonMatch = s.match(/([가-힣]+면)\b/)
+  if (myeonMatch) return myeonMatch[1]
+  return s.length > 10 ? s.slice(0, 10) + "…" : s
+}
+
+/**
  * 목록용: 시/광역시/특별시/도 등 시·도 단위를 제거하고 구·동·상세만 표시.
  * 예: 광주광역시 북구 문흥동 123 → 북구 문흥동 123
  */

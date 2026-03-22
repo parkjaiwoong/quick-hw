@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { AlertCircle, Bike, Clock, Calendar, Zap, MapPin } from "lucide-react"
 import { useDriverDeliveryRequest } from "@/lib/contexts/driver-delivery-request"
 import { Button } from "@/components/ui/button"
-import { toShortAddressForList } from "@/lib/address-abbrev"
+import { toDongOnly } from "@/lib/address-abbrev"
 
 interface AvailableDeliveriesProps {
   deliveries: Delivery[]
@@ -38,13 +38,13 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 shrink-0 text-green-600" />
               <span className="text-muted-foreground truncate" title={latestNew.delivery.pickup_address}>
-                {toShortAddressForList(latestNew.delivery.pickup_address)}
+                {toDongOnly(latestNew.delivery.pickup_address)}
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 shrink-0 text-red-600" />
               <span className="text-muted-foreground truncate" title={latestNew.delivery.delivery_address}>
-                {toShortAddressForList(latestNew.delivery.delivery_address)}
+                {toDongOnly(latestNew.delivery.delivery_address)}
               </span>
             </div>
             {latestNew.delivery.item_description && (
@@ -128,10 +128,10 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
               </div>
               <div className="col-span-2 font-semibold">{delivery.distance_km?.toFixed(1) || "0"}km</div>
               <div className="col-span-3 truncate" title={delivery.pickup_address}>
-                {toShortAddressForList(delivery.pickup_address)}
+                {toDongOnly(delivery.pickup_address)}
               </div>
               <div className="col-span-3 truncate" title={delivery.delivery_address}>
-                {toShortAddressForList(delivery.delivery_address)}
+                {toDongOnly(delivery.delivery_address)}
               </div>
               <div className="col-span-2 text-right font-semibold">{priceLabel}</div>
             </div>
