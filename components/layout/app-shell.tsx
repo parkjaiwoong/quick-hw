@@ -17,7 +17,8 @@ export function AppShell({ children, logoUrl, companyName }: AppShellProps) {
   const pathname = usePathname()
   const isAdmin = pathname?.startsWith("/admin")
   const isDriver = pathname?.startsWith("/driver")
-  const showChrome = !isAdmin && !isDriver
+  const isCustomer = pathname?.startsWith("/customer")
+  const showChrome = !isAdmin && !isDriver && !isCustomer
 
   return (
     <>

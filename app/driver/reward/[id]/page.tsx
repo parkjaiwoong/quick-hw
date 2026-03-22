@@ -89,7 +89,7 @@ export default async function DriverRewardDetailPage({ params }: { params: { id:
         <Card>
           <CardHeader>
             <CardTitle>기본 요금</CardTitle>
-            <CardDescription>카카오픽 방식 기본 요금</CardDescription>
+            <CardDescription>플랫폼 요금 기준 기본 요금</CardDescription>
           </CardHeader>
           <CardContent className="text-2xl font-bold text-blue-700">
             {baseDriverFee.toLocaleString()}원
@@ -159,7 +159,7 @@ export default async function DriverRewardDetailPage({ params }: { params: { id:
             <CardTitle className="text-base">정산 기준 안내</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-1">
-            <p>기본 요금은 카카오픽 방식으로 산정된 운임 기준입니다.</p>
+            <p>기본 요금은 플랫폼 요금 기준으로 산정된 운임 기준입니다.</p>
             <p>추천 리워드는 추천 고객 배송에만 적용되며, 정책 비율은 관리자 설정을 따릅니다.</p>
             <p>최종 정산 금액은 실제 정산 내역 기준으로 확정됩니다.</p>
           </CardContent>

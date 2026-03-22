@@ -1,5 +1,5 @@
 -- 요금 관련 컬럼을 nullable로 변경
--- 요금은 카카오픽 기준으로 자동 산정
+-- 요금은 플랫폼 요금 기준으로 자동 산정
 
 -- base_fee와 total_fee를 nullable로 변경
 ALTER TABLE deliveries 

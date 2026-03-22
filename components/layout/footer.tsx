@@ -69,7 +69,7 @@ export function Footer() {
         <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
           <p>© 2025 퀵HW언넌. All rights reserved.</p>
           <p className="mt-2">
-            본 플랫폼은 중개 플랫폼이며, 요금은 카카오픽 기준으로 자동 산정됩니다.
+            본 플랫폼은 중개 플랫폼이며, 요금은 플랫폼 요금 기준으로 자동 산정됩니다.
           </p>
         </div>
       </div>

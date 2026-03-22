@@ -264,7 +264,7 @@ export default function AdminDashboardTabs({
         <div className="rounded-lg border bg-card p-4">
           <CardHeader>
             <CardTitle>가격 정책</CardTitle>
-            <CardDescription>카카오픽 기준 자동 산정 정책을 관리합니다.</CardDescription>
+            <CardDescription>플랫폼 요금 기준 자동 산정 정책을 관리합니다.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/admin/pricing">

@@ -347,7 +347,7 @@ export default async function DriverDeliveryDetailPage({
               <CardTitle>유의사항</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>요금은 카카오픽 기준으로 자동 산정됩니다.</p>
+              <p>요금은 플랫폼 요금 기준으로 자동 산정됩니다.</p>
               <p>물품 파손·분실은 약관 범위 내에서 처리됩니다.</p>
               <p>인적 사고는 기사 개인 책임입니다.</p>
               <p>수락 후 고객 연락처가 공개됩니다.</p>

@@ -81,7 +81,7 @@ export async function getDriverSettlementsFiltered(driverId: string, filters: Dr
     supabase
       .from("settlements")
       .select(
-        "id, settlement_period_start, settlement_period_end, order_id, payment_id, total_deliveries, total_earnings, net_earnings, settlement_amount, settlement_status, status, settlement_date, created_at, payment:payments!settlements_payment_id_fkey(payment_method)",
+        "id, settlement_period_start, settlement_period_end, order_id, payment_id, total_deliveries, total_earnings, net_earnings, settlement_amount, settlement_status, status, settlement_date, created_at, payment:payments!settlements_payment_id_fkey(payment_method), order:orders!settlements_order_id_fkey(payment_method)",
       )
       .eq("driver_id", driverId)
       .order("settlement_period_end", { ascending: false }),
@@ -113,7 +113,8 @@ export async function getDriverSettlementsFiltered(driverId: string, filters: Dr
     }
   }
   if (paymentMethod && paymentMethod !== "all") {
-    list = list.filter((s: any) => (s.payment?.payment_method ?? "") === paymentMethod)
+    const getMethod = (s: any) => (s.payment?.payment_method ?? s.order?.payment_method ?? "").toLowerCase()
+    list = list.filter((s: any) => getMethod(s) === paymentMethod.toLowerCase())
   }
   if (status && status !== "all") {
     list = list.filter((s: any) => (s.settlement_status ?? "") === status)

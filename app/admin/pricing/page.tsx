@@ -36,12 +36,12 @@ export default async function PricingPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-balance">가격 정책</h1>
-          <p className="text-muted-foreground mt-1">카카오픽 기준 자동 산정 값</p>
+          <p className="text-muted-foreground mt-1">플랫폼 요금 기준 자동 산정 값</p>
         </div>
         <Card>
           <CardHeader>
             <CardTitle>가격 정책</CardTitle>
-            <CardDescription>카카오픽 기준 자동 산정 값을 설정합니다.</CardDescription>
+            <CardDescription>플랫폼 요금 기준 자동 산정 값을 설정합니다.</CardDescription>
           </CardHeader>
           <CardContent>
             {pricingError && (

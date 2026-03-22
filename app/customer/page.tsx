@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
-import { Package, MapPin, Shield, AlertCircle, CreditCard, Coins } from "lucide-react"
+import { Package, MapPin, Shield, AlertCircle, CreditCard, Coins, Truck, MessageCircle } from "lucide-react"
 import { DeliveryList } from "@/components/customer/delivery-list"
 import { DeliveriesListRealtime } from "@/components/customer/deliveries-list-realtime"
 import { getMyDeliveries, getCustomerMainPageData } from "@/lib/actions/deliveries"
@@ -27,7 +27,6 @@ export default async function CustomerDashboard({
     redirect("/auth/login")
   }
 
-  // 고객 메인 1회 RPC로 전체 조회 (실패 시 기존 쿼리로 폴백)
   const [roleOverride, mainData] = await Promise.all([getRoleOverride(), getCustomerMainPageData(user.id)])
 
   let profile: { role?: string; full_name?: string | null; referring_driver_id?: string | null } | null = null
@@ -110,252 +109,167 @@ export default async function CustomerDashboard({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        {/* 메인 메시지 */}
-        <div className="text-center space-y-4 py-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-balance">
-            가까운 퀵 기사 빠르게 연결
+    <div className="max-w-5xl mx-auto space-y-8">
+      {/* Hero 배너 - 쇼핑몰 스타일 */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-primary to-primary/90 p-6 md:p-8 text-primary-foreground shadow-lg">
+        <div className="relative z-10">
+          <p className="text-sm font-medium opacity-90 mb-1">퀵HW 배송</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+            가까운 기사와 빠르게 연결
           </h1>
-          <p className="text-xl text-muted-foreground">
-            물품 파손·분실 시 보험 처리
+          <p className="text-sm opacity-90 mb-6 max-w-md">
+            출발지·도착지만 입력하면 즉시 매칭 · 물품 파손·분실 시 보험 처리
           </p>
+          <Button asChild size="lg" className="bg-white text-primary hover:bg-white/95 font-semibold shadow-md h-12 px-6 rounded-xl">
+            <Link href="/customer/new-delivery">
+              <Package className="mr-2 h-5 w-5" />
+              배송 요청하기
+            </Link>
+          </Button>
         </div>
-
-        {/* 법적 고지 */}
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800">
-            <strong>중요 안내:</strong> 본 플랫폼은 운송 당사자가 아닌 중개 플랫폼입니다. 
-            요금은 카카오픽 기준으로 자동 산정됩니다.{" "}
-            <TermsButton type="service" label="약관 보기" className="ml-1 h-auto p-0 text-xs text-orange-800 underline underline-offset-2" />
-          </AlertDescription>
-        </Alert>
-
-        {/* 배송 요청 버튼 */}
-        <Card className="border-2 border-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-6 w-6 text-primary" />
-              새 배송 요청하기
-            </CardTitle>
-            <CardDescription>
-              출발지와 도착지를 입력하고 가까운 기사를 연결받으세요
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild size="lg" className="w-full md:w-auto">
-              <Link href="/customer/new-delivery">
-                <Package className="mr-2 h-5 w-5" />
-                기사 연결 요청
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* 통계 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>전체 배송</CardDescription>
-              <CardTitle className="text-3xl">{stats.total}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>대기 중</CardDescription>
-              <CardTitle className="text-3xl text-yellow-600">{stats.pending}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Package className="h-4 w-4 text-yellow-600" />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>진행 중</CardDescription>
-              <CardTitle className="text-3xl text-blue-600">{stats.inProgress}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Package className="h-4 w-4 text-blue-600" />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>완료</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{stats.completed}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Package className="h-4 w-4 text-green-600" />
-            </CardContent>
-          </Card>
+        <div className="absolute -right-4 -bottom-4 w-40 h-40 rounded-full bg-white/10" />
+        <div className="absolute right-8 top-1/2 -translate-y-1/2 hidden md:block">
+          <Truck className="h-24 w-24 text-white/20" />
         </div>
+      </div>
 
-        {/* 배송 목록: 기사 수락/픽업/배송중/완료 시 실시간 반영 */}
+      {/* 법적 고지 - 컴팩트 */}
+      <Alert className="rounded-xl border-orange-200 bg-orange-50/80">
+        <AlertCircle className="h-4 w-4 text-orange-600 shrink-0" />
+        <AlertDescription className="text-orange-800 text-sm">
+          <strong>중개 플랫폼 안내</strong> — 요금은 플랫폼 요금 기준 자동 산정 ·{" "}
+          <TermsButton type="service" label="약관 보기" className="inline h-auto p-0 text-xs text-orange-800 underline underline-offset-2" />
+        </AlertDescription>
+      </Alert>
+
+      {/* 배송 현황 - 깔끔한 카드 스타일 */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "전체", value: stats.total, color: "text-foreground" },
+          { label: "대기", value: stats.pending, color: "text-amber-600" },
+          { label: "진행중", value: stats.inProgress, color: "text-blue-600" },
+          { label: "완료", value: stats.completed, color: "text-emerald-600" },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="rounded-xl bg-white border border-border/60 shadow-sm p-4 text-center hover:shadow-md transition-shadow"
+          >
+            <p className="text-2xl font-bold">{item.value}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 배송 목록 섹션 */}
+      <section>
         <DeliveriesListRealtime customerId={user.id} />
-        <Card>
-          <CardHeader>
-            <CardTitle>내 배송 목록</CardTitle>
-            <CardDescription>진행 중인 배송과 완료·취소된 배송 내역을 탭으로 확인하세요</CardDescription>
+        <Card className="rounded-2xl border-border/60 shadow-sm overflow-hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold">내 배송</CardTitle>
+            <CardDescription>진행 중·완료·취소된 배송을 확인하세요</CardDescription>
           </CardHeader>
           <CardContent>
             <DeliveryList deliveries={deliveries} />
           </CardContent>
         </Card>
+      </section>
 
-        {/* 결제내역 / 포인트 바로가기 */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card className="border-blue-200 bg-blue-50/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-blue-700">
-                <CreditCard className="h-5 w-5" />
-                결제 내역
-              </CardTitle>
-              <CardDescription>이용 금액 및 결제 상태를 확인하세요</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full" variant="outline">
-                <Link href="/customer/payments">결제 내역 보기</Link>
-              </Button>
-            </CardContent>
-          </Card>
+      {/* 바로가기 그리드 - 쇼핑몰 메뉴 스타일 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Link
+          href="/customer/payments"
+          className="group flex items-center gap-4 rounded-xl bg-white border border-border/60 p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-100">
+            <CreditCard className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm">결제 내역</p>
+            <p className="text-xs text-muted-foreground truncate">이용금액 확인</p>
+          </div>
+        </Link>
+        <Link
+          href="/customer/points"
+          className="group flex items-center gap-4 rounded-xl bg-white border border-border/60 p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-100">
+            <Coins className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm">포인트</p>
+            <p className="text-xs text-muted-foreground truncate">적립·교환</p>
+          </div>
+        </Link>
+        <Link
+          href="/customer/inquiry"
+          className="group flex items-center gap-4 rounded-xl bg-white border border-border/60 p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-600 group-hover:bg-slate-100">
+            <MessageCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm">문의하기</p>
+            <p className="text-xs text-muted-foreground truncate">고객센터</p>
+          </div>
+        </Link>
+        <Link
+          href="/customer/accident"
+          className="group flex items-center gap-4 rounded-xl bg-white border border-border/60 p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 group-hover:bg-red-100">
+            <Shield className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm">사고 접수</p>
+            <p className="text-xs text-muted-foreground truncate">물품 파손 등</p>
+          </div>
+        </Link>
+      </div>
 
-          <Card className="border-yellow-200 bg-yellow-50/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-700">
-                <Coins className="h-5 w-5" />
-                포인트
-              </CardTitle>
-              <CardDescription>적립 포인트를 확인하고 교환하세요</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full" variant="outline">
-                <Link href="/customer/points">포인트 보기</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 문의/사고 접수 */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                일반 문의
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/customer/inquiry">문의하기</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-red-600" />
-                물품 사고 접수
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/customer/accident">사고 접수하기</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex items-center gap-3 pt-4 mt-2 border-t border-border">
-          <span className="text-sm font-semibold text-muted-foreground">하단 섹션</span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>기사 귀속 상태</CardTitle>
-            <CardDescription>현재 귀속된 기사 정보를 표시합니다.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {changeMessage && (
-              <Alert variant="default">
-                <AlertDescription>{changeMessage}</AlertDescription>
-              </Alert>
-            )}
+      {/* 기사 귀속 & 변경 요청 - 통합 카드 */}
+      <Card className="rounded-2xl border-border/60 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-semibold">기사 연결</CardTitle>
+          <CardDescription>귀속 기사 정보 및 변경 요청</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {changeMessage && (
+            <Alert variant="default" className="rounded-xl">
+              <AlertDescription>{changeMessage}</AlertDescription>
+            </Alert>
+          )}
+          <div className="flex flex-wrap items-center gap-4">
             {referringRiderCode ? (
-              <p className="text-sm">
-                귀속 기사 코드: <span className="font-medium">{referringRiderCode}</span>
-              </p>
+              <div className="rounded-xl bg-muted/50 px-4 py-2">
+                <p className="text-xs text-muted-foreground">귀속 기사 코드</p>
+                <p className="font-semibold">{referringRiderCode}</p>
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">귀속된 기사가 없습니다. 딥링크 또는 QR로만 연결됩니다.</p>
+              <p className="text-sm text-muted-foreground">귀속된 기사가 없습니다. 기사 공유 링크·QR로 연결됩니다.</p>
             )}
             <RiderChangeForm />
-            <div>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/customer/rider-change-request">기사 변경 요청 내역 보기</Link>
+          </div>
+          {latestChangeRequest && (
+            <div className="rounded-lg bg-muted/50 p-3 text-sm">
+              <p className="font-medium mb-1">최근 기사 변경 요청</p>
+              <p className="text-muted-foreground text-xs">
+                상태: {latestChangeRequest.status === "denied" ? "거절" : latestChangeRequest.status} ·{" "}
+                {new Date(latestChangeRequest.created_at).toLocaleDateString("ko-KR")}
+              </p>
+              <Button asChild variant="link" size="sm" className="h-auto p-0 mt-1 text-xs">
+                <Link href={`/customer/rider-change-request-detail?id=${encodeURIComponent(latestChangeRequest.id)}`}>
+                  상세 보기
+                </Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>최근 기사 변경 요청</CardTitle>
-            <CardDescription>가장 최근 요청의 처리 상태를 확인합니다.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {latestChangeRequest ? (
-              <>
-                <div>
-                  상태: {latestChangeRequest.status === "denied" ? "rejected" : latestChangeRequest.status}
-                </div>
-                <div>요청 시간: {new Date(latestChangeRequest.created_at).toLocaleString("ko-KR")}</div>
-                <div>거절 사유: {latestChangeRequest.admin_reason || "-"}</div>
-                {latestChangeRequest.cooldown_until && (
-                  <div>
-                    쿨타임 종료: {new Date(latestChangeRequest.cooldown_until).toLocaleString("ko-KR")}
-                  </div>
-                )}
-                <Button asChild variant="outline" size="sm">
-                  <Link
-                    href={`/customer/rider-change-request-detail?id=${encodeURIComponent(latestChangeRequest.id)}`}
-                  >
-                    상세 보기
-                  </Link>
-                </Button>
-              </>
-            ) : (
-              <div className="text-muted-foreground">최근 요청 내역이 없습니다.</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>귀속 기사 (딥링크 · QR)</CardTitle>
-            <CardDescription>기사와의 연결은 기사가 공유한 딥링크 또는 QR 코드로만 가능합니다.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {referringRiderCode ? (
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-                <p className="font-medium">연결된 기사 코드</p>
-                <p className="text-lg font-semibold text-foreground">{referringRiderCode}</p>
-                <p className="text-xs text-muted-foreground mt-1">딥링크 또는 QR 코드로 연결되었습니다.</p>
-              </div>
-            ) : (
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                연결된 기사가 없습니다. 기사가 공유한 링크 또는 QR 코드로 접속하면 자동으로 연결됩니다.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+          <div className="flex gap-2 pt-2">
+            <Button asChild variant="outline" size="sm" className="rounded-lg">
+              <Link href="/customer/rider-change-request">변경 요청 내역</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

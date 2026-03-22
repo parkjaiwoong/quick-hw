@@ -134,9 +134,10 @@ export function SettlementsListClient({ initialData, initialFilters }: Settlemen
                       {Number(s.net_earnings ?? s.settlement_amount ?? 0).toLocaleString()}원
                     </TableCell>
                     <TableCell>
-                      {paymentMethodLabel[s.payment?.payment_method ?? ""] ??
-                        s.payment?.payment_method ??
-                        "-"}
+                      {(() => {
+                        const method = (s.payment?.payment_method ?? s.order?.payment_method ?? "").toLowerCase()
+                        return paymentMethodLabel[method] ?? (method || "-")
+                      })()}
                     </TableCell>
                     <TableCell>
                       <span className="px-2 py-0.5 rounded text-xs bg-muted">

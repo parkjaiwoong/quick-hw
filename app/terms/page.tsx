@@ -39,7 +39,7 @@ export default function TermsPage() {
               <div>
                 <p className="font-semibold mb-1">요금 산정</p>
                 <p className="text-sm text-muted-foreground">
-                  요금은 카카오픽 기준으로 자동 산정됩니다.
+                  요금은 플랫폼 요금 기준으로 자동 산정됩니다.
                   <br />
                   <strong>기준:</strong> 기본요금 4,000원 + 2km 초과분 km당 1,000원
                   <br />
@@ -105,7 +105,7 @@ export default function TermsPage() {
             <div>
               <p className="font-semibold mb-2">요금 산정 방식</p>
               <p className="mb-4">
-                요금은 카카오픽 기준으로 자동 산정됩니다.
+                요금은 플랫폼 요금 기준으로 자동 산정됩니다.
               </p>
               <p className="text-sm text-muted-foreground">
                 기본요금 4,000원 + 2km 초과분 km당 1,000원으로 계산됩니다.
