@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import { reportAccident, uploadAccidentPhotos } from "@/lib/actions/accident"
 import Link from "next/link"
 import { toAddressFromDongOrRoad } from "@/lib/address-abbrev"
+import { AccidentPhotos } from "@/components/accident/accident-photos"
 
 interface DriverAccidentReportClientProps {
   deliveries: { id: string; pickup_address?: string; delivery_address?: string; status: string; created_at: string }[]
@@ -22,6 +23,7 @@ interface DriverAccidentReportClientProps {
     accident_description: string
     created_at: string
     status: string
+    photos?: string[] | string | null
     delivery?: { pickup_address?: string; delivery_address?: string } | null
   }[]
   prefilledDeliveryId: string | null
@@ -134,6 +136,7 @@ export function DriverAccidentReportClient({
                     </p>
                   )}
                   <p className="text-muted-foreground mt-2">{accident.accident_description}</p>
+                  <AccidentPhotos photos={accident.photos} />
                 </div>
               ))}
             </CardContent>
@@ -287,6 +290,7 @@ export function DriverAccidentReportClient({
                   </p>
                 )}
                 <p className="text-muted-foreground mt-2">{accident.accident_description}</p>
+                <AccidentPhotos photos={accident.photos} />
               </div>
             ))}
           </CardContent>

@@ -35,7 +35,7 @@ export default async function DriverAccidentPage({
   const { data: accidents } = await supabase
     .from("accident_reports")
     .select(
-      "id, accident_type, accident_description, created_at, status, delivery:deliveries(id, pickup_address, delivery_address)"
+      "id, accident_type, accident_description, created_at, status, photos, delivery:deliveries(id, pickup_address, delivery_address)"
     )
     .eq("driver_id", user.id)
     .order("created_at", { ascending: false })

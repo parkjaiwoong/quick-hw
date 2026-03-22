@@ -13,6 +13,7 @@ import { CheckCircle, AlertCircle, Shield, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { reportAccident, uploadAccidentPhotos } from "@/lib/actions/accident"
 import { createClient } from "@/lib/supabase/client"
+import { AccidentPhotos } from "@/components/accident/accident-photos"
 
 export default function AccidentReportPage() {
   const router = useRouter()
@@ -41,7 +42,7 @@ export default function AccidentReportPage() {
         supabase
           .from("accident_reports")
           .select(
-            "id, accident_type, accident_description, created_at, status, delivery:deliveries(id, pickup_address, delivery_address)",
+            "id, accident_type, accident_description, created_at, status, photos, delivery:deliveries(id, pickup_address, delivery_address)",
           )
           .eq("reporter_id", user.id)
           .order("created_at", { ascending: false })
@@ -91,7 +92,7 @@ export default function AccidentReportPage() {
         const { data } = await supabase
           .from("accident_reports")
           .select(
-            "id, accident_type, accident_description, created_at, status, delivery:deliveries(id, pickup_address, delivery_address)",
+            "id, accident_type, accident_description, created_at, status, photos, delivery:deliveries(id, pickup_address, delivery_address)",
           )
           .eq("reporter_id", user.id)
           .order("created_at", { ascending: false })
@@ -135,6 +136,7 @@ export default function AccidentReportPage() {
                           </p>
                         )}
                         <p className="text-muted-foreground mt-2">{accident.accident_description}</p>
+                        <AccidentPhotos photos={(accident as { photos?: string[] | string | null }).photos} />
                       </div>
                     ))}
                   </div>
@@ -295,6 +297,7 @@ export default function AccidentReportPage() {
                     </p>
                   )}
                   <p className="text-muted-foreground mt-2">{accident.accident_description}</p>
+                  <AccidentPhotos photos={(accident as { photos?: string[] | string | null }).photos} />
                 </div>
               ))}
             </CardContent>

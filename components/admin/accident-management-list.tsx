@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, Shield, CheckCircle } from "lucide-react"
 import { useState } from "react"
 import { updateAccidentStatus } from "@/lib/actions/accident"
+import { AccidentPhotos } from "@/components/accident/accident-photos"
 
 interface Accident {
   id: string
@@ -20,6 +21,7 @@ interface Accident {
   status: string
   compensation_amount: number | null
   created_at: string
+  photos?: string[] | string | null
 }
 
 interface AccidentManagementListProps {
@@ -111,6 +113,8 @@ export function AccidentManagementList({ accidents }: AccidentManagementListProp
                 <p className="text-sm text-muted-foreground">{accident.package_damage_description}</p>
               </div>
             )}
+
+            <AccidentPhotos photos={accident.photos} />
 
             {accident.compensation_amount && (
               <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
