@@ -126,12 +126,9 @@ export function SettlementsListClient({ initialData, initialFilters }: Settlemen
                         : "-"}
                     </TableCell>
                     <TableCell>
-                      <span className="text-muted-foreground">주문 {s.order_id || "-"}</span>
-                      {s.total_deliveries != null && (
-                        <span className="text-xs text-muted-foreground ml-1">
-                          · {s.total_deliveries}건
-                        </span>
-                      )}
+                      <span className="text-muted-foreground">
+                        주문 - {s.total_deliveries != null ? `${s.total_deliveries}건` : "-"}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(s.net_earnings ?? s.settlement_amount ?? 0).toLocaleString()}원
