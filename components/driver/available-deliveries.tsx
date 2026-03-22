@@ -26,15 +26,15 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* 배송대기중: 새 요청이 있으면 확장 카드(픽업/배송 주소, 금액, 수락하기만), 없으면 문구만 */}
       {latestNew && ctx ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 overflow-hidden">
-          <div className="px-4 py-3 flex items-center gap-2 border-b border-blue-200/60">
+          <div className="px-2 py-2 flex items-center gap-2 border-b border-blue-200/60">
             <AlertCircle className="h-4 w-4 shrink-0 text-blue-600" />
             <span className="text-blue-800 font-medium">배송대기중</span>
           </div>
-          <div className="px-4 py-3 space-y-2 bg-white/70">
+          <div className="px-2 py-2 space-y-1.5 bg-white/70">
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 shrink-0 text-green-600" />
               <span className="text-muted-foreground truncate" title={latestNew.delivery.pickup_address}>
@@ -80,15 +80,15 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-2">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-2 flex items-center gap-2">
           <AlertCircle className="h-4 w-4 shrink-0 text-blue-600" />
           <span className="text-blue-800 font-medium">배송대기중</span>
         </div>
       )}
 
       {deliveries.length > 0 && (
-      <div className="space-y-2">
-        <div className="grid grid-cols-12 text-xs font-semibold text-muted-foreground px-3">
+      <div className="space-y-1">
+        <div className="grid grid-cols-12 text-xs font-semibold text-muted-foreground px-1 gap-1">
           <div className="col-span-2">구분</div>
           <div className="col-span-2">거리</div>
           <div className="col-span-3">픽업</div>
@@ -105,7 +105,7 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           return (
             <div
               key={delivery.id}
-              className="grid grid-cols-12 items-center gap-2 rounded-lg border bg-card px-3 py-3 text-sm hover:bg-accent/30 cursor-pointer"
+              className="grid grid-cols-12 items-center gap-1 rounded border bg-card px-1 py-2 text-sm hover:bg-accent/30 cursor-pointer"
               onClick={() => router.push(`/driver/delivery/${delivery.id}`)}
               title="클릭으로 상세 보기"
               role="button"

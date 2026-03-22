@@ -1,10 +1,10 @@
 /**
- * 시·구를 제외하고 동(또는 읍·면)만 표시. (배송대기중 목록용)
- * 예: 서울시 강남구 역삼동 123 → 역삼동, 광주광역시 북구 문흥동 → 문흥동
+ * 특별시·광역시·시·구를 제외하고 동(또는 읍·면)만 표시. (배송대기중 목록용)
+ * 예: 서울특별시 강남구 역삼동 123 → 역삼동, 부산광역시 해운대구 우동 → 우동
  */
 export function toDongOnly(addr: string): string {
   if (!addr || typeof addr !== "string") return "-"
-  const s = addr.trim()
+  let s = addr.trim().replace(/\s+/g, " ")
   if (!s) return "-"
   const dongMatch = s.match(/([가-힣]+[0-9一二三四五六七八九十]?동)\b/)
   if (dongMatch) return dongMatch[1]
@@ -12,7 +12,12 @@ export function toDongOnly(addr: string): string {
   if (eupMatch) return eupMatch[1]
   const myeonMatch = s.match(/([가-힣]+면)\b/)
   if (myeonMatch) return myeonMatch[1]
-  return s.length > 10 ? s.slice(0, 10) + "…" : s
+  // 동/읍/면 없을 때: 특별시·광역시·시·구 제거 후 나머지 반환
+  s = s.replace(/^[가-힣]+(특별시|광역시|특별자치시|도)\s*/g, "")
+  s = s.replace(/[가-힣]+시\s*/g, "")
+  s = s.replace(/[가-힣]+구\s*/g, "")
+  s = s.trim()
+  return s ? (s.length > 10 ? s.slice(0, 10) + "…" : s) : addr.trim().slice(0, 8)
 }
 
 /**
