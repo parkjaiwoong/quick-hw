@@ -9,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { LayoutDashboard, Truck, Wallet, DollarSign, BookOpen, BarChart3, Megaphone } from "lucide-react"
 
@@ -39,6 +40,12 @@ const menuGroups = [
 
 export function DriverSidebarNav() {
   const pathname = usePathname()
+  const { setOpen, setOpenMobile } = useSidebar()
+
+  const closeAndNavigate = () => {
+    setOpenMobile(false)
+    setOpen(false)
+  }
 
   return (
     <>
@@ -56,7 +63,7 @@ export function DriverSidebarNav() {
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild isActive={!!isActive}>
-                      <Link href={item.href}>
+                      <Link href={item.href} onClick={closeAndNavigate}>
                         <Icon className="size-4 shrink-0" />
                         <span>{item.label}</span>
                       </Link>
