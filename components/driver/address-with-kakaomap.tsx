@@ -44,17 +44,11 @@ export function AddressWithKakaoMap({ address, coords: _coords }: AddressWithKak
       title="클릭하여 주소 복사"
     >
       <span className="flex-1 min-w-0">{address}</span>
-      <span className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground">
+      <span className="shrink-0 flex items-center text-muted-foreground group-hover:text-foreground">
         {copied ? (
-          <>
-            <Check className="h-3.5 w-3.5 text-green-600" />
-            <span className="text-green-600">복사됨</span>
-          </>
+          <Check className="h-3.5 w-3.5 text-green-600" />
         ) : (
-          <>
-            <Copy className="h-3.5 w-3.5" />
-            <span>클릭하여 복사</span>
-          </>
+          <Copy className="h-3.5 w-3.5" />
         )}
       </span>
     </button>
