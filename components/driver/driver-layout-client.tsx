@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import {
   SidebarProvider,
   Sidebar,
@@ -25,6 +26,8 @@ type DriverLayoutClientProps = {
 
 export function DriverLayoutClient({ children, fullName, avatarUrl }: DriverLayoutClientProps) {
   const displayName = fullName?.trim() || "기사"
+  const pathname = usePathname()
+  const isAvailablePage = pathname === "/driver/available"
 
   return (
     <>
@@ -76,7 +79,13 @@ export function DriverLayoutClient({ children, fullName, avatarUrl }: DriverLayo
               배송원
             </span>
           </header>
-          <div className="flex-1 overflow-auto bg-gradient-to-br from-blue-50/50 via-white to-yellow-50/50 p-4 md:p-6">
+          <div
+            className={
+              isAvailablePage
+                ? "flex-1 overflow-auto bg-gradient-to-br from-blue-50/50 via-white to-yellow-50/50 px-2 py-4 md:px-3 md:py-6"
+                : "flex-1 overflow-auto bg-gradient-to-br from-blue-50/50 via-white to-yellow-50/50 p-4 md:p-6"
+            }
+          >
             {children}
           </div>
         </SidebarInset>
