@@ -53,9 +53,9 @@ export default async function DriverAvailablePage() {
     <DriverDeliveryRequestProvider>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
         <RealtimeDeliveryNotifications userId={user.id} isAvailable={driverInfo?.is_available ?? false} />
-        <div className="w-full max-w-none -mx-4 -my-2 px-2 py-1 space-y-2 md:-mx-6 md:-my-4 md:px-3 md:py-2">
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="py-2 px-3 space-y-0">
+        <div className="w-full min-w-0 -mx-4 -my-2 px-1 py-1 space-y-2 md:-mx-6 md:-my-4 md:px-2 md:py-2">
+          <Card className="border-0 shadow-sm w-full min-w-0">
+            <CardHeader className="py-2 px-2 space-y-0">
               <div className="flex flex-row items-center justify-between gap-2">
                 <CardTitle className="text-lg">대기 중인 배송</CardTitle>
                 <DriverStatusToggle initialStatus={driverInfo?.is_available ?? false} redirectToOnTurnOff="/driver" />
@@ -64,7 +64,7 @@ export default async function DriverAvailablePage() {
                 현재 {available.length}건의 수락 가능한 배송
               </CardDescription>
             </CardHeader>
-            <CardContent className="py-2 px-3 pt-0">
+            <CardContent className="py-2 px-2 pt-0 w-full min-w-0 overflow-hidden">
               <AvailableDeliveries deliveries={available} />
             </CardContent>
           </Card>

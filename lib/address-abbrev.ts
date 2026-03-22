@@ -1,6 +1,10 @@
+/** 제거할 시·도 이름 (광주,대구,부산,서울,강원도 등) */
+const SIDO_NAMES =
+  "서울|부산|대구|인천|광주|대전|울산|세종|강원도|경기도|충청북도|충청남도|전라북도|전라남도|경상북도|경상남도|제주도|제주특별자치도|강원|경기|충북|충남|전북|전남|경북|경남|제주"
+
 /**
- * 특별시·광역시·시·구를 제외하고 동(또는 읍·면)만 표시. (배송대기중 목록용)
- * 예: 서울특별시 강남구 역삼동 123 → 역삼동, 부산광역시 해운대구 우동 → 우동
+ * 특별시·광역시·시·구·시도명을 제외하고 동(또는 읍·면)만 표시. (배송대기중 목록용)
+ * 예: 서울특별시 강남구 역삼동 123 → 역삼동, 광주광역시 북구 문흥동 → 문흥동
  */
 export function toDongOnly(addr: string): string {
   if (!addr || typeof addr !== "string") return "-"
@@ -12,12 +16,13 @@ export function toDongOnly(addr: string): string {
   if (eupMatch) return eupMatch[1]
   const myeonMatch = s.match(/([가-힣]+면)\b/)
   if (myeonMatch) return myeonMatch[1]
-  // 동/읍/면 없을 때: 특별시·광역시·시·구 제거 후 나머지 반환
+  // 동/읍/면 없을 때: 시도명·특별시·광역시·시·구 제거
+  s = s.replace(new RegExp(`\\b(${SIDO_NAMES})\\s*`, "g"), "")
   s = s.replace(/^[가-힣]+(특별시|광역시|특별자치시|도)\s*/g, "")
   s = s.replace(/[가-힣]+시\s*/g, "")
   s = s.replace(/[가-힣]+구\s*/g, "")
   s = s.trim()
-  return s ? (s.length > 10 ? s.slice(0, 10) + "…" : s) : addr.trim().slice(0, 8)
+  return s ? (s.length > 10 ? s.slice(0, 10) + "…" : s) : "-"
 }
 
 /**

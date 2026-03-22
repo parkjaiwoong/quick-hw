@@ -87,8 +87,8 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
       )}
 
       {deliveries.length > 0 && (
-      <div className="space-y-1">
-        <div className="grid grid-cols-12 text-xs font-semibold text-muted-foreground px-1 gap-1">
+      <div className="space-y-1 w-full min-w-0">
+        <div className="grid grid-cols-12 text-xs font-semibold text-muted-foreground px-0 gap-1 w-full">
           <div className="col-span-2">구분</div>
           <div className="col-span-2">거리</div>
           <div className="col-span-3">픽업</div>
@@ -105,7 +105,7 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           return (
             <div
               key={delivery.id}
-              className="grid grid-cols-12 items-center gap-1 rounded border bg-card px-1 py-2 text-sm hover:bg-accent/30 cursor-pointer"
+              className="grid grid-cols-12 items-center gap-1 rounded border bg-card px-0 py-2 text-sm hover:bg-accent/30 cursor-pointer w-full min-w-0"
               onClick={() => router.push(`/driver/delivery/${delivery.id}`)}
               title="클릭으로 상세 보기"
               role="button"
