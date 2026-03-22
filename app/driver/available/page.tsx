@@ -64,7 +64,7 @@ export default async function DriverAvailablePage() {
           <Card className="border-0 shadow-sm w-full min-w-0">
             <CardHeader className="py-2 px-3 space-y-0">
               <div className="flex flex-row items-center justify-between gap-2">
-                <CardTitle className="text-lg">대기 중인 배송</CardTitle>
+                <CardTitle className="text-lg leading-tight">대기 중인<br />배송</CardTitle>
                 <DriverStatusToggle initialStatus={driverInfo?.is_available ?? false} redirectToOnTurnOff="/driver" />
               </div>
               <CardDescription className="text-xs">

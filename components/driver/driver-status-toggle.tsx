@@ -95,7 +95,7 @@ export function DriverStatusToggle({ initialStatus, redirectToOnTurnOff }: Drive
       <Label htmlFor="availability" className="cursor-pointer shrink-0">
         <span className="font-semibold whitespace-nowrap">{isAvailable ? "배송 가능" : "배송 불가"}</span>
         <span className="block text-xs text-muted-foreground">
-          {isAvailable ? "새 배송을 받을 수 있습니다" : "새 배송을 받지 않습니다"}
+          {isAvailable ? <>새 배송을<br />받을 수 있습니다</> : <>새 배송을<br />받지 않습니다</>}
         </span>
       </Label>
     </div>
