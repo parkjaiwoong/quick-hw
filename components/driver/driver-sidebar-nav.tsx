@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Truck, Wallet, DollarSign, BookOpen, BarChart3, Megaphone } from "lucide-react"
+import { LayoutDashboard, Truck, Wallet, DollarSign, BookOpen, BarChart3, Megaphone, ShieldAlert } from "lucide-react"
 
 const menuGroups = [
   {
@@ -34,6 +34,7 @@ const menuGroups = [
     items: [
       { href: "/driver/announcements", label: "공지사항", icon: Megaphone },
       { href: "/driver/guide", label: "가이드", icon: BookOpen },
+      { href: "/driver/accident", label: "사고 신고", icon: ShieldAlert },
     ],
   },
 ]

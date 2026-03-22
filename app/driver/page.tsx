@@ -156,15 +156,17 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>사고 발생</CardDescription>
-              <CardTitle className="text-3xl text-red-600">{accidents?.length || 0}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Package className="h-4 w-4 text-red-600" />
-            </CardContent>
-          </Card>
+          <Link href="/driver/accident">
+            <Card className="hover:bg-accent/30 transition-colors cursor-pointer">
+              <CardHeader className="pb-2">
+                <CardDescription>사고 발생</CardDescription>
+                <CardTitle className="text-3xl text-red-600">{accidents?.length || 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">사고 신고하기 →</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         <Tabs defaultValue="assigned" className="w-full">

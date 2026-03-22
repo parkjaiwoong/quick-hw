@@ -1,8 +1,57 @@
 "use server"
 
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getSupabaseServerClient, getServiceRoleClient } from "@/lib/supabase/server"
 import { getRoleOverride } from "@/lib/role"
 import { revalidatePath } from "next/cache"
+
+const BUCKET_ACCIDENT_PHOTOS = "accident-photos"
+
+async function ensureAccidentPhotosBucket(): Promise<boolean> {
+  const client = getServiceRoleClient()
+  if (!client) return false
+  const { error } = await client.storage.createBucket(BUCKET_ACCIDENT_PHOTOS, {
+    public: true,
+    fileSizeLimit: "5MB",
+  })
+  if (error && !String(error).includes("already exists") && !String(error).includes("duplicate")) return false
+  return true
+}
+
+/** 사고 증빙 사진 업로드 (고객/기사) - 여러 파일 업로드 후 URL 배열 반환 */
+export async function uploadAccidentPhotos(formData: FormData): Promise<{ urls?: string[]; error?: string }> {
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "인증이 필요합니다" }
+
+  const files = formData.getAll("photos") as File[]
+  const validFiles = files.filter((f) => f && f.size > 0 && f instanceof File)
+  if (validFiles.length === 0) return { urls: [] }
+
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic"]
+  const maxSize = 5 * 1024 * 1024
+  const urls: string[] = []
+  const client = getServiceRoleClient() ?? supabase
+
+  await ensureAccidentPhotosBucket()
+
+  for (let i = 0; i < Math.min(validFiles.length, 5); i++) {
+    const file = validFiles[i]
+    if (!allowedTypes.includes(file.type) || file.size > maxSize) continue
+    const ext = file.name.split(".").pop() || "jpg"
+    const path = `${user.id}/${Date.now()}_${i}.${ext}`
+    const buf = new Uint8Array(await file.arrayBuffer())
+    let uploadErr = (await client.storage.from(BUCKET_ACCIDENT_PHOTOS).upload(path, buf, {
+      contentType: file.type,
+      upsert: true,
+    })).error
+    if (uploadErr) return { error: "사진 업로드에 실패했습니다." }
+    const { data } = client.storage.from(BUCKET_ACCIDENT_PHOTOS).getPublicUrl(path)
+    urls.push(data.publicUrl)
+  }
+  return { urls }
+}
 
 // 사고 접수 생성
 export async function reportAccident(data: {
@@ -79,6 +128,8 @@ export async function reportAccident(data: {
   }
 
   revalidatePath("/admin/accidents")
+  revalidatePath("/driver/accident")
+  revalidatePath("/customer/accident")
   return { success: true, accident }
 }
 

@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TermsButton } from "@/components/common/terms-modal"
 import { CheckCircle, AlertCircle, Shield, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { reportAccident } from "@/lib/actions/accident"
+import { reportAccident, uploadAccidentPhotos } from "@/lib/actions/accident"
 import { createClient } from "@/lib/supabase/client"
 
 export default function AccidentReportPage() {
@@ -58,13 +58,26 @@ export default function AccidentReportPage() {
     setError("")
 
     const formData = new FormData(e.currentTarget)
-    
+    let photoUrls: string[] = []
+    if (photos.length > 0) {
+      const fd = new FormData()
+      photos.slice(0, 5).forEach((f) => fd.append("photos", f))
+      const uploadRes = await uploadAccidentPhotos(fd)
+      if (uploadRes.error) {
+        setError(uploadRes.error)
+        setIsLoading(false)
+        return
+      }
+      photoUrls = uploadRes.urls ?? []
+    }
+
     const result = await reportAccident({
       deliveryId: selectedDeliveryId || undefined,
       accidentType: accidentType,
       accidentDate: new Date().toISOString(),
       accidentDescription: formData.get("description") as string,
       packageDamageDescription: accidentType === "damage" ? formData.get("damageDescription") as string : undefined,
+      photos: photoUrls.length > 0 ? photoUrls : undefined,
     })
 
     if (result.error) {
@@ -223,15 +236,16 @@ export default function AccidentReportPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="photos">사진 업로드 (선택)</Label>
+                <Label htmlFor="photos">사진 업로드 (선택, 최대 5장)</Label>
                 <Input
                   id="photos"
+                  name="photos"
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/heic"
                   onChange={(e) => {
                     if (e.target.files) {
-                      setPhotos(Array.from(e.target.files))
+                      setPhotos(Array.from(e.target.files).slice(0, 5))
                     }
                   }}
                 />

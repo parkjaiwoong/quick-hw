@@ -351,6 +351,14 @@ export default async function DriverDeliveryDetailPage({
               <p>물품 파손·분실은 약관 범위 내에서 처리됩니다.</p>
               <p>인적 사고는 기사 개인 책임입니다.</p>
               <p>수락 후 고객 연락처가 공개됩니다.</p>
+              {isAssignedToMe && (
+                <p>
+                  배송 중 사고 발생 시{" "}
+                  <Link href={`/driver/accident?deliveryId=${delivery.id}`} className="text-primary font-medium underline underline-offset-2 hover:no-underline">
+                    사고 신고
+                  </Link>
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
