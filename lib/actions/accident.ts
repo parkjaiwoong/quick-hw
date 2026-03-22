@@ -111,7 +111,7 @@ export async function reportAccident(data: {
       package_damage_description: data.packageDamageDescription,
       injury_description: data.injuryDescription,
       witness_info: data.witnessInfo,
-      photos: data.photos ? JSON.stringify(data.photos) : null,
+      photos: data.photos?.length ? data.photos : null,
       status: "reported",
     })
     .select()

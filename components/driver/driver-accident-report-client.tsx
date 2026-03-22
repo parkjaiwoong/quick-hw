@@ -42,6 +42,7 @@ export function DriverAccidentReportClient({
   const [accidentType, setAccidentType] = useState("")
   const [photos, setPhotos] = useState<File[]>([])
   const [accidentsList, setAccidentsList] = useState(accidents)
+  const [fileInputKey, setFileInputKey] = useState(0)
 
   useEffect(() => {
     if (prefilledDeliveryId) setSelectedDeliveryId(prefilledDeliveryId)
@@ -103,7 +104,7 @@ export function DriverAccidentReportClient({
               </AlertDescription>
             </Alert>
             <div className="flex gap-3">
-              <Button onClick={() => { setIsSubmitted(false); setAccidentType(""); setSelectedDeliveryId(""); setPhotos([]) }} variant="outline" className="flex-1">
+              <Button onClick={() => { setIsSubmitted(false); setAccidentType(""); setSelectedDeliveryId(""); setPhotos([]); setFileInputKey((k) => k + 1) }} variant="outline" className="flex-1">
                 추가 신고
               </Button>
               <Button asChild className="flex-1">
@@ -232,19 +233,31 @@ export function DriverAccidentReportClient({
 
             <div className="space-y-2">
               <Label htmlFor="photos">사진 업로드 (선택, 최대 5장)</Label>
-              <Input
-                id="photos"
-                name="photos"
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp,image/heic"
-                onChange={(e) => {
-                  if (e.target.files) setPhotos(Array.from(e.target.files).slice(0, 5))
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                현장 증빙 사진을 반드시 촬영해 업로드해 주세요
-              </p>
+              <div className="flex flex-col gap-2">
+                <Input
+                  key={fileInputKey}
+                  id="photos"
+                  name="photos"
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/heic"
+                  onChange={(e) => {
+                    if (e.target.files) setPhotos(Array.from(e.target.files).slice(0, 5))
+                  }}
+                />
+                {photos.length > 0 ? (
+                  <p className="text-sm text-green-600 font-medium">
+                    선택됨: {photos.length}개 파일
+                    {photos.length <= 2
+                      ? ` (${photos.map((f) => f.name).join(", ")})`
+                      : ` (${photos[0].name} 외 ${photos.length - 1}개)`}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    현장 증빙 사진을 반드시 촬영해 업로드해 주세요
+                  </p>
+                )}
+              </div>
             </div>
 
             {error && (
