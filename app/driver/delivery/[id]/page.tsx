@@ -18,6 +18,7 @@ import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-
 import { AddressWithKakaoMap } from "@/components/driver/address-with-kakaomap"
 import { DriverDeliveryResizable } from "@/components/driver/driver-delivery-resizable"
 import { ExpectedTimeBanner, ExceededCompleteMessage } from "@/components/driver/expected-time-banner"
+import { formatDistanceKm } from "@/lib/geo"
 
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
@@ -326,12 +327,14 @@ export default async function DriverDeliveryDetailPage({
                     {toPickupKm !== null && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">픽업장소까지</span>
-                        <span className="font-medium">{toPickupKm.toFixed(1)}km</span>
+                        <span className="font-medium">{formatDistanceKm(toPickupKm) || "-"}</span>
                       </div>
                     )}
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">픽업 → 배송장소</span>
-                      <span className="font-medium">{delivery.distance_km?.toFixed(1) ?? "-"}km</span>
+                      <span className="font-medium">
+                        {delivery.distance_km != null ? formatDistanceKm(delivery.distance_km) : "-"}
+                      </span>
                     </div>
                   </>
                 )

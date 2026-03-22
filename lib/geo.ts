@@ -37,3 +37,10 @@ export function haversineKm(
     Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
   return Math.round(R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s)) * 10) / 10
 }
+
+/** 1km 미만이면 m, 이상이면 km 표시 */
+export function formatDistanceKm(km: number | null | undefined): string {
+  if (km == null) return ""
+  if (km < 1) return `${Math.round(km * 1000)}m`
+  return `${km.toFixed(1)}km`
+}

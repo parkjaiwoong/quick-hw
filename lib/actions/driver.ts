@@ -298,7 +298,9 @@ export async function updateDeliveryStatus(
   deliveryId: string,
   status: string,
   deliveryProofUrl?: string,
-  supabaseClient?: Awaited<ReturnType<typeof getSupabaseServerClient>>
+  supabaseClient?: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  /** JWT 토큰: Bearer 인증 시 auth.getUser(token)으로 사용 (WebView/앱에서 쿠키 없을 때) */
+  accessToken?: string
 ) {
   const supabase = supabaseClient ?? (await getSupabaseServerClient())
 
@@ -311,9 +313,9 @@ export async function updateDeliveryStatus(
     return { error: "이미 배송 완료된 건은 변경할 수 없습니다." }
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = accessToken
+    ? await supabase.auth.getUser(accessToken)
+    : await supabase.auth.getUser()
   if (!user) return { error: "인증이 필요합니다." }
   if (current?.driver_id && current.driver_id !== user.id) {
     return { error: "이 배송의 담당 기사만 완료 처리할 수 있습니다." }

@@ -36,7 +36,13 @@ export async function POST(
     if (status === "delivered" && fromAccepted) {
       result = await completeDeliveryFromAccepted(deliveryId, deliveryProofUrl, supabaseForUpdate)
     } else {
-      result = await updateDeliveryStatus(deliveryId, status, deliveryProofUrl, supabaseForUpdate)
+      result = await updateDeliveryStatus(
+        deliveryId,
+        status,
+        deliveryProofUrl,
+        supabaseForUpdate,
+        bearerToken ?? undefined
+      )
     }
     if (result?.error) {
       return NextResponse.json({ error: result.error }, { status: 400 })
