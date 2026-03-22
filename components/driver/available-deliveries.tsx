@@ -9,6 +9,13 @@ import { useDriverDeliveryRequest } from "@/lib/contexts/driver-delivery-request
 import { Button } from "@/components/ui/button"
 import { toDongOnly } from "@/lib/address-abbrev"
 
+/** 1km 미만이면 m, 이상이면 km 표시 */
+function formatDistance(km: number | null | undefined): string {
+  if (km == null) return ""
+  if (km < 1) return `${Math.round(km * 1000)}m`
+  return `${km.toFixed(1)}km`
+}
+
 interface AvailableDeliveriesProps {
   deliveries: DeliveryWithPickupDist[]
 }
@@ -62,7 +69,7 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
             )}
             <div className="flex items-center justify-between text-sm pt-1">
               <span className="text-muted-foreground">
-                {latestNew.delivery.distance_km != null && `${latestNew.delivery.distance_km.toFixed(1)}km`}
+                {latestNew.delivery.distance_km != null && formatDistance(latestNew.delivery.distance_km)}
                 {(latestNew.delivery.driver_fee ?? latestNew.delivery.total_fee) != null && (
                   <span className="ml-2 font-semibold text-foreground">
                     {Number(latestNew.delivery.driver_fee ?? latestNew.delivery.total_fee).toLocaleString()}원
@@ -111,9 +118,9 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           const isScheduled = delivery.delivery_option === "scheduled"
           const isExpress = delivery.urgency === "express"
           const vehicle = delivery.vehicle_type === "motorcycle" ? "오토바이" : delivery.vehicle_type || "오토바이"
-          const pickupDistKm =
-            delivery.pickup_distance_km != null ? delivery.pickup_distance_km.toFixed(1) : null
-          const deliveryDistKm = delivery.distance_km?.toFixed(1) || "0"
+          const pickupDistStr =
+            delivery.pickup_distance_km != null ? formatDistance(delivery.pickup_distance_km) : null
+          const deliveryDistStr = formatDistance(delivery.distance_km ?? 0)
 
           return (
             <div
@@ -140,15 +147,15 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
                     <Clock className="h-3.5 w-3.5 text-blue-600" aria-hidden />
                   )}
                 </div>
-                {pickupDistKm != null && (
-                  <span className="text-[10px] text-muted-foreground shrink-0">{pickupDistKm}km</span>
+                {pickupDistStr != null && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">{pickupDistStr}</span>
                 )}
                 <span className="truncate font-medium" title={delivery.pickup_address}>
                   {toDongOnly(delivery.pickup_address)}
                 </span>
               </div>
               <div className="min-w-0 flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground shrink-0">{deliveryDistKm}km</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">{deliveryDistStr}</span>
                 <span className="truncate font-medium" title={delivery.delivery_address}>
                   {toDongOnly(delivery.delivery_address)}
                 </span>
