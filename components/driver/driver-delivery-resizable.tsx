@@ -115,17 +115,22 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
         {mapNode}
       </div>
 
-      {/* 리사이즈 핸들: 콘텐츠 상단, 지도 바로 아래 (모바일 전용) - z-30으로 액션 버튼 위에 표시 */}
+      {/* 리사이즈 핸들: 더블클릭 란 + 아래 드래그 영역 (모바일 전용) */}
       <div
         role="button"
         tabIndex={0}
         onMouseDown={handlePointerDown}
         onTouchStart={handlePointerDown}
         onDoubleClick={handleDoubleClick}
-        className="relative z-30 flex shrink-0 cursor-grab active:cursor-grabbing justify-center py-3 bg-slate-100 hover:bg-slate-200 border-y-2 border-slate-300 min-h-[44px] touch-manipulation select-none md:hidden"
+        className="relative z-30 flex shrink-0 flex-col cursor-grab active:cursor-grabbing bg-slate-100 hover:bg-slate-200 border-y-2 border-slate-300 touch-manipulation select-none md:hidden"
         aria-label="드래그 위로: 지도 숨김, 아래로: 지도 전체"
       >
-        <span className="w-14 h-1.5 rounded-full bg-slate-500 block" />
+        {/* 더블클릭 란 (바) */}
+        <div className="flex justify-center py-3 min-h-[44px]">
+          <span className="w-14 h-1.5 rounded-full bg-slate-500 block" />
+        </div>
+        {/* 아래 드래그 가능 영역: 이 영역에서 드래그해도 리사이즈 가능 */}
+        <div className="h-12 shrink-0" aria-hidden />
       </div>
 
       {/* 콘텐츠: 출발지, 배송옵션, 픽업/배송 정보, 물품 정보 등 */}

@@ -173,6 +173,18 @@ export default async function DriverDeliveryDetailPage({
                 )}
               </Badge>
             )}
+            {/* 고객 요청 예상시간 (기본 3시간, 급송 30분) */}
+            {(() => {
+              const expMin = delivery.expected_delivery_minutes ?? (delivery.urgency === "express" ? 30 : 180)
+              const isExpress = delivery.urgency === "express" || expMin <= 30
+              return (
+                <Badge variant="outline" className="gap-1">
+                  <Clock className="h-3.5 w-3" />
+                  예상 {expMin < 60 ? `${expMin}분` : `${expMin / 60}시간`}
+                  <span className="text-muted-foreground">({isExpress ? "급송" : "기본"})</span>
+                </Badge>
+              )
+            })()}
             </div>
           </div>
 
