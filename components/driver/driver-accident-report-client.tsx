@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -43,6 +42,7 @@ export function DriverAccidentReportClient({
   const [photos, setPhotos] = useState<File[]>([])
   const [accidentsList, setAccidentsList] = useState(accidents)
   const [fileInputKey, setFileInputKey] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (prefilledDeliveryId) setSelectedDeliveryId(prefilledDeliveryId)
@@ -70,11 +70,12 @@ export function DriverAccidentReportClient({
       photoUrls = uploadRes.urls ?? []
     }
 
+    const description = formData.get("description") as string
     const result = await reportAccident({
       deliveryId: selectedDeliveryId || undefined,
       accidentType: accidentType,
       accidentDate: new Date().toISOString(),
-      accidentDescription: formData.get("description") as string,
+      accidentDescription: description,
       packageDamageDescription: accidentType === "damage" ? (formData.get("damageDescription") as string) : undefined,
       photos: photoUrls.length > 0 ? photoUrls : undefined,
     })
@@ -84,6 +85,19 @@ export function DriverAccidentReportClient({
       setIsLoading(false)
     } else {
       setIsSubmitted(true)
+      if (result.accident && photoUrls.length > 0) {
+        const delivery = deliveries.find((d) => d.id === selectedDeliveryId)
+        const newAcc = {
+          id: (result.accident as { id?: string }).id,
+          accident_type: accidentType,
+          accident_description: description,
+          created_at: new Date().toISOString(),
+          status: "reported",
+          photos: photoUrls,
+          delivery: delivery ? { pickup_address: delivery.pickup_address, delivery_address: delivery.delivery_address } : null,
+        }
+        setAccidentsList((prev) => [newAcc, ...prev])
+      }
       router.refresh()
     }
     setIsLoading(false)
@@ -232,32 +246,48 @@ export function DriverAccidentReportClient({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="photos">사진 업로드 (선택, 최대 5장)</Label>
-              <div className="flex flex-col gap-2">
-                <Input
-                  key={fileInputKey}
-                  id="photos"
-                  name="photos"
-                  type="file"
-                  multiple
-                  accept="image/jpeg,image/png,image/webp,image/heic"
-                  onChange={(e) => {
-                    if (e.target.files) setPhotos(Array.from(e.target.files).slice(0, 5))
-                  }}
-                />
+              <Label>사진 업로드 (선택, 최대 5장)</Label>
+              <input
+                ref={fileInputRef}
+                key={fileInputKey}
+                id="photos"
+                name="photos"
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,image/heic"
+                className="sr-only"
+                onChange={(e) => {
+                  const files = e.target.files
+                  if (files && files.length > 0) setPhotos(Array.from(files).slice(0, 5))
+                }}
+              />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-6 cursor-pointer hover:bg-muted/50 hover:border-muted-foreground/50 transition-colors"
+              >
                 {photos.length > 0 ? (
-                  <p className="text-sm text-green-600 font-medium">
-                    선택됨: {photos.length}개 파일
-                    {photos.length <= 2
-                      ? ` (${photos.map((f) => f.name).join(", ")})`
-                      : ` (${photos[0].name} 외 ${photos.length - 1}개)`}
-                  </p>
+                  <>
+                    <p className="text-base font-semibold text-green-600">
+                      ✓ {photos.length}개 파일 선택됨
+                    </p>
+                    <p className="text-sm text-muted-foreground text-center">
+                      {photos.map((f) => f.name).join(", ")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">클릭하여 변경</p>
+                  </>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    현장 증빙 사진을 반드시 촬영해 업로드해 주세요
-                  </p>
+                  <>
+                    <p className="text-base font-medium">사진 선택 (클릭)</p>
+                    <p className="text-xs text-muted-foreground">최대 5장, JPG/PNG/WEBP/HEIC</p>
+                  </>
                 )}
               </div>
+              <p className="text-xs text-muted-foreground">
+                현장 증빙 사진을 반드시 촬영해 업로드해 주세요
+              </p>
             </div>
 
             {error && (
