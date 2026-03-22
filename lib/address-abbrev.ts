@@ -32,6 +32,36 @@ export function toDongOnly(addr: string): string {
 }
 
 /**
+ * 대기중 배송 목록용: 동 또는 도로명(로/길)부터 전체 표시. 시·도·구 제거.
+ * 공간 부족 시 CSS truncate로 ... 처리.
+ * 예: 광주광역시 북구 문흥동 123-45 → 문흥동 123-45
+ * 예: 서울 강남구 역삼동 테헤란로 123 → 역삼동 테헤란로 123
+ */
+export function toAddressFromDongOrRoad(addr: string): string {
+  if (!addr || typeof addr !== "string") return "-"
+  let s = addr.trim().replace(/\s+/g, " ")
+  if (!s) return "-"
+  s = s.replace(new RegExp(`(${SIDO_FULL})\\s*`, "g"), "")
+  s = s.replace(new RegExp(`\\b(${SIDO_NAMES})\\s*`, "g"), "")
+  s = s.replace(/^[가-힣]+(특별시|광역시|특별자치시|도)\s*/g, "")
+  s = s.replace(/^[가-힣]+구\s*/g, "")
+  s = s.replace(/^[가-힣]+시\s*/g, "")
+  s = s.trim()
+  if (!s) return "-"
+  const dongMatch = s.match(/([가-힣]+[0-9一二三四五六七八九十]?동\b[^]*)/)
+  if (dongMatch) return dongMatch[1]
+  const eupMatch = s.match(/([가-힣]+읍\b[^]*)/)
+  if (eupMatch) return eupMatch[1]
+  const myeonMatch = s.match(/([가-힣]+면\b[^]*)/)
+  if (myeonMatch) return myeonMatch[1]
+  const roMatch = s.match(/([가-힣]+로\b[^]*)/)
+  if (roMatch) return roMatch[1]
+  const gilMatch = s.match(/([가-힣]+길\b[^]*)/)
+  if (gilMatch) return gilMatch[1]
+  return s
+}
+
+/**
  * 목록용: 시/광역시/특별시/도 등 시·도 단위를 제거하고 구·동·상세만 표시.
  * 예: 광주광역시 북구 문흥동 123 → 북구 문흥동 123
  */

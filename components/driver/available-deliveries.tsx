@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { AlertCircle, Bike, Clock, Calendar, Zap, MapPin } from "lucide-react"
 import { useDriverDeliveryRequest } from "@/lib/contexts/driver-delivery-request"
 import { Button } from "@/components/ui/button"
-import { toDongOnly } from "@/lib/address-abbrev"
+import { toAddressFromDongOrRoad } from "@/lib/address-abbrev"
 
 /** 1km 미만이면 m, 이상이면 km 표시 */
 function formatDistance(km: number | null | undefined): string {
@@ -47,13 +47,13 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 shrink-0 text-green-600" />
               <span className="text-muted-foreground truncate" title={latestNew.delivery.pickup_address}>
-                {toDongOnly(latestNew.delivery.pickup_address)}
+                {toAddressFromDongOrRoad(latestNew.delivery.pickup_address)}
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 shrink-0 text-red-600" />
               <span className="text-muted-foreground truncate" title={latestNew.delivery.delivery_address}>
-                {toDongOnly(latestNew.delivery.delivery_address)}
+                {toAddressFromDongOrRoad(latestNew.delivery.delivery_address)}
               </span>
             </div>
             {latestNew.delivery.item_description && (
@@ -162,12 +162,12 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
               {/* 2행: 픽업 주소, 배송 주소 (넓게) */}
               <div className="min-w-0">
                 <span className="truncate block font-medium" title={delivery.pickup_address}>
-                  {toDongOnly(delivery.pickup_address)}
+                  {toAddressFromDongOrRoad(delivery.pickup_address)}
                 </span>
               </div>
               <div className="min-w-0">
                 <span className="truncate block font-medium" title={delivery.delivery_address}>
-                  {toDongOnly(delivery.delivery_address)}
+                  {toAddressFromDongOrRoad(delivery.delivery_address)}
                 </span>
               </div>
             </div>
