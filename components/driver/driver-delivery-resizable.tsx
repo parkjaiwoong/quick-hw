@@ -115,25 +115,29 @@ export function DriverDeliveryResizable({ mapNode, children }: DriverDeliveryRes
         {mapNode}
       </div>
 
-      {/* 리사이즈 핸들: 더블클릭 란 + 아래 드래그 영역 (모바일 전용) */}
+      {/* 리사이즈 핸들: 1행 높이 (모바일 전용) */}
       <div
         role="button"
         tabIndex={0}
         onMouseDown={handlePointerDown}
         onTouchStart={handlePointerDown}
         onDoubleClick={handleDoubleClick}
-        className="relative z-30 flex shrink-0 flex-col cursor-grab active:cursor-grabbing bg-slate-100 hover:bg-slate-200 border-y-2 border-slate-300 touch-manipulation select-none md:hidden"
+        className="relative z-30 flex shrink-0 cursor-grab active:cursor-grabbing items-center justify-center py-1.5 bg-slate-100 hover:bg-slate-200 border-y border-slate-300 touch-manipulation select-none md:hidden"
         aria-label="드래그 위로: 지도 숨김, 아래로: 지도 전체"
       >
-        {/* 더블클릭 란 (바) */}
-        <div className="flex justify-center py-3 min-h-[44px]">
-          <span className="w-14 h-1.5 rounded-full bg-slate-500 block" />
-        </div>
-        {/* 아래 드래그 가능 영역: 이 영역에서 드래그해도 리사이즈 가능 */}
-        <div className="h-12 shrink-0" aria-hidden />
+        <span className="w-10 h-1 rounded-full bg-slate-500 block" />
       </div>
 
-      {/* 콘텐츠: 출발지, 배송옵션, 픽업/배송 정보, 물품 정보 등 */}
+      {/* 그립: 핸들 바로 아래, 배송옵션 위 - 드래그 가능 */}
+      <div
+        className="flex shrink-0 cursor-grab active:cursor-grabbing items-center justify-center py-2 bg-slate-50 border-b border-slate-200 touch-manipulation select-none md:hidden"
+        onMouseDown={handlePointerDown}
+        onTouchStart={handlePointerDown}
+      >
+        <span className="text-[10px] text-muted-foreground">↑↓</span>
+      </div>
+
+      {/* 콘텐츠 */}
       <div className="flex-1 overflow-auto min-h-0">
         {children}
       </div>

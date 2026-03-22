@@ -97,16 +97,13 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
 
       {deliveries.length > 0 && (
       <div className="space-y-1 w-full min-w-0">
-        {/* 헤더: 2행 - 픽업 위 구분·거리, 배송 위 픽업→배송 거리 */}
+        {/* 헤더: 픽업 위 구분·거리(같은라인), 배송 위 픽업→배송 거리 */}
         <div className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] text-[10px] text-muted-foreground gap-1 w-full min-w-0">
-          <div className="flex flex-col">
+          <div className="flex items-center gap-2">
             <span>구분</span>
             <span>거리</span>
           </div>
-          <div className="flex flex-col">
-            <span>픽업→배송 거리</span>
-            <span className="invisible">-</span>
-          </div>
+          <div>픽업→배송 거리</div>
           <div className="min-w-[5rem] text-right text-sm font-bold text-foreground">확정 금액</div>
         </div>
         <div className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] text-sm font-bold text-foreground gap-1 w-full min-w-0 pb-0.5">
@@ -138,8 +135,8 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
                 }
               }}
             >
-              {/* 1행: 구분(아이콘), 거리 | 픽업→배송 거리 | 금액 */}
-              <div className="flex flex-col gap-0.5 min-w-0">
+              {/* 1행: 구분(아이콘)·거리 같은라인 | 픽업→배송 거리 | 금액 */}
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="flex items-center gap-0.5 text-muted-foreground shrink-0" title={vehicle}>
                   <Bike className="h-3 w-3" />
                   {isScheduled ? (
@@ -151,7 +148,7 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
                   )}
                 </div>
                 {pickupDistStr != null && (
-                  <div className="text-[10px] text-muted-foreground">{pickupDistStr}</div>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{pickupDistStr}</span>
                 )}
               </div>
               <div className="flex flex-col gap-0.5 min-w-0">
