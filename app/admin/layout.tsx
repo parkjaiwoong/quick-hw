@@ -1,19 +1,17 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { getRoleOverride } from "@/lib/role"
 import { AdminLayoutClient } from "@/components/admin/admin-layout-client"
+import { getCachedAuthUser, getCachedProfileRow } from "@/lib/cache/server-session"
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await getSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCachedAuthUser()
   if (!user) redirect("/auth/login")
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  const roleOverride = await getRoleOverride()
+  const [profile, roleOverride] = await Promise.all([getCachedProfileRow(user.id), getRoleOverride()])
   const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
   if (!canActAsAdmin) redirect("/")
 

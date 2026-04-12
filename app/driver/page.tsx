@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getCachedAuthUser, getCachedProfileRow } from "@/lib/cache/server-session"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -20,21 +21,17 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
   const params = await searchParams
   const acceptDeliveryId = params?.accept_delivery ?? null
 
-  const supabase = await getSupabaseServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getCachedAuthUser()
   if (!user) {
     redirect("/auth/login")
   }
 
+  const supabase = await getSupabaseServerClient()
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  // profile + riderCode + roleOverride 병렬 조회
-  const [{ data: profile }, riderCode, roleOverride] = await Promise.all([
-    supabase.from("profiles").select("role, full_name").eq("id", user.id).single(),
+  // 레이아웃과 동일 요청에서 프로필·역할 캐시 재사용
+  const [cachedProfile, riderCode, roleOverride] = await Promise.all([
+    getCachedProfileRow(user.id),
     serviceRoleKey
       ? (async () => {
           const { createClient: createServiceClient } = await import("@supabase/supabase-js")
@@ -46,6 +43,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     getRoleOverride(),
   ])
 
+  const profile = cachedProfile
   const canActAsDriver = roleOverride === "driver" || profile?.role === "driver" || profile?.role === "admin"
   if (!canActAsDriver) {
     redirect("/")

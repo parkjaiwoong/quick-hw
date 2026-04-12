@@ -3,16 +3,27 @@
 import { usePathname } from "next/navigation"
 import { useEffect, useState, useRef } from "react"
 
+const MIN_BAR_MS = 320
+
 /**
- * 내부 링크 클릭 시 상단에 얇은 로딩 바를 표시해 체감 속도를 높입니다.
+ * 내부 링크 클릭 시 상단 로딩 바. 최소 표시 시간으로 '깜빡임'을 줄이고 체감 대기를 알립니다.
  */
 export function NavigationProgress() {
   const pathname = usePathname()
   const [visible, setVisible] = useState(false)
   const prevPathRef = useRef<string | null>(null)
+  const barShownAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (prevPathRef.current !== null && prevPathRef.current !== pathname) {
+      const started = barShownAtRef.current
+      barShownAtRef.current = null
+      if (started != null) {
+        const elapsed = Date.now() - started
+        const wait = Math.max(0, MIN_BAR_MS - elapsed)
+        const t = window.setTimeout(() => setVisible(false), wait)
+        return () => window.clearTimeout(t)
+      }
       setVisible(false)
     }
     prevPathRef.current = pathname
@@ -26,6 +37,7 @@ export function NavigationProgress() {
       try {
         const url = new URL(anchor.href)
         if (url.origin === window.location.origin && url.pathname !== window.location.pathname) {
+          barShownAtRef.current = Date.now()
           setVisible(true)
         }
       } catch {
