@@ -13,23 +13,24 @@ SET search_path = public
 AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_ok BOOLEAN;
+  allow_role BOOLEAN;
   v_payments JSON;
 BEGIN
   IF v_uid IS NULL THEN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  -- IF 조건에서 PL 변수명이 SQL 릴레이션으로 오해되지 않도록, 역할 판별만 단일 SQL로 계산
-  SELECT (
-    COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
-    OR COALESCE(
-      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
-      ''
-    ) IN ('customer', 'admin')
-  ) INTO v_ok;
+  -- SELECT … INTO / IF COALESCE(변수) 형태는 일부 환경에서 변수명을 릴레이션으로 오인 → := 스칼라 서브쿼리만 사용
+  allow_role := (
+    SELECT
+      (COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
+      OR COALESCE(
+        (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+        ''
+      ) IN ('customer', 'admin'))
+  );
 
-  IF NOT COALESCE(v_ok, false) THEN
+  IF allow_role IS NOT TRUE THEN
     RETURN json_build_object('error', 'forbidden');
   END IF;
 
@@ -86,7 +87,7 @@ SET search_path = public
 AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_ok BOOLEAN;
+  allow_role BOOLEAN;
   v_balance NUMERIC;
   v_history JSON;
   v_redemptions JSON;
@@ -95,15 +96,16 @@ BEGIN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  SELECT (
-    COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
-    OR COALESCE(
-      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
-      ''
-    ) IN ('customer', 'admin')
-  ) INTO v_ok;
+  allow_role := (
+    SELECT
+      (COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
+      OR COALESCE(
+        (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+        ''
+      ) IN ('customer', 'admin'))
+  );
 
-  IF NOT COALESCE(v_ok, false) THEN
+  IF allow_role IS NOT TRUE THEN
     RETURN json_build_object('error', 'forbidden');
   END IF;
 
@@ -170,22 +172,23 @@ SET search_path = public
 AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_ok BOOLEAN;
+  allow_role BOOLEAN;
   v_referral JSON;
 BEGIN
   IF v_uid IS NULL THEN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  SELECT (
-    COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
-    OR COALESCE(
-      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
-      ''
-    ) IN ('customer', 'admin')
-  ) INTO v_ok;
+  allow_role := (
+    SELECT
+      (COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
+      OR COALESCE(
+        (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+        ''
+      ) IN ('customer', 'admin'))
+  );
 
-  IF NOT COALESCE(v_ok, false) THEN
+  IF allow_role IS NOT TRUE THEN
     RETURN json_build_object('error', 'forbidden');
   END IF;
 
@@ -212,7 +215,7 @@ SET search_path = public
 AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_ok BOOLEAN;
+  allow_role BOOLEAN;
   v_total_deliveries BIGINT;
   v_active_deliveries BIGINT;
   v_customers BIGINT;
@@ -230,15 +233,16 @@ BEGIN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  SELECT (
-    COALESCE(
-      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
-      ''
-    ) = 'admin'
-    OR COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') = 'admin'
-  ) INTO v_ok;
+  allow_role := (
+    SELECT
+      (COALESCE(
+        (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+        ''
+      ) = 'admin'
+      OR COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') = 'admin')
+  );
 
-  IF NOT COALESCE(v_ok, false) THEN
+  IF allow_role IS NOT TRUE THEN
     RETURN json_build_object('error', 'forbidden');
   END IF;
 
