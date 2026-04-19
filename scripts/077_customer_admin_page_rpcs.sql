@@ -146,7 +146,7 @@ BEGIN
   ) rn;
 
   RETURN json_build_object(
-    'balance', FLOOR(COALESCE(v_balance, 0))::bigint,
+    'balance', COALESCE(v_balance, 0),
     'history', COALESCE(v_history, '[]'::json),
     'redemptions', COALESCE(v_redemptions, '[]'::json)
   );
