@@ -176,7 +176,7 @@ export default function DriverGuidePage() {
 
   if (completed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="text-center space-y-6 max-w-sm">
           <div className="flex justify-center">
             <div className="rounded-full bg-green-100 p-6">
@@ -204,7 +204,7 @@ export default function DriverGuidePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-lg mx-auto space-y-4">
         {/* 헤더 */}
         <div className="flex items-center justify-between pt-2">

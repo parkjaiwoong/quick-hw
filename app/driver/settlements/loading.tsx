@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export default function DriverSettlementsLoading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <div className="h-9 w-40 bg-muted animate-pulse rounded" />
@@ -26,7 +26,7 @@ export default function DriverSettlementsLoading() {
           </CardHeader>
           <CardContent className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="border rounded-lg p-4 space-y-2">
+              <div key={i} className="list-item-card p-4 space-y-2">
                 <div className="h-5 w-24 bg-muted animate-pulse rounded" />
                 <div className="h-4 w-full max-w-xs bg-muted/70 animate-pulse rounded" />
                 <div className="h-4 w-full max-w-sm bg-muted/70 animate-pulse rounded" />

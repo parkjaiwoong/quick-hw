@@ -128,7 +128,7 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">적립금 지갑</h1>
@@ -241,15 +241,15 @@ export default async function DriverWalletPage({ searchParams }: PageProps) {
             <CardDescription>정산/출금 흐름의 투명성을 제공합니다</CardDescription>
           </CardHeader>
           <CardContent className="grid md:grid-cols-3 gap-4 text-sm">
-            <div className="rounded-lg border p-3">
+            <div className="list-item-card p-3">
               <p className="text-muted-foreground">총 배송 건수</p>
               <p className="text-lg font-semibold">{totalDeliveries}건</p>
             </div>
-            <div className="rounded-lg border p-3">
+            <div className="list-item-card p-3">
               <p className="text-muted-foreground">정산 완료율</p>
               <p className="text-lg font-semibold">{settlementCompletionRate}%</p>
             </div>
-            <div className="rounded-lg border p-3">
+            <div className="list-item-card p-3">
               <p className="text-muted-foreground">평균 정산 소요일</p>
               <p className="text-lg font-semibold">{avgSettlementHours}시간</p>
             </div>

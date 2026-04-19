@@ -9,7 +9,7 @@ export default function PaymentFailPage() {
   const router = useRouter()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-lg mx-auto flex min-h-[70vh] items-center">
         <Card className="w-full">
           <CardHeader className="items-center text-center">

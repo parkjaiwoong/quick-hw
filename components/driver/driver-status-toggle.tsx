@@ -90,7 +90,7 @@ export function DriverStatusToggle({ initialStatus, redirectToOnTurnOff }: Drive
   }
 
   return (
-    <div className="flex items-center gap-3 bg-card p-4 rounded-lg border shrink-0">
+    <div className="list-item-card flex items-center gap-3 p-4 shrink-0">
       <Switch id="availability" checked={isAvailable} onCheckedChange={handleToggle} disabled={isLoading} />
       <Label htmlFor="availability" className="cursor-pointer shrink-0">
         <span className="font-semibold whitespace-nowrap">{isAvailable ? "배송 가능" : "배송 불가"}</span>

@@ -33,7 +33,7 @@ export default async function RewardPolicyPage() {
   const customerMiscRate = Number(policy?.customer_misc_reward_rate ?? 0.02) * 100
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-balance">기본 리워드 정책</h1>
@@ -92,7 +92,7 @@ export default async function RewardPolicyPage() {
                   />
                 </div>
               </div>
-              <div className="rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">
+              <div className="list-item-card bg-muted/50 p-3 text-sm text-muted-foreground">
                 고객 포인트는 기본 리워드 + 이벤트 + 기타 사유(정책) 비율이 합산됩니다.
               </div>
               <Button type="submit">정책 저장</Button>

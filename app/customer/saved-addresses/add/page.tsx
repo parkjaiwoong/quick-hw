@@ -61,7 +61,7 @@ function AddSavedAddressContent() {
 
   if (!isValid) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-md mx-auto space-y-4">
           <Card>
             <CardHeader>
@@ -89,7 +89,7 @@ function AddSavedAddressContent() {
   const typeLabel = type === "pickup" ? "출발지" : "도착지"
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-md mx-auto space-y-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" asChild>
@@ -137,7 +137,7 @@ function AddSavedAddressContent() {
 
 function AddFallback() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4 flex items-center justify-center">
+    <div className="min-h-screen bg-background p-4 flex items-center justify-center">
       <p className="text-muted-foreground">불러오는 중…</p>
     </div>
   )

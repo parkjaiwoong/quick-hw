@@ -67,7 +67,7 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
         const isLoading = loadingId === delivery.id
 
         return (
-          <div key={delivery.id} className="border rounded-lg p-4 bg-card">
+          <div key={delivery.id} className="list-item-card p-4">
             <div className="flex items-start justify-between mb-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className={config.color}>{config.label}</Badge>

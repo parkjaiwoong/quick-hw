@@ -56,7 +56,7 @@ function PaymentSuccessContent() {
   }, [status, deliveryId, router])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-lg mx-auto flex min-h-[70vh] items-center">
         <Card className="w-full">
           <CardHeader className="items-center text-center">
@@ -95,7 +95,7 @@ export default function PaymentSuccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4 flex items-center justify-center">
+        <div className="min-h-screen bg-background p-4 flex items-center justify-center">
           <Card className="w-full max-w-lg">
             <CardContent className="py-12 text-center text-muted-foreground">
               결제 승인 처리중…

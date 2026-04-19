@@ -134,7 +134,7 @@ export default async function AdminFinanceLogsPage({ searchParams }: PageProps) 
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">금액 액션 로그</h1>
@@ -156,7 +156,7 @@ export default async function AdminFinanceLogsPage({ searchParams }: PageProps) 
             <CardDescription>상태 · 기사명 조건으로 조회하고, 그리드/페이징으로 확인합니다</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            <form className="flex flex-wrap items-end gap-3 p-3 rounded-lg border bg-muted/30" method="GET">
+            <form className="list-item-card flex flex-wrap items-end gap-3 p-3 bg-muted/30" method="GET">
               <div className="space-y-1.5">
                 <Label htmlFor="status">상태</Label>
                 <select

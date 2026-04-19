@@ -72,7 +72,7 @@ export default function AdminDashboardTabs({
 
         <div className="p-4 md:p-6">
       <TabsContent value="logs" className="mt-0">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="list-item-card p-4">
           <CardHeader>
             <CardTitle>주문 & 연결 로그</CardTitle>
             <CardDescription>
@@ -87,7 +87,7 @@ export default function AdminDashboardTabs({
             ) : recentDeliveries && recentDeliveries.length > 0 ? (
               <div className="space-y-3 mb-4">
                 {recentDeliveries.map((delivery) => (
-                  <div key={delivery.id} className="rounded-lg border p-3 text-sm">
+                  <div key={delivery.id} className="list-item-card p-3 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">
                         {delivery.pickup_address} → {delivery.delivery_address}
@@ -131,7 +131,7 @@ export default function AdminDashboardTabs({
       </TabsContent>
 
       <TabsContent value="accidents" className="mt-0">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="list-item-card p-4">
           <CardHeader>
             <CardTitle>사고 처리 관리</CardTitle>
             <CardDescription>
@@ -147,7 +147,7 @@ export default function AdminDashboardTabs({
             ) : recentAccidents && recentAccidents.length > 0 ? (
               <div className="space-y-3 mb-4">
                 {recentAccidents.map((accident) => (
-                  <div key={accident.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                  <div key={accident.id} className="list-item-card flex items-center justify-between p-3 text-sm">
                     <div>
                       <p className="font-medium">
                         사고 #{accident.id.slice(0, 8)} ·{" "}
@@ -180,7 +180,7 @@ export default function AdminDashboardTabs({
       </TabsContent>
 
       <TabsContent value="cs" className="mt-0">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="list-item-card p-4">
           <CardHeader>
             <CardTitle>CS 응대</CardTitle>
             <CardDescription>문의 목록, AI 1차 답변 기록, 필요 시 수동 응답</CardDescription>
@@ -190,7 +190,7 @@ export default function AdminDashboardTabs({
               {recentInquiries && recentInquiries.length > 0 ? (
                 <div className="space-y-3">
                   {recentInquiries.map((inquiry) => (
-                    <div key={inquiry.id} className="rounded-lg border p-3 text-sm">
+                    <div key={inquiry.id} className="list-item-card p-3 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{inquiry.title || "제목 없음"}</span>
                         <span className="text-xs text-muted-foreground">
@@ -215,7 +215,7 @@ export default function AdminDashboardTabs({
       </TabsContent>
 
       <TabsContent value="rider-change" className="mt-0">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="list-item-card p-4">
           <CardHeader>
             <CardTitle>기사 변경 요청</CardTitle>
             <CardDescription>고객이 신청한 기사 변경 요청을 확인합니다.</CardDescription>
@@ -229,7 +229,7 @@ export default function AdminDashboardTabs({
       </TabsContent>
 
       <TabsContent value="rewards" className="mt-0">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="list-item-card p-4">
           <CardHeader>
             <CardTitle>리워드 관리</CardTitle>
             <CardDescription>정책/이력/포인트 관리 화면으로 이동합니다</CardDescription>
@@ -261,7 +261,7 @@ export default function AdminDashboardTabs({
       </TabsContent>
 
       <TabsContent value="pricing" className="mt-0">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="list-item-card p-4">
           <CardHeader>
             <CardTitle>가격 정책</CardTitle>
             <CardDescription>플랫폼 요금 기준 자동 산정 정책을 관리합니다.</CardDescription>
@@ -275,7 +275,7 @@ export default function AdminDashboardTabs({
       </TabsContent>
 
       <TabsContent value="announcements" className="mt-0">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="list-item-card p-4">
           <CardHeader>
             <CardTitle>공지사항 관리</CardTitle>
             <CardDescription>고객·기사에게 노출되는 공지사항을 등록·수정·삭제합니다.</CardDescription>

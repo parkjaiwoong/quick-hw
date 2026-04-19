@@ -103,7 +103,7 @@ export default function AccidentReportPage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto">
           <Card>
             <CardHeader>
@@ -121,7 +121,7 @@ export default function AccidentReportPage() {
                   <h3 className="text-sm font-semibold">내 사고 접수 내역</h3>
                   <div className="space-y-2">
                     {accidents.slice(0, 5).map((accident) => (
-                      <div key={accident.id} className="rounded-lg border p-3 text-sm">
+                      <div key={accident.id} className="list-item-card p-3 text-sm">
                         <div className="flex items-center justify-between">
                           <span className="font-medium">
                             {accident.accident_type === "damage" ? "물품 파손" : "물품 분실"}
@@ -153,7 +153,7 @@ export default function AccidentReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">물품 사고 접수</h1>
@@ -282,7 +282,7 @@ export default function AccidentReportPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {accidents.map((accident) => (
-                <div key={accident.id} className="rounded-lg border p-3 text-sm">
+                <div key={accident.id} className="list-item-card p-3 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
                       {accident.accident_type === "damage" ? "물품 파손" : "물품 분실"}

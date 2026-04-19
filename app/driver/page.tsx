@@ -111,7 +111,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
 
   return (
     <DriverDeliveryRequestProvider>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+      <div className="min-h-screen bg-background">
         <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId} />
       <DriverDashboardPoller />
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -223,7 +223,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
                 {allDeliveries && allDeliveries.length > 0 ? (
                   <div className="space-y-3">
                     {allDeliveries.map((delivery) => (
-                      <div key={delivery.id} className="border rounded-lg p-4">
+                      <div key={delivery.id} className="list-item-card p-4">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">

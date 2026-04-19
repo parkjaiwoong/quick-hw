@@ -50,7 +50,7 @@ export function PayoutFiltersForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4 p-4 rounded-lg border bg-card">
+    <form onSubmit={handleSubmit} className="list-item-card flex flex-wrap items-end gap-4 p-4">
       <div className="space-y-1.5">
         <Label htmlFor="dateFrom">요청일자(시작)</Label>
         <Input

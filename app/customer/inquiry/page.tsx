@@ -81,7 +81,7 @@ export default function InquiryPage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto">
           <Card>
             <CardHeader>
@@ -99,7 +99,7 @@ export default function InquiryPage() {
                   <h3 className="text-sm font-semibold">내 문의 내역</h3>
                   <div className="space-y-2">
                     {inquiries.slice(0, 5).map((inquiry) => (
-                      <div key={inquiry.id} className="rounded-lg border p-3 text-sm">
+                      <div key={inquiry.id} className="list-item-card p-3 text-sm">
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{inquiry.title || "제목 없음"}</span>
                           <span className="text-xs text-muted-foreground">
@@ -123,7 +123,7 @@ export default function InquiryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
@@ -176,7 +176,7 @@ export default function InquiryPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {inquiries.map((inquiry) => (
-                <div key={inquiry.id} className="rounded-lg border p-3 text-sm">
+                <div key={inquiry.id} className="list-item-card p-3 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{inquiry.title || "제목 없음"}</span>
                     <span className="text-xs text-muted-foreground">

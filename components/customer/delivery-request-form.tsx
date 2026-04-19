@@ -275,7 +275,7 @@ export function DeliveryRequestForm({
             <div className="space-y-2">
               <Label>출발지 주소 *</Label>
               <div className="flex gap-2 items-center">
-                <div className="flex-1 rounded-lg border bg-muted/30 px-3 py-2 text-sm text-foreground min-h-[40px] flex items-center">
+                <div className="list-item-card--dense flex-1 bg-muted/30 px-3 py-2 text-sm text-foreground min-h-[40px] flex items-center">
                   {pickupDefaultLoading ? "현재 위치 불러오는 중..." : pickupAddress || "주소 조회에서 선택하세요"}
                 </div>
                 <Link
@@ -344,7 +344,7 @@ export function DeliveryRequestForm({
             <div className="space-y-2">
               <Label>도착지 주소 *</Label>
               <div className="flex gap-2 items-center">
-                <div className="flex-1 rounded-lg border bg-muted/30 px-3 py-2 text-sm text-foreground min-h-[40px] flex items-center">
+                <div className="list-item-card--dense flex-1 bg-muted/30 px-3 py-2 text-sm text-foreground min-h-[40px] flex items-center">
                   {deliveryAddress || "주소 조회에서 선택하세요"}
                 </div>
                 <Link
@@ -646,7 +646,7 @@ export function DeliveryRequestForm({
               </Select>
             </div>
             {estimatedFee !== null && (
-              <div className="rounded-lg border bg-muted/50 p-3">
+              <div className="list-item-card bg-muted/50 p-3">
                 <p className="text-sm font-medium text-muted-foreground">자동 계산 금액</p>
                 <p className="text-xl font-bold text-foreground">{formatWon(estimatedFee)}원</p>
                 <p className="text-xs text-muted-foreground mt-1">

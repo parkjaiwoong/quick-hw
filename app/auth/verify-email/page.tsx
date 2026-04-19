@@ -3,7 +3,7 @@ import { Mail } from "lucide-react"
 
 export default function VerifyEmailPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">

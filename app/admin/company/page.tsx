@@ -24,7 +24,7 @@ export default async function CompanyPage() {
   const companyInfo = await getCompanyInfo()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

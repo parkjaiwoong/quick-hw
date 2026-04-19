@@ -39,7 +39,7 @@ function AnnouncementRow({ announcement }: { announcement: Announcement }) {
   }, [router])
 
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+    <div className="list-item-card flex items-start justify-between gap-4 p-4">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           {announcement.is_pinned && <Pin className="h-4 w-4 shrink-0 text-amber-500" />}

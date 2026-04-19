@@ -44,7 +44,7 @@ const PAGE_SIZE = 5
 function DeliveryCard({ delivery }: { delivery: DeliveryListItem }) {
   const cfg = statusConfig[delivery.status] ?? { label: delivery.status, color: "bg-gray-100 text-gray-800" }
   return (
-    <div className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
+    <div className="list-item-card p-4 hover:bg-accent/45 transition-colors">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">

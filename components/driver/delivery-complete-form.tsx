@@ -392,7 +392,7 @@ export function DeliveryCompleteForm({
           <div className="space-y-4">
             {/* 촬영한 사진 미리보기: 모달에서 바로 확인 */}
             {preview && (
-              <div className="relative rounded-lg border overflow-hidden bg-muted">
+              <div className="list-item-card relative overflow-hidden bg-muted">
                 <img
                   src={preview}
                   alt="배송 완료 인증"

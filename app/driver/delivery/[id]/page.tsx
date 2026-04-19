@@ -127,7 +127,7 @@ export default async function DriverDeliveryDetailPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <AcceptDeliveryFromUrl deliveryId={acceptDeliveryId ?? null} />
       <DriverDeliveryResizable
         mapNode={
@@ -203,7 +203,7 @@ export default async function DriverDeliveryDetailPage({
         )}
 
         {delivery.status === "delivered" && isAssignedToMe && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+          <div className="list-item-card border-amber-200/50 bg-amber-50/90 p-3 shadow-[0_2px_12px_rgba(180,83,9,0.08)]">
             <ExceededCompleteMessage
               acceptedAt={delivery.accepted_at}
               expectedDeliveryMinutes={delivery.expected_delivery_minutes ?? null}
@@ -222,7 +222,7 @@ export default async function DriverDeliveryDetailPage({
           </CardHeader>
           <CardContent className="space-y-4">
             {/* 픽업 */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="list-item-card bg-muted/30 p-3 space-y-2">
               <p className="text-sm font-semibold flex items-center gap-1">
                 <MapPin className="h-4 w-4 text-blue-600" />
                 픽업
@@ -246,7 +246,7 @@ export default async function DriverDeliveryDetailPage({
               </p>
             </div>
             {/* 배송 */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="list-item-card bg-muted/30 p-3 space-y-2">
               <p className="text-sm font-semibold flex items-center gap-1">
                 <MapPin className="h-4 w-4 text-red-600" />
                 배송
@@ -373,7 +373,7 @@ export default async function DriverDeliveryDetailPage({
           <CardContent className="space-y-3">
             {isCash ? (
               <>
-                <div className="rounded-lg border bg-muted/50 p-3 space-y-2 text-sm">
+                <div className="list-item-card bg-muted/50 p-3 space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">고객 결제 금액 (현금 수령)</span>
                     <span className="font-medium">{totalFee.toLocaleString()}원</span>
@@ -444,7 +444,7 @@ export default async function DriverDeliveryDetailPage({
 
         {delivery.status === "delivered" && (
           <div className="space-y-3">
-            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            <div className="list-item-card border-green-200/50 bg-green-50/95 px-4 py-3 text-sm text-green-800 shadow-[0_2px_12px_rgba(22,101,52,0.08)]">
               배송이 완료되었습니다. 이 건은 더 이상 수정할 수 없습니다.
             </div>
             {delivery.delivery_proof_url && (

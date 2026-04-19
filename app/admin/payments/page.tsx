@@ -25,7 +25,7 @@ export default async function AdminPaymentsPage() {
   const { payments = [] } = await getAllPayments()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">결제 관리</h1>
@@ -42,7 +42,7 @@ export default async function AdminPaymentsPage() {
               <p className="text-sm text-muted-foreground text-center py-8">결제 내역이 없습니다</p>
             ) : (
               payments.map((payment: any) => (
-                <div key={payment.id} className="border rounded-lg p-4 flex items-start justify-between gap-4">
+                <div key={payment.id} className="list-item-card p-4 flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold">{payment.customer?.full_name || payment.customer?.email || "고객"}</p>
                     <p className="text-sm text-muted-foreground">

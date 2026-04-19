@@ -35,7 +35,7 @@ export default async function CustomerAccountLinkPage({
   const failUrl = `${baseUrl}/customer/account-link?billing=fail`
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-4 md:p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-lg mx-auto space-y-6">
         <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
           <Link href="/customer/new-delivery" className="flex items-center gap-2">
@@ -72,7 +72,7 @@ export default async function CustomerAccountLinkPage({
           </CardHeader>
           <CardContent className="space-y-4">
             {billingKey ? (
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <div className="list-item-card bg-muted/30 p-4 space-y-3">
                 <p className="font-medium text-sm">등록된 카드</p>
                 <p className="text-sm text-muted-foreground">
                   {billingKey.card_company || "카드"} {billingKey.card_number_masked || "****"}

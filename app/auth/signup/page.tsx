@@ -166,7 +166,7 @@ function SignUpForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">퀵HW언넌 회원가입</CardTitle>
@@ -302,7 +302,7 @@ function SignUpForm() {
 
             {/* 배송원 추가 정보 */}
             {role === "driver" && (
-              <div className="space-y-4 p-4 border rounded-lg bg-blue-50">
+              <div className="list-item-card space-y-4 p-4 bg-blue-50/95 border-blue-200/45 shadow-[0_2px_14px_rgba(37,99,235,0.07)]">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Truck className="h-4 w-4" />
@@ -437,7 +437,7 @@ function SignUpForm() {
             )}
 
             {/* 공통 필수 약관 동의 */}
-            <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+            <div className="list-item-card space-y-3 p-4 bg-muted/40">
               <p className="text-sm font-medium text-gray-700">필수 약관 동의</p>
               <div className="flex items-start space-x-2">
                 <Checkbox
@@ -621,7 +621,7 @@ function SignUpForm() {
 export default function SignUpPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">퀵HW언넌 회원가입</CardTitle>

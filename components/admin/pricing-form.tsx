@@ -78,7 +78,7 @@ export function PricingForm({
           />
         </div>
       </div>
-      <div className="rounded-lg border bg-muted/30 p-4">
+      <div className="list-item-card bg-muted/30 p-4">
         <p className="text-sm font-semibold mb-4">수수료/사용료 정책 (분리 관리)</p>
         <div className="grid md:grid-cols-3 gap-4 text-sm">
           <div className="space-y-2">
@@ -98,16 +98,16 @@ export function PricingForm({
           현재는 0으로 유지되며, 추후 정책 적용 시 분리 관리 가능합니다.
         </p>
       </div>
-      <div className="rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
+      <div className="list-item-card bg-muted/50 p-4 text-sm text-muted-foreground">
         현재 계산식: 기본요금 + max(0, 거리 - {includedDistanceKm}km) × km당 요금
       </div>
       {state.status === "error" && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="list-item-card border-red-200/60 bg-red-50/95 p-3 text-sm text-red-700 shadow-[0_2px_12px_rgba(185,28,28,0.08)]">
           {state.message || "저장에 실패했습니다. 다시 시도해주세요."}
         </div>
       )}
       {state.status === "success" && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="list-item-card border-green-200/60 bg-green-50/95 p-3 text-sm text-green-700 shadow-[0_2px_12px_rgba(22,101,52,0.08)]">
           저장되었습니다.
         </div>
       )}

@@ -135,7 +135,7 @@ export function DriverAccidentReportClient({
             </CardHeader>
             <CardContent className="space-y-3">
               {accidentsList.slice(0, 5).map((accident) => (
-                <div key={accident.id} className="rounded-lg border p-3 text-sm">
+                <div key={accident.id} className="list-item-card p-3 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
                       {accident.accident_type === "damage" ? "물품 파손" : "물품 분실"}
@@ -317,7 +317,7 @@ export function DriverAccidentReportClient({
           </CardHeader>
           <CardContent className="space-y-3">
             {accidentsList.map((accident) => (
-              <div key={accident.id} className="rounded-lg border p-3 text-sm">
+              <div key={accident.id} className="list-item-card p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">
                     {accident.accident_type === "damage" ? "물품 파손" : "물품 분실"}

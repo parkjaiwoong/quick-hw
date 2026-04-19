@@ -4,33 +4,34 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Clean & modern: 화이트 베이스, 포인트는 primary(CTA)에만 */
+  --background: oklch(0.995 0.002 250);
+  --foreground: oklch(0.2 0.02 250);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.2 0.02 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* Primary color changed to orange for delivery branding */
-  --primary: oklch(0.68 0.19 55);
+  --popover-foreground: oklch(0.2 0.02 250);
+  --primary: oklch(0.67 0.19 55);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  /* Accent color set to warm yellow for highlights */
-  --accent: oklch(0.92 0.15 85);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.97 0.005 250);
+  --secondary-foreground: oklch(0.32 0.02 250);
+  --muted: oklch(0.965 0.006 250);
+  --muted-foreground: oklch(0.5 0.02 250);
+  /* 호버/고스트: 노란 틴트 대신 뉴트럴 그레이 */
+  --accent: oklch(0.96 0.008 250);
+  --accent-foreground: oklch(0.28 0.02 250);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.68 0.19 55);
+  --border: oklch(0.91 0.006 250);
+  --input: oklch(0.93 0.006 250);
+  --ring: oklch(0.67 0.19 55);
   --chart-1: oklch(0.68 0.19 55);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  /* 큰 라운드 — 모바일 앱형 부드러운 실루엣 */
+  --radius: 1rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.68 0.19 55);
@@ -55,9 +56,8 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  /* Accent color for dark mode */
-  --accent: oklch(0.85 0.15 85);
-  --accent-foreground: oklch(0.145 0 0);
+  --accent: oklch(0.28 0.02 250);
+  --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.269 0 0);
@@ -105,10 +105,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 20px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -124,7 +126,27 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* 리스트 행: 카드 + 아주 연한 그림자, 테두리는 거의 없는 수준 */
+@layer components {
+  .list-item-card {
+    @apply rounded-2xl bg-card border border-border/35;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 4px 14px rgba(15, 23, 42, 0.06);
+  }
+  .list-item-card--dense {
+    @apply rounded-xl bg-card border border-border/30;
+    box-shadow:
+      0 1px 3px rgba(15, 23, 42, 0.05),
+      0 2px 10px rgba(15, 23, 42, 0.055);
+  }
+  .dark .list-item-card,
+  .dark .list-item-card--dense {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
   }
 }
 

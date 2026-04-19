@@ -19,7 +19,7 @@ export default async function NewSettlementInfoPage() {
   if (!canActAsAdmin) redirect("/")
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/admin/settlements" className="flex items-center gap-2 text-muted-foreground">
@@ -37,7 +37,7 @@ export default async function NewSettlementInfoPage() {
             <CardDescription>정산은 결제 완료 시 자동으로 생성·확정됩니다</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border bg-muted/40 p-4 flex gap-3">
+            <div className="list-item-card bg-muted/40 p-4 flex gap-3">
               <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
               <div className="text-sm space-y-2">
                 <p className="font-medium">자동 정산 플로우</p>

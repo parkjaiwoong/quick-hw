@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 /** 기사연결요청 화면 로딩 — 클릭 직후 골격을 바로 보여 체감 속도 개선 */
 export default function NewDeliveryLoading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         <Card>
           <CardHeader>

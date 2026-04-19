@@ -151,7 +151,7 @@ function DriverRow({
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className="list-item-card overflow-hidden">
       {/* Summary 행 — div로 감싸서 button 중첩 방지 */}
       <div
         className={cn(

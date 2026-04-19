@@ -85,7 +85,7 @@ export function PayoutListFiltersForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 p-3 rounded-lg border bg-muted/30">
+    <form onSubmit={handleSubmit} className="list-item-card flex flex-wrap items-end gap-3 p-3 bg-muted/30">
       <div className="space-y-1.5">
         <Label htmlFor="payoutYear">요청년도</Label>
         <select

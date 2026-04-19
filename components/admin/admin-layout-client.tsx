@@ -37,7 +37,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
             관리자 / CS
           </span>
         </header>
-        <div className="flex-1 overflow-auto bg-gradient-to-br from-blue-50/50 via-white to-yellow-50/50 p-4 md:p-6">
+        <div className="flex-1 overflow-auto bg-muted/40 p-4 md:p-6">
           {children}
         </div>
       </SidebarInset>

@@ -52,7 +52,7 @@ export function AdminDeliveryList({ deliveries }: AdminDeliveryListProps) {
   return (
     <div className="space-y-4 max-h-[600px] overflow-y-auto">
       {deliveries.map((delivery) => (
-        <div key={delivery.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
+        <div key={delivery.id} className="list-item-card p-4 hover:bg-accent/45 transition-colors">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-2">

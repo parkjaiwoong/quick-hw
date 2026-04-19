@@ -181,10 +181,10 @@ export function Header({ logoUrl, companyName }: HeaderProps) {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/90">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Image src={logoSrc} alt={`${displayName} 로고`} width={40} height={40} priority className="object-contain rounded-lg" unoptimized={!!logoUrl} />
+          <Image src={logoSrc} alt={`${displayName} 로고`} width={40} height={40} priority className="object-contain rounded-2xl" unoptimized={!!logoUrl} />
           <span className="font-bold text-lg leading-tight">
             {displayName.startsWith("퀵HW") ? (
               <>
@@ -203,7 +203,7 @@ export function Header({ logoUrl, companyName }: HeaderProps) {
             {isAuthenticated && (
               <Link
                 href="/announcements"
-                className="hidden sm:inline-flex h-9 px-3 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors items-center gap-2"
+                className="hidden sm:inline-flex h-10 px-4 text-sm font-medium rounded-xl hover:bg-accent hover:text-accent-foreground transition-colors items-center gap-2"
               >
                 <Megaphone className="h-4 w-4" />
                 공지사항

@@ -97,7 +97,7 @@ function AddressSearchContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-4">
         <Card>
           <CardHeader>
@@ -122,7 +122,7 @@ function AddressSearchContent() {
             </Button>
 
             {savedOpen && (
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="list-item-card bg-muted/30 p-3 space-y-2">
                 {savedLoading ? (
                   <p className="text-sm text-muted-foreground text-center py-2">불러오는 중…</p>
                 ) : savedAddresses.length === 0 ? (
@@ -185,12 +185,12 @@ function AddressSearchContent() {
             {loading && <p className="text-sm text-muted-foreground">검색 중…</p>}
 
             {list.length > 0 && (
-              <ul className="border rounded-lg divide-y">
+              <ul className="space-y-2">
                 {list.map((item, i) => (
                   <li key={i}>
                     <button
                       type="button"
-                      className="w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                      className="list-item-card--dense w-full px-4 py-3 text-left hover:bg-muted/40 transition-colors"
                       onClick={() => router.push(buildReturnUrl(item))}
                     >
                       <span className="text-sm font-medium text-foreground">
@@ -219,7 +219,7 @@ function AddressSearchContent() {
 
 function AddressSearchFallback() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4 flex items-center justify-center">
+    <div className="min-h-screen bg-background p-4 flex items-center justify-center">
       <Card className="w-full max-w-2xl">
         <CardContent className="py-12 text-center text-muted-foreground">
           주소 조회 화면을 불러오는 중…

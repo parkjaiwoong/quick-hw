@@ -37,7 +37,7 @@ export default async function BillingSuccessPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-4 md:p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-lg mx-auto space-y-6">
         <Card className="border-green-200 bg-green-50/50">
           <CardHeader>

@@ -70,7 +70,7 @@ export function RiderReferralLink({ riderCode }: RiderReferralLinkProps) {
         </div>
 
         {referralUrl && (
-          <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-4">
+          <div className="list-item-card flex flex-col items-center gap-3 bg-muted/30 p-4">
             <p className="text-sm font-medium text-foreground">QR 코드</p>
             <canvas
               ref={canvasRef}

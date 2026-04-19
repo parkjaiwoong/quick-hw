@@ -658,12 +658,12 @@ export function RealtimeDeliveryNotifications({ userId, isAvailable = true }: Re
   return (
     <>
       {realtimeStatus === "error" && (
-        <div className="fixed top-16 left-2 right-2 z-[90] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
+        <div className="list-item-card--dense fixed top-16 left-2 right-2 z-[90] border-amber-200/55 bg-amber-50/95 px-3 py-2 text-xs text-amber-800 shadow-[0_2px_12px_rgba(180,83,9,0.12)]">
           <strong>실시간 알림 연결 실패.</strong> 새 배송 요청 시 띵동/진동이 올 수 없습니다. PC에서 Supabase SQL 또는 관리자에게 문의하세요.
         </div>
       )}
       {notificationPermission === "default" && realtimeStatus !== "error" && mounted && typeof window !== "undefined" && "Notification" in window && (
-        <div className="fixed top-16 left-2 right-2 z-[90] rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 shadow-sm flex items-center justify-between gap-2">
+        <div className="list-item-card--dense fixed top-16 left-2 right-2 z-[90] border-blue-200/55 bg-blue-50/95 px-3 py-2 text-xs text-blue-800 shadow-[0_2px_12px_rgba(37,99,235,0.12)] flex items-center justify-between gap-2">
           <span>다른 앱 사용 중에도 알림을 받으려면 알림을 허용해 주세요.</span>
           <Button type="button" size="sm" variant="secondary" className="shrink-0 text-xs" onClick={requestNotificationPermission}>
             알림 허용

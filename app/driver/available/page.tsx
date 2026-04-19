@@ -69,7 +69,7 @@ export default async function DriverAvailablePage() {
 
   return (
     <DriverDeliveryRequestProvider>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+      <div className="min-h-screen bg-background">
         <RealtimeDeliveryNotifications userId={user.id} isAvailable={Boolean(driverInfo?.is_available)} />
         <div className="w-full min-w-0 -mx-2 -my-2 px-0 py-1 space-y-2 md:-mx-3 md:-my-4 md:px-0 md:py-2">
           <Card className="border-0 shadow-sm w-full min-w-0">

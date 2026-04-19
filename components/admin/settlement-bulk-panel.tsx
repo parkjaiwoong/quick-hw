@@ -291,7 +291,7 @@ export function SettlementBulkPanel({ settlements }: SettlementBulkPanelProps) {
           const paymentStatus = settlement.payment_status || settlement.payment?.status
           const isSelectable = allowManualConfirm && settlement.settlement_status === "PENDING" && paymentStatus === "PAID"
           return (
-            <div key={settlement.id} className="border rounded-lg p-4 space-y-2">
+            <div key={settlement.id} className="list-item-card p-4 space-y-2">
               <div className="flex gap-3 items-start">
                 <Checkbox
                   checked={selectedIds.includes(settlement.id)}

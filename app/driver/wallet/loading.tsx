@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export default function DriverWalletLoading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <div className="h-9 w-48 bg-muted animate-pulse rounded" />

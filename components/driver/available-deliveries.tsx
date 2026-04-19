@@ -38,8 +38,8 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
     <div className="space-y-2">
       {/* 배송대기중: 새 요청이 있으면 확장 카드(픽업/배송 주소, 금액, 수락하기만), 없으면 문구만 */}
       {latestNew && ctx ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 overflow-hidden">
-          <div className="px-2 py-2 flex items-center gap-2 border-b border-blue-200/60">
+        <div className="list-item-card overflow-hidden border-blue-200/55 bg-blue-50/95 shadow-[0_2px_14px_rgba(37,99,235,0.08)]">
+          <div className="px-2 py-2 flex items-center gap-2 border-b border-blue-200/50">
             <AlertCircle className="h-4 w-4 shrink-0 text-blue-600" />
             <span className="text-blue-800 font-medium">배송대기중</span>
           </div>
@@ -89,7 +89,7 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-2 flex items-center gap-2">
+        <div className="list-item-card--dense border-blue-200/55 bg-blue-50/95 px-2 py-2 flex items-center gap-2 shadow-[0_2px_12px_rgba(37,99,235,0.07)]">
           <AlertCircle className="h-4 w-4 shrink-0 text-blue-600" />
           <span className="text-blue-800 font-medium">배송대기중</span>
         </div>
@@ -124,7 +124,7 @@ export function AvailableDeliveries({ deliveries }: AvailableDeliveriesProps) {
           return (
             <div
               key={delivery.id}
-              className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] gap-x-1 gap-y-0.5 rounded border bg-card px-1 py-2 text-sm hover:bg-accent/30 cursor-pointer w-full min-w-0"
+              className="list-item-card--dense grid grid-cols-[1fr_1fr_minmax(5rem,auto)] gap-x-1 gap-y-0.5 px-1 py-2 text-sm hover:bg-accent/35 cursor-pointer w-full min-w-0"
               onClick={() => router.push(`/driver/delivery/${delivery.id}`)}
               title="클릭으로 상세 보기"
               role="button"

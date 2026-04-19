@@ -102,7 +102,7 @@ export default async function DispatchPage({ searchParams }: PageProps) {
   const buildPageUrl = (page: number) => `/admin/dispatch?page=${page}`
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-balance">주문 &amp; 연결 로그</h1>

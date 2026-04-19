@@ -103,7 +103,7 @@ export function SettlementsFiltersForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4 p-4 rounded-lg border bg-card">
+    <form onSubmit={handleSubmit} className="list-item-card flex flex-wrap items-end gap-4 p-4">
       <div className="space-y-1.5">
         <Label htmlFor="settlementMonth">정산월</Label>
         <Input

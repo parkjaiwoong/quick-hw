@@ -20,7 +20,7 @@ export default async function DriverAppDownloadPage() {
   const backLabel = user ? "대시보드로 돌아가기" : "메인으로 돌아가기"
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="icon">

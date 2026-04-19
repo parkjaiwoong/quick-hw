@@ -29,7 +29,7 @@ export default async function DriverAnnouncementsPage() {
               {announcements.map((a) => (
                 <article
                   key={a.id}
-                  className="rounded-lg border p-4 hover:bg-muted/30 transition-colors"
+                  className="list-item-card p-4 hover:bg-muted/35 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     {a.is_pinned && <Pin className="h-4 w-4 shrink-0 text-amber-500" />}

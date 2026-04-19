@@ -251,7 +251,7 @@ export function AddressMapPicker({
     return (
       <div className="space-y-2">
         <Label>{label} (지도)</Label>
-        <div className="rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground">
+        <div className="list-item-card bg-muted/50 p-4 text-sm text-muted-foreground">
           .env.local에 NEXT_PUBLIC_KAKAO_MAP_KEY(카카오 개발자 콘솔 JavaScript 키)를 추가하면 지도에서 위치를 선택할 수 있습니다.
         </div>
       </div>
@@ -275,7 +275,7 @@ export function AddressMapPicker({
       </div>
       <div
         ref={containerRef}
-        className="w-full rounded-lg border bg-muted/30"
+        className="list-item-card--dense w-full bg-muted/30"
         style={{ height: mapHeight }}
       />
       {isLoading && (

@@ -60,7 +60,7 @@ export default async function PointsPage() {
   const usedPoints = history.filter((h: any) => h.point_type === "used").length
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -164,7 +164,7 @@ export default async function PointsPage() {
                   const processor    = r.message?.match(/처리자:\s*(.+)/)?.[1]
                   const remaining    = r.message?.match(/처리 후 잔액:\s*(.+)/)?.[1]
                   return (
-                    <div key={r.id} className={`border rounded-lg p-4 space-y-1.5 ${isCompleted ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}`}>
+                    <div key={r.id} className={`list-item-card p-4 space-y-1.5 ${isCompleted ? "border-green-200/60 bg-green-50/90 shadow-[0_2px_12px_rgba(22,101,52,0.08)]" : "border-amber-200/60 bg-amber-50/90 shadow-[0_2px_12px_rgba(180,83,9,0.08)]"}`}>
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
                           {isCompleted ? (
@@ -210,7 +210,7 @@ export default async function PointsPage() {
                 <p className="text-sm text-muted-foreground text-center py-8">포인트 내역이 없습니다</p>
               ) : (
                 history.map((item: any) => (
-                  <div key={item.id} className="border rounded-lg p-4 space-y-2">
+                  <div key={item.id} className="list-item-card p-4 space-y-2">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-semibold">

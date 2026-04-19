@@ -42,15 +42,15 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafaf9]">
+    <div className="min-h-screen bg-background">
       <HeroSection />
 
       {/* Features */}
       <section className="max-w-6xl mx-auto px-4 py-16 md:py-24">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-0 bg-white/80 shadow-sm hover:shadow-md transition-shadow rounded-2xl overflow-hidden">
+          <Card className="border-0 bg-card shadow-sm hover:shadow-md transition-shadow rounded-3xl overflow-hidden">
             <CardHeader className="pb-2">
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
                 <Package className="h-5 w-5 text-primary" />
               </div>
               <CardTitle className="text-base font-semibold">간편한 배송 요청</CardTitle>
@@ -62,9 +62,9 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-white/80 shadow-sm hover:shadow-md transition-shadow rounded-2xl overflow-hidden">
+          <Card className="border-0 bg-card shadow-sm hover:shadow-md transition-shadow rounded-3xl overflow-hidden">
             <CardHeader className="pb-2">
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
                 <Truck className="h-5 w-5 text-primary" />
               </div>
               <CardTitle className="text-base font-semibold">배송 현황 추적</CardTitle>
@@ -76,9 +76,9 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-white/80 shadow-sm hover:shadow-md transition-shadow rounded-2xl overflow-hidden">
+          <Card className="border-0 bg-card shadow-sm hover:shadow-md transition-shadow rounded-3xl overflow-hidden">
             <CardHeader className="pb-2">
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
                 <Shield className="h-5 w-5 text-primary" />
               </div>
               <CardTitle className="text-base font-semibold">안전한 거래</CardTitle>
@@ -90,9 +90,9 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-white/80 shadow-sm hover:shadow-md transition-shadow rounded-2xl overflow-hidden">
+          <Card className="border-0 bg-card shadow-sm hover:shadow-md transition-shadow rounded-3xl overflow-hidden">
             <CardHeader className="pb-2">
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
                 <Clock className="h-5 w-5 text-primary" />
               </div>
               <CardTitle className="text-base font-semibold">빠른 배송</CardTitle>
@@ -114,7 +114,7 @@ export default async function HomePage() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="border border-border/60 bg-white/80 shadow-sm rounded-2xl">
+          <Card className="border border-border/60 bg-card shadow-sm rounded-3xl">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Link2 className="h-4 w-4 text-primary shrink-0" />
@@ -128,7 +128,7 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-border/60 bg-white/80 shadow-sm rounded-2xl">
+          <Card className="border border-border/60 bg-card shadow-sm rounded-3xl">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -142,7 +142,7 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-border/60 bg-white/80 shadow-sm rounded-2xl">
+          <Card className="border border-border/60 bg-card shadow-sm rounded-3xl">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary shrink-0" />
@@ -156,7 +156,7 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-border/60 bg-white/80 shadow-sm rounded-2xl">
+          <Card className="border border-border/60 bg-card shadow-sm rounded-3xl">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-primary shrink-0" />
@@ -170,7 +170,7 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-border/60 bg-white/80 shadow-sm rounded-2xl">
+          <Card className="border border-border/60 bg-card shadow-sm rounded-3xl">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
@@ -184,7 +184,7 @@ export default async function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-border/60 bg-white/80 shadow-sm rounded-2xl">
+          <Card className="border border-border/60 bg-card shadow-sm rounded-3xl">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-primary shrink-0" />
@@ -202,7 +202,7 @@ export default async function HomePage() {
 
       {/* CTA */}
       <section className="max-w-3xl mx-auto px-4 pb-24 md:pb-32">
-        <Card className="border-0 bg-white/90 shadow-lg shadow-black/5 rounded-3xl overflow-hidden">
+        <Card className="border-0 bg-card shadow-lg shadow-black/5 rounded-3xl overflow-hidden">
           <CardHeader className="text-center pt-10 pb-4">
             <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">지금 바로 시작하세요</CardTitle>
             <CardDescription className="text-base">

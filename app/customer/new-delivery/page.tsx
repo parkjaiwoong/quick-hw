@@ -102,7 +102,7 @@ export default async function NewDeliveryPage({
   const initialDeliveryNotes = get("deliveryNotes") ?? lastDelivery?.delivery_notes ?? undefined
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         <Card>
           <CardHeader>
