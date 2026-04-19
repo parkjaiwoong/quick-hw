@@ -18,7 +18,7 @@ import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-
 import { AddressWithKakaoMap } from "@/components/driver/address-with-kakaomap"
 import { DriverDeliveryResizable } from "@/components/driver/driver-delivery-resizable"
 import { ExpectedTimeBanner, ExceededCompleteMessage } from "@/components/driver/expected-time-banner"
-import { formatDistanceKm } from "@/lib/geo"
+import { formatDistanceKm, haversineKm, parsePoint } from "@/lib/geo"
 
 const statusConfig = {
   accepted: { label: "수락됨", color: "bg-blue-100 text-blue-800" },
@@ -83,40 +83,11 @@ export default async function DriverDeliveryDetailPage({
   const isAssignedToMe = delivery.driver_id === user.id
   if (!isPending && !isAssignedToMe) redirect("/driver")
 
-  const parsePoint = (value: any) => {
-    if (!value) return null
-    if (typeof value === "object" && Array.isArray(value.coordinates)) {
-      const [lng, lat] = value.coordinates
-      return { lat, lng }
-    }
-    if (typeof value === "object" && typeof value.x === "number" && typeof value.y === "number") {
-      return { lng: value.x, lat: value.y }
-    }
-    if (typeof value === "string") {
-      const matches = value.match(/-?\d+(?:\.\d+)?/g)
-      if (matches && matches.length >= 2) {
-        const lng = Number(matches[0])
-        const lat = Number(matches[1])
-        return { lat, lng }
-      }
-    }
-    return null
-  }
-
   const pickupCoords = parsePoint(delivery.pickup_location)
   const deliveryCoords = parsePoint(delivery.delivery_location)
   const baseDriverFee = Number(delivery.driver_fee ?? delivery.total_fee ?? 0)
 
   const driverCoords = parsePoint(driverInfo?.current_location)
-  const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
-    const R = 6371
-    const dLat = ((b.lat - a.lat) * Math.PI) / 180
-    const dLng = ((b.lng - a.lng) * Math.PI) / 180
-    const s =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
-    return Math.round(R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s)) * 10) / 10
-  }
   const toPickupKm =
     driverCoords && pickupCoords ? haversineKm(driverCoords, pickupCoords) : null
 
@@ -134,6 +105,7 @@ export default async function DriverDeliveryDetailPage({
           <OpenLayersMap
             pickup={pickupCoords}
             delivery={deliveryCoords}
+            pickupDistanceKmFromServer={toPickupKm}
             showMyLocation
             fillContainer
           />

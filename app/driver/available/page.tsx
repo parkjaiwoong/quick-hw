@@ -42,7 +42,7 @@ export default async function DriverAvailablePage() {
         .eq("status", "pending")
         .is("driver_id", null)
         .order("created_at", { ascending: false })
-        .limit(50),
+        .limit(400),
     ])
     driverInfo = (ensureResult.driverInfo as Record<string, unknown>) ?? null
     availableRows = rows ?? []
@@ -52,12 +52,22 @@ export default async function DriverAvailablePage() {
   }
 
   const driverCoords = parsePoint(driverInfo?.current_location ?? null)
-  const available = availableRows.map((d) => {
-    const pickupCoords = parsePoint(d.pickup_location)
-    const pickupDistanceKm =
-      driverCoords && pickupCoords ? haversineKm(driverCoords, pickupCoords) : null
-    return { ...d, pickup_distance_km: pickupDistanceKm }
-  })
+  const available = availableRows
+    .map((d) => {
+      const pickupCoords = parsePoint(d.pickup_location)
+      const pickupDistanceKm =
+        driverCoords && pickupCoords ? haversineKm(driverCoords, pickupCoords) : null
+      return { ...d, pickup_distance_km: pickupDistanceKm }
+    })
+    .sort((a, b) => {
+      const da = a.pickup_distance_km as number | null | undefined
+      const db = b.pickup_distance_km as number | null | undefined
+      if (da == null && db == null) return 0
+      if (da == null) return 1
+      if (db == null) return -1
+      return da - db
+    })
+    .slice(0, 20)
 
   if (!driverInfo?.is_available) {
     redirect("/driver")
@@ -82,7 +92,9 @@ export default async function DriverAvailablePage() {
                 </CardTitle>
                 <DriverStatusToggle initialStatus={Boolean(driverInfo?.is_available)} redirectToOnTurnOff="/driver" />
               </div>
-              <CardDescription className="text-xs">현재 {available.length}건의 수락 가능한 배송</CardDescription>
+              <CardDescription className="text-xs">
+                내 위치 기준 가까운 순 최대 20건
+              </CardDescription>
             </CardHeader>
             <CardContent className="py-2 px-3 pt-0 w-full min-w-0 overflow-x-auto">
               <AvailableDeliveries deliveries={available} />

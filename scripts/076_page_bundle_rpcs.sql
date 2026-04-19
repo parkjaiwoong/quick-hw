@@ -7,7 +7,7 @@ RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $func$
 DECLARE
   v_uid UUID := auth.uid();
   v_driver_info JSON;
@@ -69,7 +69,7 @@ BEGIN
     'accidents', v_accidents
   );
 END;
-$$;
+$func$;
 
 REVOKE ALL ON FUNCTION get_driver_dashboard_home() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_driver_dashboard_home() TO authenticated;
@@ -81,7 +81,7 @@ RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $func$
 DECLARE
   v_uid UUID := auth.uid();
   v_profile_role TEXT;
@@ -116,7 +116,7 @@ BEGIN
     'profile_role', v_profile_role
   );
 END;
-$$;
+$func$;
 
 REVOKE ALL ON FUNCTION get_driver_available_page_data() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_driver_available_page_data() TO authenticated;
@@ -129,7 +129,7 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $func$
 DECLARE
   v_uid UUID := auth.uid();
   v_role TEXT;
@@ -171,7 +171,7 @@ BEGIN
 
   RETURN json_build_object('announcements', COALESCE(v_ann, '[]'::json));
 END;
-$$;
+$func$;
 
 REVOKE ALL ON FUNCTION get_announcements_page_data(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_announcements_page_data(TEXT) TO authenticated;
@@ -184,7 +184,7 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $func$
 DECLARE
   v_uid UUID := auth.uid();
   v_profile_role TEXT;
@@ -236,7 +236,7 @@ BEGIN
     'profile_role', v_profile_role
   );
 END;
-$$;
+$func$;
 
 REVOKE ALL ON FUNCTION get_driver_accident_page_data() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_driver_accident_page_data() TO authenticated;

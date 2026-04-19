@@ -20,29 +20,16 @@ import CircleStyle from "ol/style/Circle"
 import RegularShape from "ol/style/RegularShape"
 import Text from "ol/style/Text"
 import "ol/ol.css"
-
-function haversineKm(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const R = 6371
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return Math.round(R * c * 10) / 10
-}
+import { haversineKm as haversineKmCoords } from "@/lib/geo"
 
 interface OpenLayersMapProps {
   pickup: { lat: number; lng: number } | null
   delivery: { lat: number; lng: number } | null
+  /**
+   * 서버(driver_info.current_location) 기준 픽업까지 km — 목록·물품정보와 동일.
+   * 없으면 브라우저 GPS 기준으로만 표시(지도상 초록선은 GPS 그대로).
+   */
+  pickupDistanceKmFromServer?: number | null
   /** 기사 화면에서 내 위치 표시 및 픽업까지 거리 표시 */
   showMyLocation?: boolean
   /** 모바일에서 드래그로 지도 높이 조절 (전체화면~최소) */
@@ -58,6 +45,7 @@ const DEFAULT_MAP_HEIGHT_VH = 40
 export function OpenLayersMap({
   pickup,
   delivery,
+  pickupDistanceKmFromServer = null,
   showMyLocation = false,
   resizableOnMobile = false,
   fillContainer = false,
@@ -154,10 +142,12 @@ export function OpenLayersMap({
     }
   }, [showMyLocation])
 
-  const distanceToPickupKm =
-    myLocation && pickup
-      ? haversineKm(myLocation.lat, myLocation.lng, pickup.lat, pickup.lng)
+  const distanceToPickupFromGps =
+    showMyLocation && myLocation && pickup
+      ? haversineKmCoords(myLocation, pickup)
       : null
+  const distanceToPickupKm =
+    pickupDistanceKmFromServer != null ? pickupDistanceKmFromServer : distanceToPickupFromGps
 
   const staticFeatures = useMemo(() => {
     const items: Array<Feature<Point | LineString>> = []
@@ -464,7 +454,7 @@ export function OpenLayersMap({
           : "space-y-2"
       }
     >
-      {showMyLocation && distanceToPickupKm != null && (
+      {pickup && distanceToPickupKm != null && (
         <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 border border-emerald-200">
           <span className="font-medium">픽업 장소까지 거리</span>
           <span className="font-bold tabular-nums">약 {distanceToPickupKm} km</span>
