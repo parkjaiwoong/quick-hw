@@ -7,6 +7,7 @@ import { Package, TrendingUp, History, BookOpen } from "lucide-react"
 import { AssignedDeliveries } from "@/components/driver/assigned-deliveries"
 import { DriverStatusToggle } from "@/components/driver/driver-status-toggle"
 import { ensureAndGetDriverInfo } from "@/lib/actions/driver"
+import { fetchDriverDashboardHomeRpc } from "@/lib/actions/page-bundle-rpc"
 import { getRoleOverride } from "@/lib/role"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import { DriverDashboardPoller } from "@/components/driver/driver-dashboard-poll
 import { AcceptDeliveryFromUrl } from "@/components/driver/accept-delivery-from-url"
 import { DriverDeliveryRequestProvider } from "@/lib/contexts/driver-delivery-request"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import type { Delivery } from "@/lib/types/database"
 
 type PageProps = { searchParams?: Promise<{ accept_delivery?: string }> }
 
@@ -26,21 +28,10 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     redirect("/auth/login")
   }
 
-  const supabase = await getSupabaseServerClient()
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  // 레이아웃과 동일 요청에서 프로필·역할 캐시 재사용
-  const [cachedProfile, riderCode, roleOverride] = await Promise.all([
+  const [cachedProfile, roleOverride, homeRpc] = await Promise.all([
     getCachedProfileRow(user.id),
-    serviceRoleKey
-      ? (async () => {
-          const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-          const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
-          const { data } = await svc.from("riders").select("code").eq("id", user.id).maybeSingle()
-          return data?.code ?? null
-        })()
-      : Promise.resolve(null as string | null),
     getRoleOverride(),
+    fetchDriverDashboardHomeRpc(),
   ])
 
   const profile = cachedProfile
@@ -49,43 +40,72 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
     redirect("/")
   }
 
-  // ensure + get + 배송·사고 조회를 한 번에 병렬 실행 (auth.getUser·왕복 최소화)
-  const [
-    ensureResult,
-    { data: availableRows },
-    { data: assignedRows },
-    { data: allDeliveries },
-    { data: accidents },
-  ] = await Promise.all([
-    ensureAndGetDriverInfo(),
-    supabase
-      .from("deliveries")
-      .select("id,pickup_address,delivery_address,distance_km,driver_fee,total_fee,vehicle_type,urgency,delivery_option,item_description,package_size,created_at")
-      .eq("status", "pending")
-      .is("driver_id", null)
-      .order("created_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("deliveries")
-      .select("*")
-      .eq("driver_id", user.id)
-      .in("status", ["accepted", "picked_up", "in_transit"])
-      .order("accepted_at", { ascending: false }),
-    supabase
-      .from("deliveries")
-      .select("id, status, created_at, delivered_at")
-      .eq("driver_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("accident_reports")
-      .select("id, status, accident_type")
-      .eq("driver_id", user.id),
-  ])
+  let driverInfo: Record<string, unknown> | null = null
+  let riderCode: string | null = null
+  let available: unknown[] = []
+  let assigned: unknown[] = []
+  let allDeliveries: { id: string; status: string; created_at: string; delivered_at?: string | null }[] = []
+  let accidents: { id: string; status: string; accident_type: string }[] | null = null
 
-  const driverInfo = ensureResult.driverInfo ?? null
-  const available = availableRows ?? []
-  const assigned = assignedRows ?? []
+  if (homeRpc.ok) {
+    const d = homeRpc.data
+    driverInfo = d.driverInfo
+    riderCode = d.riderCode
+    available = d.available
+    assigned = d.assigned
+    allDeliveries = (d.recent as typeof allDeliveries) ?? []
+    accidents = (d.accidents as typeof accidents) ?? []
+  } else {
+    const supabase = await getSupabaseServerClient()
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const [
+      ensureResult,
+      riderCodeRes,
+      { data: availableRows },
+      { data: assignedRows },
+      { data: recentRows },
+      { data: accidentRows },
+    ] = await Promise.all([
+      ensureAndGetDriverInfo(),
+      serviceRoleKey
+        ? (async () => {
+            const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+            const svc = createServiceClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, serviceRoleKey)
+            const { data } = await svc.from("riders").select("code").eq("id", user.id).maybeSingle()
+            return data?.code ?? null
+          })()
+        : Promise.resolve(null as string | null),
+      supabase
+        .from("deliveries")
+        .select("id,pickup_address,delivery_address,distance_km,driver_fee,total_fee,vehicle_type,urgency,delivery_option,item_description,package_size,created_at")
+        .eq("status", "pending")
+        .is("driver_id", null)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("deliveries")
+        .select("*")
+        .eq("driver_id", user.id)
+        .in("status", ["accepted", "picked_up", "in_transit"])
+        .order("accepted_at", { ascending: false }),
+      supabase
+        .from("deliveries")
+        .select("id, status, created_at, delivered_at")
+        .eq("driver_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("accident_reports")
+        .select("id, status, accident_type")
+        .eq("driver_id", user.id),
+    ])
+    driverInfo = (ensureResult.driverInfo as Record<string, unknown>) ?? null
+    riderCode = riderCodeRes
+    available = availableRows ?? []
+    assigned = assignedRows ?? []
+    allDeliveries = recentRows ?? []
+    accidents = accidentRows ?? []
+  }
 
   const guideCompleted = !!driverInfo?.guide_completed_at
 
@@ -119,7 +139,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
                   <Link href="/driver/available">배송대기중</Link>
                 </Button>
               )}
-              <DriverStatusToggle initialStatus={driverInfo?.is_available || false} />
+              <DriverStatusToggle initialStatus={Boolean(driverInfo?.is_available)} />
             </div>
             <Card className="w-full md:w-auto">
               <CardHeader className="pb-2">
@@ -185,7 +205,7 @@ export default async function DriverDashboard({ searchParams }: PageProps) {
                 <CardDescription>현재 담당하고 있는 배송 건입니다</CardDescription>
               </CardHeader>
               <CardContent>
-                <AssignedDeliveries deliveries={assigned} />
+                <AssignedDeliveries deliveries={assigned as Delivery[]} />
               </CardContent>
             </Card>
           </TabsContent>

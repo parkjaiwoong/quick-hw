@@ -1,37 +1,40 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getCachedAuthUser, getCachedProfileRow } from "@/lib/cache/server-session"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { ReferralForm } from "@/components/customer/referral-form"
+import { ReferralCopyButton } from "@/components/customer/referral-copy-button"
 import { Users, Gift } from "lucide-react"
 import { getRoleOverride } from "@/lib/role"
+import { fetchCustomerReferralPageRpc } from "@/lib/actions/page-bundle-rpc"
 
 export default async function ReferralPage() {
-  const supabase = await getSupabaseServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getCachedAuthUser()
   if (!user) {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const [cachedProfile, roleOverride] = await Promise.all([
+    getCachedProfileRow(user.id),
+    getRoleOverride(),
+  ])
+  const profile = cachedProfile
+  const referralRpc = await fetchCustomerReferralPageRpc(roleOverride)
 
-  const roleOverride = await getRoleOverride()
   const canActAsCustomer =
     roleOverride === "customer" || roleOverride === "admin" || profile?.role === "customer" || profile?.role === "admin"
   if (!canActAsCustomer) {
     redirect("/")
   }
 
-  // 추천인 관계 확인
-  const { data: referral } = await supabase
-    .from("referrals")
-    .select("*")
-    .eq("referred_id", user.id)
-    .single()
+  let referral: Record<string, unknown> | null = null
+  if (referralRpc.ok) {
+    referral = referralRpc.data.referral
+  } else {
+    const supabase = await getSupabaseServerClient()
+    const { data } = await supabase.from("referrals").select("*").eq("referred_id", user.id).single()
+    referral = (data as Record<string, unknown> | null) ?? null
+  }
 
   // 내 추천 코드 생성 (간단하게 user id 기반)
   const myReferralCode = user.id.slice(0, 8).toUpperCase()
@@ -56,14 +59,7 @@ export default async function ReferralPage() {
               <div className="p-4 bg-primary/10 rounded-lg text-center">
                 <p className="text-2xl font-bold font-mono">{myReferralCode}</p>
               </div>
-              <Button
-                onClick={() => {
-                  navigator.clipboard.writeText(myReferralCode)
-                }}
-                className="w-full"
-              >
-                코드 복사하기
-              </Button>
+              <ReferralCopyButton code={myReferralCode} className="w-full" />
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>• 친구가 추천 코드로 가입하면</p>
                 <p>• 친구가 첫 배송을 완료하면</p>

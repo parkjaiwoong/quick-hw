@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getCachedAuthUser, getCachedProfileRow } from "@/lib/cache/server-session"
 import { redirect } from "next/navigation"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,56 +10,84 @@ import { getRoleOverride } from "@/lib/role"
 import { getAdminAlertCounts } from "@/lib/actions/finance"
 import AdminDashboardTabs from "@/components/admin/admin-dashboard-tabs"
 import { AdminAlertBanner } from "@/components/admin/admin-alert-banner"
+import { fetchAdminDashboardBundleRpc } from "@/lib/actions/page-bundle-rpc"
 
 export default async function AdminDashboard() {
-  const supabase = await getSupabaseServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getCachedAuthUser()
   if (!user) {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const [profile, roleOverride] = await Promise.all([
+    getCachedProfileRow(user.id),
+    getRoleOverride(),
+  ])
+  const dashRpc = await fetchAdminDashboardBundleRpc(roleOverride)
 
-  const roleOverride = await getRoleOverride()
   const canActAsAdmin = roleOverride === "admin" || profile?.role === "admin"
   if (!canActAsAdmin) {
     redirect("/")
   }
 
+  const supabase = await getSupabaseServerClient()
   const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createAdminClient(process.env.NEXT_PUBLIC_QUICKSUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, {
         auth: { persistSession: false },
       })
     : supabase
 
-  // 통계 데이터 전체 병렬 조회
-  const [
-    { count: totalDeliveries },
-    { count: activeDeliveries },
-    { count: customers },
-    { count: drivers },
-    { count: accidents },
-    { count: inquiries },
-    { data: recentAccidents },
-    { data: recentInquiries },
-    { data: recentDeliveries },
-    alertCounts,
-  ] = await Promise.all([
-    supabaseAdmin.from("deliveries").select("id", { count: "exact", head: true }),
-    supabaseAdmin.from("deliveries").select("id", { count: "exact", head: true }).in("status", ["pending", "accepted", "picked_up", "in_transit"]),
-    supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
-    supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "driver"),
-    supabaseAdmin.from("accident_reports").select("id", { count: "exact", head: true }).in("status", ["reported", "investigating"]),
-    supabaseAdmin.from("notifications").select("id", { count: "exact", head: true }).eq("type", "inquiry").eq("is_read", false),
-    supabaseAdmin.from("accident_reports").select("id, accident_type, status, created_at").order("created_at", { ascending: false }).limit(5),
-    supabaseAdmin.from("notifications").select("id, title, message, created_at, is_read").eq("type", "inquiry").order("created_at", { ascending: false }).limit(5),
-    supabaseAdmin.from("deliveries").select("id, pickup_address, delivery_address, status, created_at").order("created_at", { ascending: false }).limit(5),
-    getAdminAlertCounts(),
-  ])
+  let totalDeliveries: number | null
+  let activeDeliveries: number | null
+  let customers: number | null
+  let drivers: number | null
+  let accidents: number | null
+  let inquiries: number | null
+  let recentAccidents: unknown
+  let recentInquiries: unknown
+  let recentDeliveries: unknown
+  let alertCounts: Awaited<ReturnType<typeof getAdminAlertCounts>>
+
+  if (dashRpc.ok) {
+    const b = dashRpc.data
+    totalDeliveries = b.totalDeliveries
+    activeDeliveries = b.activeDeliveries
+    customers = b.customers
+    drivers = b.drivers
+    accidents = b.accidents
+    inquiries = b.inquiries
+    recentAccidents = b.recentAccidents
+    recentInquiries = b.recentInquiries
+    recentDeliveries = b.recentDeliveries
+    alertCounts = {
+      pendingSettlementCount: b.pendingSettlementCount,
+      pendingPayoutCount: b.pendingPayoutCount,
+      pendingPayoutAmount: b.pendingPayoutAmount,
+    }
+  } else {
+    ;[
+      { count: totalDeliveries },
+      { count: activeDeliveries },
+      { count: customers },
+      { count: drivers },
+      { count: accidents },
+      { count: inquiries },
+      { data: recentAccidents },
+      { data: recentInquiries },
+      { data: recentDeliveries },
+      alertCounts,
+    ] = await Promise.all([
+      supabaseAdmin.from("deliveries").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("deliveries").select("id", { count: "exact", head: true }).in("status", ["pending", "accepted", "picked_up", "in_transit"]),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "driver"),
+      supabaseAdmin.from("accident_reports").select("id", { count: "exact", head: true }).in("status", ["reported", "investigating"]),
+      supabaseAdmin.from("notifications").select("id", { count: "exact", head: true }).eq("type", "inquiry").eq("is_read", false),
+      supabaseAdmin.from("accident_reports").select("id, accident_type, status, created_at").order("created_at", { ascending: false }).limit(5),
+      supabaseAdmin.from("notifications").select("id, title, message, created_at, is_read").eq("type", "inquiry").order("created_at", { ascending: false }).limit(5),
+      supabaseAdmin.from("deliveries").select("id, pickup_address, delivery_address, status, created_at").order("created_at", { ascending: false }).limit(5),
+      getAdminAlertCounts(),
+    ])
+  }
   const countsForBanner =
     "error" in alertCounts
       ? { pendingSettlementCount: 0, pendingPayoutCount: 0, pendingPayoutAmount: 0, unreadInquiries: inquiries ?? 0, openAccidents: accidents ?? 0 }

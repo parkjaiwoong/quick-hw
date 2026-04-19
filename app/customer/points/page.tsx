@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getCachedAuthUser, getCachedProfileRow } from "@/lib/cache/server-session"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,42 +9,52 @@ import { getPointBalance, getPointHistory, requestPointRedemption } from "@/lib/
 import { Coins, TrendingUp, History, CheckCircle, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getRoleOverride } from "@/lib/role"
+import { fetchCustomerPointsPageRpc } from "@/lib/actions/page-bundle-rpc"
 
 export default async function PointsPage() {
-  const supabase = await getSupabaseServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getCachedAuthUser()
   if (!user) {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const [cachedProfile, roleOverride] = await Promise.all([
+    getCachedProfileRow(user.id),
+    getRoleOverride(),
+  ])
+  const profile = cachedProfile
+  const pointsRpc = await fetchCustomerPointsPageRpc(roleOverride)
 
-  const roleOverride = await getRoleOverride()
   const canActAsCustomer =
     roleOverride === "customer" || roleOverride === "admin" || profile?.role === "customer" || profile?.role === "admin"
   if (!canActAsCustomer) {
     redirect("/")
   }
 
-  const [{ balance }, { history = [] }] = await Promise.all([
-    getPointBalance(user.id),
-    getPointHistory(user.id),
-  ])
+  let balance: number
+  let history: unknown[]
+  let redemptions: unknown[]
 
-  // 교환 요청 내역 (pending + completed)
-  const { data: redemptionNotifications } = await supabase
-    .from("notifications")
-    .select("id, title, message, is_read, created_at")
-    .eq("user_id", user.id)
-    .in("type", ["point_redemption", "point_redemption_completed"])
-    .order("created_at", { ascending: false })
-    .limit(20)
-
-  const redemptions = redemptionNotifications ?? []
+  if (pointsRpc.ok) {
+    balance = pointsRpc.data.balance
+    history = pointsRpc.data.history
+    redemptions = pointsRpc.data.redemptions
+  } else {
+    const supabase = await getSupabaseServerClient()
+    const [{ balance: b }, { history: h = [] }] = await Promise.all([
+      getPointBalance(user.id),
+      getPointHistory(user.id),
+    ])
+    balance = b
+    history = h
+    const { data: redemptionNotifications } = await supabase
+      .from("notifications")
+      .select("id, title, message, is_read, created_at")
+      .eq("user_id", user.id)
+      .in("type", ["point_redemption", "point_redemption_completed"])
+      .order("created_at", { ascending: false })
+      .limit(20)
+    redemptions = redemptionNotifications ?? []
+  }
 
   const earnedPoints = history.filter((h: any) => h.point_type === "earned").length
   const usedPoints = history.filter((h: any) => h.point_type === "used").length

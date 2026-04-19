@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { getCachedAuthUser, getCachedProfileRow } from "@/lib/cache/server-session"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getRoleOverride } from "@/lib/role"
 import { getMyPayments } from "@/lib/actions/finance"
+import { fetchCustomerPaymentsPageRpc } from "@/lib/actions/page-bundle-rpc"
 import { CreditCard, MapPin, TrendingUp, TrendingDown, Minus, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { PaymentFilterBar, type PaymentTab } from "@/components/customer/payment-month-picker"
@@ -84,22 +85,28 @@ export default async function CustomerPaymentsPage({
 }: {
   searchParams?: Promise<{ month?: string; tab?: string }>
 }) {
-  const supabase = await getSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCachedAuthUser()
   if (!user) redirect("/auth/login")
 
-  const [{ data: profile }, roleOverride, { payments }] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user.id).single(),
+  const [cachedProfile, roleOverride] = await Promise.all([
+    getCachedProfileRow(user.id),
     getRoleOverride(),
-    getMyPayments(),
   ])
+  const paymentsRpc = await fetchCustomerPaymentsPageRpc(roleOverride)
 
+  const profile = cachedProfile
   const canActAsCustomer =
     roleOverride === "customer" || roleOverride === "admin" ||
     profile?.role === "customer" || profile?.role === "admin"
   if (!canActAsCustomer) redirect("/")
 
-  const allPayments = (payments ?? []) as Payment[]
+  let allPayments: Payment[]
+  if (paymentsRpc.ok) {
+    allPayments = (paymentsRpc.data.payments ?? []) as Payment[]
+  } else {
+    const { payments } = await getMyPayments()
+    allPayments = (payments ?? []) as Payment[]
+  }
 
   // ── 현재 년월 (기본값) ──
   const now = new Date()
