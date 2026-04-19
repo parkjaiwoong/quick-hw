@@ -54,13 +54,13 @@ export function CustomerLayoutClient({ children, fullName, avatarUrl }: Customer
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-6">
+        <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-5 md:px-8">
           <SidebarTrigger className="-ml-1" />
           <span className="text-sm font-medium text-muted-foreground md:inline-flex">
             고객
           </span>
         </header>
-        <div className="flex-1 overflow-auto bg-[#f8f9fa] p-4 md:p-6">
+        <div className="flex-1 overflow-auto bg-[#f8f9fa] p-5 md:p-8 lg:p-10">
           {children}
         </div>
       </SidebarInset>

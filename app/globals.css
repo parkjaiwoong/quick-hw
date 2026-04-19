@@ -40,6 +40,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Elevation — shadcn/Radix 스타일 계층 */
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(15 23 42 / 0.05), 0 1px 2px -1px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.06), 0 2px 4px -2px rgb(15 23 42 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.07), 0 4px 6px -4px rgb(15 23 42 / 0.05);
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 14px rgb(15 23 42 / 0.06);
+  --shadow-raised-dense: 0 1px 3px rgb(15 23 42 / 0.05), 0 2px 10px rgb(15 23 42 / 0.055);
 }
 
 .dark {
@@ -76,11 +84,18 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.38), 0 1px 2px rgb(0 0 0 / 0.25);
+  --shadow-md: 0 6px 16px rgb(0 0 0 / 0.42);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.5);
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: 0 2px 12px rgb(0 0 0 / 0.35);
+  --shadow-raised-dense: 0 2px 10px rgb(0 0 0 / 0.32);
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: var(--font-noto-sans-kr), ui-sans-serif, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -127,26 +142,64 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    line-height: 1.7;
+    font-optical-sizing: auto;
+  }
+  p {
+    line-height: 1.75;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+    color: var(--foreground);
+  }
+  /** Lucide 선형 아이콘 기본 두께 */
+  svg.lucide {
+    stroke-width: 1.5;
+  }
+  /** 체크 표시는 작은 박스 안에서 더 굵게 */
+  [data-slot="checkbox-indicator"] svg.lucide {
+    stroke-width: 2.5;
   }
 }
 
 /* 리스트 행: 카드 + 아주 연한 그림자, 테두리는 거의 없는 수준 */
 @layer components {
   .list-item-card {
-    @apply rounded-2xl bg-card border border-border/35;
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.04),
-      0 4px 14px rgba(15, 23, 42, 0.06);
+    @apply rounded-2xl bg-card border border-border/40 transition-[box-shadow,transform,border-color] duration-200 ease-out;
+    box-shadow: var(--shadow-raised);
   }
   .list-item-card--dense {
-    @apply rounded-xl bg-card border border-border/30;
-    box-shadow:
-      0 1px 3px rgba(15, 23, 42, 0.05),
-      0 2px 10px rgba(15, 23, 42, 0.055);
+    @apply rounded-xl bg-card border border-border/35 transition-[box-shadow,transform,border-color] duration-200 ease-out;
+    box-shadow: var(--shadow-raised-dense);
   }
-  .dark .list-item-card,
-  .dark .list-item-card--dense {
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  /** 인터랙티브 리스트 행: 프레임워크형 호버 */
+  a.list-item-card:hover,
+  button.list-item-card:hover,
+  [role="button"].list-item-card:hover {
+    @apply border-border/55;
+    box-shadow: var(--shadow-md);
+  }
+
+  /** 라우트 전환 시 본문 페이드·살짝 상승 (template.tsx) */
+  .page-enter {
+    animation: page-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

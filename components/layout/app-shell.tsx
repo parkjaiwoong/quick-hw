@@ -24,7 +24,11 @@ export function AppShell({ children, logoUrl, companyName }: AppShellProps) {
     <>
       <NavigationProgress />
       {showChrome && <Header logoUrl={logoUrl} companyName={companyName} />}
-      <main className={`${showChrome ? "pt-16 pb-16" : ""} min-h-screen`}>{children}</main>
+      <main
+        className={`${showChrome ? "px-4 pb-20 pt-[4.75rem] sm:px-5 md:px-8" : ""} min-h-screen`}
+      >
+        {children}
+      </main>
       {showChrome && <BottomNav />}
       {showChrome && <Footer />}
     </>

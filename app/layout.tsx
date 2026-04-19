@@ -1,14 +1,19 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Noto_Sans_KR } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AppShell } from "@/components/layout/app-shell"
 import { Toaster } from "@/components/ui/toaster"
 import { getCompanyInfo } from "@/lib/actions/company"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+/** 한글·라틴 공통 고딕 (Pretendard 대체로 가독성 좋은 노토 산스) */
+const notoSansKr = Noto_Sans_KR({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-noto-sans-kr",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "퀵HW언넌 - 빠르고 안전한 퀵배송 서비스",
@@ -41,11 +46,11 @@ export default async function RootLayout({
   const companyInfo = await getCompanyInfo()
 
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang="ko" className={notoSansKr.variable} suppressHydrationWarning>
       <head>
         {/* Supabase 세션은 쿠키로 관리되므로 localStorage 삭제 스크립트 제거 */}
       </head>
-      <body className={`font-sans antialiased`} suppressHydrationWarning>
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <AppShell logoUrl={companyInfo?.logo_url} companyName={companyInfo?.company_name}>
           {children}
         </AppShell>

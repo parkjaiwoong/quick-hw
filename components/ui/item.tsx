@@ -31,17 +31,18 @@ function ItemSeparator({
 }
 
 const itemVariants = cva(
-  'group/item flex items-center border border-transparent text-sm rounded-md transition-colors [a&]:hover:bg-accent/50 [a&]:transition-colors duration-100 flex-wrap outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+  'group/item flex items-center border border-transparent text-sm rounded-xl transition-[background-color,border-color,box-shadow,color] duration-150 ease-out flex-wrap outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] [a&]:hover:bg-accent/60 [a&]:transition-colors',
   {
     variants: {
       variant: {
         default: 'bg-transparent',
-        outline: 'border-border',
-        muted: 'bg-muted/50',
+        outline:
+          'border-border/60 bg-card/80 shadow-[var(--shadow-xs)] hover:border-border hover:bg-accent/40',
+        muted: 'bg-muted/50 hover:bg-muted/70',
       },
       size: {
-        default: 'p-4 gap-4 ',
-        sm: 'py-3 px-4 gap-2.5',
+        default: 'p-4 gap-4',
+        sm: 'gap-2.5 px-4 py-3',
       },
     },
     defaultVariants: {
@@ -72,14 +73,14 @@ function Item({
 }
 
 const itemMediaVariants = cva(
-  'flex shrink-0 items-center justify-center gap-2 group-has-[[data-slot=item-description]]/item:self-start [&_svg]:pointer-events-none group-has-[[data-slot=item-description]]/item:translate-y-0.5',
+  'flex shrink-0 items-center justify-center gap-2 group-has-[[data-slot=item-description]]/item:self-start [&_svg]:pointer-events-none [&_svg]:shrink-0 group-has-[[data-slot=item-description]]/item:translate-y-0.5',
   {
     variants: {
       variant: {
         default: 'bg-transparent',
-        icon: "size-8 border rounded-sm bg-muted [&_svg:not([class*='size-'])]:size-4",
+        icon: "size-9 rounded-lg border border-border/50 bg-muted/80 text-muted-foreground shadow-[var(--shadow-xs)] ring-1 ring-border/20 [&_svg:not([class*='size-'])]:size-4",
         image:
-          'size-10 rounded-sm overflow-hidden [&_img]:size-full [&_img]:object-cover',
+          'size-10 overflow-hidden rounded-lg border border-border/40 ring-1 ring-border/15 [&_img]:size-full [&_img]:object-cover',
       },
     },
     defaultVariants: {
