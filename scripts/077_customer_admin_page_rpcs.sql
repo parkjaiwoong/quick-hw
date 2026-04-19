@@ -10,11 +10,9 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_profile_role TEXT;
-  v_override TEXT;
   v_ok BOOLEAN;
   v_payments JSON;
 BEGIN
@@ -22,16 +20,14 @@ BEGIN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  SELECT p.role::text INTO v_profile_role FROM profiles p WHERE p.id = v_uid LIMIT 1;
-
-  v_override := NULLIF(trim(coalesce(p_role_override, '')), '');
-
-  IF v_override IN ('customer', 'admin')
-     OR coalesce(v_profile_role, '') IN ('customer', 'admin') THEN
-    v_ok := true;
-  ELSE
-    v_ok := false;
-  END IF;
+  -- IF 조건에서 PL 변수명이 SQL 릴레이션으로 오해되지 않도록, 역할 판별만 단일 SQL로 계산
+  SELECT (
+    COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
+    OR COALESCE(
+      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+      ''
+    ) IN ('customer', 'admin')
+  ) INTO v_ok;
 
   IF NOT COALESCE(v_ok, false) THEN
     RETURN json_build_object('error', 'forbidden');
@@ -74,7 +70,7 @@ BEGIN
 
   RETURN json_build_object('payments', COALESCE(v_payments, '[]'::json));
 END;
-$$;
+$pl$;
 
 REVOKE ALL ON FUNCTION get_customer_payments_page_data(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_customer_payments_page_data(TEXT) TO authenticated;
@@ -87,11 +83,9 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_profile_role TEXT;
-  v_override TEXT;
   v_ok BOOLEAN;
   v_balance NUMERIC;
   v_history JSON;
@@ -101,16 +95,13 @@ BEGIN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  SELECT p.role::text INTO v_profile_role FROM profiles p WHERE p.id = v_uid LIMIT 1;
-
-  v_override := NULLIF(trim(coalesce(p_role_override, '')), '');
-
-  IF v_override IN ('customer', 'admin')
-     OR coalesce(v_profile_role, '') IN ('customer', 'admin') THEN
-    v_ok := true;
-  ELSE
-    v_ok := false;
-  END IF;
+  SELECT (
+    COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
+    OR COALESCE(
+      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+      ''
+    ) IN ('customer', 'admin')
+  ) INTO v_ok;
 
   IF NOT COALESCE(v_ok, false) THEN
     RETURN json_build_object('error', 'forbidden');
@@ -163,7 +154,7 @@ BEGIN
     'redemptions', COALESCE(v_redemptions, '[]'::json)
   );
 END;
-$$;
+$pl$;
 
 REVOKE ALL ON FUNCTION get_customer_points_page_data(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_customer_points_page_data(TEXT) TO authenticated;
@@ -176,11 +167,9 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_profile_role TEXT;
-  v_override TEXT;
   v_ok BOOLEAN;
   v_referral JSON;
 BEGIN
@@ -188,16 +177,13 @@ BEGIN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  SELECT p.role::text INTO v_profile_role FROM profiles p WHERE p.id = v_uid LIMIT 1;
-
-  v_override := NULLIF(trim(coalesce(p_role_override, '')), '');
-
-  IF v_override IN ('customer', 'admin')
-     OR coalesce(v_profile_role, '') IN ('customer', 'admin') THEN
-    v_ok := true;
-  ELSE
-    v_ok := false;
-  END IF;
+  SELECT (
+    COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') IN ('customer', 'admin')
+    OR COALESCE(
+      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+      ''
+    ) IN ('customer', 'admin')
+  ) INTO v_ok;
 
   IF NOT COALESCE(v_ok, false) THEN
     RETURN json_build_object('error', 'forbidden');
@@ -210,7 +196,7 @@ BEGIN
 
   RETURN json_build_object('referral', v_referral);
 END;
-$$;
+$pl$;
 
 REVOKE ALL ON FUNCTION get_customer_referral_page_data(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_customer_referral_page_data(TEXT) TO authenticated;
@@ -223,11 +209,9 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $pl$
 DECLARE
   v_uid UUID := auth.uid();
-  v_profile_role TEXT;
-  v_override TEXT;
   v_ok BOOLEAN;
   v_total_deliveries BIGINT;
   v_active_deliveries BIGINT;
@@ -246,15 +230,13 @@ BEGIN
     RETURN json_build_object('error', 'not_authenticated');
   END IF;
 
-  SELECT p.role::text INTO v_profile_role FROM profiles p WHERE p.id = v_uid LIMIT 1;
-
-  v_override := NULLIF(trim(coalesce(p_role_override, '')), '');
-
-  IF coalesce(v_profile_role, '') = 'admin' OR v_override = 'admin' THEN
-    v_ok := true;
-  ELSE
-    v_ok := false;
-  END IF;
+  SELECT (
+    COALESCE(
+      (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = v_uid LIMIT 1),
+      ''
+    ) = 'admin'
+    OR COALESCE(NULLIF(trim(COALESCE(p_role_override, '')), ''), '') = 'admin'
+  ) INTO v_ok;
 
   IF NOT COALESCE(v_ok, false) THEN
     RETURN json_build_object('error', 'forbidden');
@@ -341,7 +323,7 @@ BEGIN
     'pending_payout_amount', COALESCE(v_pending_payout_amount, 0)
   );
 END;
-$$;
+$pl$;
 
 REVOKE ALL ON FUNCTION get_admin_dashboard_bundle(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_admin_dashboard_bundle(TEXT) TO authenticated;
