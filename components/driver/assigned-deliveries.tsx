@@ -9,6 +9,8 @@ import { useState } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { DeliveryCompleteForm } from "@/components/driver/delivery-complete-form"
+import { AddressWithKakaoMap } from "@/components/driver/address-with-kakaomap"
+import { parsePoint } from "@/lib/geo"
 
 interface AssignedDeliveriesProps {
   deliveries: Delivery[]
@@ -120,9 +122,14 @@ export function AssignedDeliveries({ deliveries }: AssignedDeliveriesProps) {
               <div className="bg-red-50 p-3 rounded-lg">
                 <div className="flex items-start gap-2 mb-2">
                   <MapPin className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm">배송 위치</p>
-                    <p className="text-sm text-muted-foreground">{delivery.delivery_address}</p>
+                    <div className="text-sm text-muted-foreground [&_button]:text-sm [&_button]:text-muted-foreground">
+                      <AddressWithKakaoMap
+                        address={delivery.delivery_address ?? ""}
+                        coords={parsePoint(delivery.delivery_location)}
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-sm">

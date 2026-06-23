@@ -1,5 +1,5 @@
-import { RouteLoadingFull } from "@/components/ui/route-loading"
+import { DetailPageSkeleton } from "@/components/ui/page-skeletons"
 
 export default function DriverDeliveryLoading() {
-  return <RouteLoadingFull />
+  return <DetailPageSkeleton />
 }
