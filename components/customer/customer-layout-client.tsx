@@ -2,12 +2,10 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
 import {
   SidebarProvider,
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarTrigger,
@@ -15,15 +13,17 @@ import {
 import { CustomerSidebarNav } from "@/components/customer/customer-sidebar-nav"
 import { Button } from "@/components/ui/button"
 import { User } from "lucide-react"
+import { useLayoutProfile, useRoleGate } from "@/lib/hooks/use-layout-profile"
 
 type CustomerLayoutClientProps = {
   children: React.ReactNode
-  fullName?: string | null
-  avatarUrl?: string | null
 }
 
-export function CustomerLayoutClient({ children, fullName, avatarUrl }: CustomerLayoutClientProps) {
-  const displayName = fullName?.trim() || "고객"
+export function CustomerLayoutClient({ children }: CustomerLayoutClientProps) {
+  const profile = useLayoutProfile()
+  useRoleGate("customer", "admin")
+  const displayName = profile?.full_name?.trim() || "고객"
+  const avatarUrl = profile?.avatar_url
 
   return (
     <SidebarProvider defaultOpen={true}>

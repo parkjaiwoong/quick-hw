@@ -17,15 +17,17 @@ import { Button } from "@/components/ui/button"
 import { signOut } from "@/lib/actions/auth"
 import { DriverScreenNotifier } from "@/components/driver/driver-screen-notifier"
 import { LogOut, User } from "lucide-react"
+import { useLayoutProfile, useRoleGate } from "@/lib/hooks/use-layout-profile"
 
 type DriverLayoutClientProps = {
   children: React.ReactNode
-  fullName?: string | null
-  avatarUrl?: string | null
 }
 
-export function DriverLayoutClient({ children, fullName, avatarUrl }: DriverLayoutClientProps) {
-  const displayName = fullName?.trim() || "기사"
+export function DriverLayoutClient({ children }: DriverLayoutClientProps) {
+  const profile = useLayoutProfile()
+  useRoleGate("driver", "admin")
+  const displayName = profile?.full_name?.trim() || "기사"
+  const avatarUrl = profile?.avatar_url
   const pathname = usePathname()
   const isAvailablePage = pathname === "/driver/available"
 

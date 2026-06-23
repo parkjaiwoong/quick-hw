@@ -6,8 +6,10 @@ import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav"
 import { Button } from "@/components/ui/button"
 import { signOut } from "@/lib/actions/auth"
 import { LogOut } from "lucide-react"
+import { useRoleGate } from "@/lib/hooks/use-layout-profile"
 
 export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
+  useRoleGate("admin")
   return (
     <SidebarProvider defaultOpen={true}>
       <Sidebar side="left" collapsible="offcanvas" className="border-r">

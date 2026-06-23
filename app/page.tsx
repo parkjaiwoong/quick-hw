@@ -2,12 +2,10 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Package, Truck, Shield, Clock, Link2, FileText, Users, CheckCircle2, Building2 } from "lucide-react"
-import { getSupabaseServerClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { getRoleOverride } from "@/lib/role"
 import { MainTermsButton } from "@/components/common/terms-trigger-buttons"
 import { AppDownloadButton } from "@/components/driver/app-download-button"
 import { HeroSection } from "@/components/home/hero-section"
+import { HomeAuthRedirect } from "@/components/auth/home-auth-redirect"
 
 /** 메인 랜딩 카드 — 흰 배경 + 하단 은은한 그림자 */
 const homeCard =
@@ -15,39 +13,10 @@ const homeCard =
 
 const iconWrap = "mb-3 flex size-12 items-center justify-center rounded-2xl bg-[#E8F1FF] text-[#3182F6]"
 
-export default async function HomePage() {
-  const supabase = await getSupabaseServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) {
-    const [{ data: profile, error: profileError }, roleOverride] = await Promise.all([
-      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-      getRoleOverride(),
-    ])
-
-    if (profileError) {
-      redirect("/auth/signup?error=profile_missing")
-    }
-
-    if (profile?.role) {
-      const targetRole = roleOverride || profile.role
-      if (targetRole === "admin") {
-        redirect("/admin")
-      } else if (targetRole === "driver") {
-        redirect("/driver")
-      } else {
-        redirect("/customer")
-      }
-    } else {
-      redirect("/auth/signup?error=profile_missing")
-    }
-  }
-
+export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#191F28]">
+      <HomeAuthRedirect />
       <HeroSection />
 
       {/* 서비스 소개 */}

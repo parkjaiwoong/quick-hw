@@ -1,10 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { Noto_Sans_KR } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { AppShell } from "@/components/layout/app-shell"
 import { Toaster } from "@/components/ui/toaster"
-import { getCompanyInfo } from "@/lib/actions/company"
+import { AppShellWithCompany, AppShellFallback } from "@/components/layout/app-shell-loader"
 import "./globals.css"
 
 /** 한글·라틴 공통 고딕 (Pretendard 대체로 가독성 좋은 노토 산스) */
@@ -38,22 +38,20 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const companyInfo = await getCompanyInfo()
-
   return (
     <html lang="ko" className={notoSansKr.variable} suppressHydrationWarning>
       <head>
         {/* Supabase 세션은 쿠키로 관리되므로 localStorage 삭제 스크립트 제거 */}
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <AppShell logoUrl={companyInfo?.logo_url} companyName={companyInfo?.company_name}>
-          {children}
-        </AppShell>
+        <Suspense fallback={<AppShellFallback>{children}</AppShellFallback>}>
+          <AppShellWithCompany>{children}</AppShellWithCompany>
+        </Suspense>
         <Toaster />
         <Analytics />
       </body>
